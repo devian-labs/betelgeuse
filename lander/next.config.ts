@@ -7,6 +7,8 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   // The repo root has its own package-lock.json; keep Next from treating it as the workspace root.
   turbopack: { root: import.meta.dirname },
+  // Don't write AGENTS.md / CLAUDE.md into the repo on `next dev`.
+  agentRules: false,
 };
 
 export default nextConfig;

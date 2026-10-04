@@ -1,57 +1,40 @@
+import { Bot, FileText, GitFork, Heart, MessageSquarePlus, ShieldCheck, Wrench } from "lucide-react";
 import { Command } from "@/components/Command";
-import { BoardDemo, FilesDemo, HistoryDemo, PrivacyDemo, SlashDemo } from "@/components/Demos";
+import { Compare } from "@/components/Compare";
+import { BoardDemo, FilesDemo, FolderDemo, HistoryDemo, ImportDemo, PrivacyDemo, SlashDemo } from "@/components/Demos";
 import { DownloadButton } from "@/components/DownloadButton";
-import { Contributors, GitHubIcon, StarButton } from "@/components/GitHub";
+import { Downloads } from "@/components/Downloads";
+import { CodeWindow } from "@/components/CodeWindow";
+import { Contributors, GitHubProvider, RepoCard, StarButton } from "@/components/GitHub";
 import { Logo } from "@/components/Logo";
 import { ProductTour } from "@/components/ProductTour";
 import { RevealObserver } from "@/components/Reveal";
 import { Tabs } from "@/components/Tabs";
 import { TerminalDemo } from "@/components/TerminalDemo";
+import { Walkthrough } from "@/components/Walkthrough";
+import { getSnapshot } from "@/lib/github";
 import { REPO } from "@/lib/site";
 
-function Check({ ok }: { ok: boolean }) {
-  return ok ? (
-    <svg className="mark ok" viewBox="0 0 20 20" aria-label="Yes">
-      <path d="M5 10.5l3.2 3L15 6.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ) : (
-    <svg className="mark no" viewBox="0 0 20 20" aria-label="No">
-      <path d="M6.5 6.5l7 7m0-7l-7 7" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-    </svg>
+type Feature = { id: string; kicker: string; title: string; body: React.ReactNode; demo: React.ReactNode };
+
+function FeatureRows({ items, offset = 0 }: { items: Feature[]; offset?: number }) {
+  return (
+    <div className="wrap tour-rows">
+      {items.map((f, i) => (
+        <article key={f.id} className={`feature${(i + offset) % 2 ? " flip" : ""}`} data-reveal>
+          <div className="feature-copy">
+            <p className="kicker">{f.kicker}</p>
+            <h2>{f.title}</h2>
+            <p>{f.body}</p>
+          </div>
+          <div className="feature-visual">{f.demo}</div>
+        </article>
+      ))}
+    </div>
   );
 }
 
-const choices = [
-  {
-    label: "Cloud workspaces",
-    title: "Polished, but not yours.",
-    items: [
-      [true, "A lovely editor"],
-      [false, "Your notes on their servers"],
-      [false, "AI on their terms, for a fee"],
-    ],
-  },
-  {
-    label: "Local Markdown apps",
-    title: "Yours, but unpolished.",
-    items: [
-      [true, "Plain files on your disk"],
-      [false, "Polish takes plugins and setup"],
-      [false, "Built for tinkerers first"],
-    ],
-  },
-  {
-    label: "Betelgeuse",
-    title: "Polished, and yours.",
-    items: [
-      [true, "An editor that just works"],
-      [true, "Plain Markdown and git, on your disk"],
-      [true, "Any AI, reading only what you share"],
-    ],
-  },
-] as const;
-
-const features = [
+const workspace: Feature[] = [
   {
     id: "write",
     kicker: "Write",
@@ -67,7 +50,7 @@ const features = [
     id: "organise",
     kicker: "Organise",
     title: "Databases made of plain files.",
-    body: "Table, board, list, gallery and calendar views. Every row is a page, every property lives in the file.",
+    body: "Table, board, list, gallery and calendar views. Every row is a page, and every property lives in the file.",
     demo: <BoardDemo />,
   },
   {
@@ -77,40 +60,54 @@ const features = [
     body: "Your work is committed to git as you go. Restore any version in a click, including an agent's.",
     demo: <HistoryDemo />,
   },
+];
+
+const agents: Feature[] = [
   {
     id: "connect",
     kicker: "Connect",
     title: "A knowledge base for your agents.",
-    body: "Claude Code, Cursor and any MCP client can search, read and update your notes. Every edit is a commit.",
+    body: "Claude Code, Cursor and any MCP client can search, read and update your notes. Every edit is its own commit.",
     demo: <TerminalDemo />,
   },
   {
     id: "control",
     kicker: "Control",
     title: "You decide what AI can see.",
-    body: "Hide any page with one switch, or share only what you choose. Hidden pages don't exist for agents.",
+    body: "Hide any page with one switch, or share only the pages you pick. Hidden pages are left out of every agent search, listing and tool.",
     demo: <PrivacyDemo />,
   },
 ];
 
 const faqs: [string, React.ReactNode][] = [
-  ["Is it really free?", "Yes. MIT licensed, no account, no subscription, no paid tier."],
+  ["Is it really free?", "Yes. It's open source under the MIT license, with no account, subscription or paid tier."],
   [
-    "Where are my notes?",
+    "Where are my notes stored?",
     <>
-      In a folder on your computer (<code>~/Betelgeuse</code>), as Markdown in a git repo. Nothing leaves your machine
-      unless you add a remote.
+      In a folder on your computer (<code>~/Betelgeuse</code> by default), as Markdown files in a git repository. Nothing
+      leaves your machine unless you add a git remote to sync.
     </>,
   ],
-  ["Does it send my notes to an AI?", "No. Betelgeuse has no AI or cloud of its own. Agents you connect see only the pages you share."],
-  ["Which AI tools work?", "Any MCP client: Claude Code, Claude Desktop, Cursor and more. The app gives you copy-paste setup."],
-  ["Can I bring my notes?", "Yes. Import Markdown & CSV workspace exports (databases included) and Markdown vaults."],
-  ["Is it ready?", "It's an early preview. Expect rough edges, and tell us about them on GitHub."],
+  [
+    "What can AI agents see?",
+    "Only what you share. Pages you hide are left out of agent searches, listings and every MCP tool. That boundary covers agents connected through Betelgeuse's MCP server. An agent you separately give access to the folder itself can read the files.",
+  ],
+  ["Which AI tools work with it?", "Any MCP client: Claude Code, Claude Desktop, Cursor and others. The app gives you copy-paste setup for each."],
+  ["Can I use it on more than one computer?", "Yes, with git. Connect the workspace to a private repository you control and Betelgeuse pulls and pushes when you sync."],
+  [
+    "Why does my computer warn me when I open it?",
+    "The builds aren't code-signed yet (certificates cost money). Confirm once and it opens normally, or build from source to skip the warning entirely.",
+  ],
+  [
+    "What doesn't it do yet?",
+    "It's an early preview. Search is basic, databases don't have formulas or relations, there's no sharing or comments, and if you and an agent edit the same page at the same moment the last save wins (git keeps both).",
+  ],
 ];
 
-export default function Home() {
+export default async function Home() {
+  const github = await getSnapshot();
   return (
-    <>
+    <GitHubProvider initial={github}>
       <RevealObserver />
       <header className="nav">
         <div className="wrap">
@@ -119,10 +116,11 @@ export default function Home() {
             Betelgeuse
           </a>
           <nav className="nav-links" aria-label="Sections">
+            <a className="optional" href="#files">Your files</a>
             <a className="optional" href="#features">Features</a>
-            <a className="optional" href="#how">How it works</a>
+            <a className="optional" href="#agents">AI agents</a>
+            <a className="optional" href="#import">Import</a>
             <a className="optional" href="#open-source">Open source</a>
-            <a className="optional" href="#faq">FAQ</a>
           </nav>
           <StarButton className="button small" label="Star" />
         </div>
@@ -135,31 +133,37 @@ export default function Home() {
           <div className="wrap">
             <a className="pill" href={REPO}>
               <span className="dot" aria-hidden />
-              Open source · MIT · Star us on GitHub
+              Open source · Local first
               <span aria-hidden>→</span>
             </a>
             <h1>
-              A beautiful workspace
-              <br /> that <em>stays yours.</em>
+              Your knowledge deserves a home, <em>not a subscription.</em>
             </h1>
-            <p className="lede">Notes, docs and databases saved as plain files on your computer. Your AI agents read only what you share.</p>
+            <p className="lede">
+              The freedom of Markdown with the power of a modern workspace. Write documents, organise databases and
+              connect AI agents, all on your own files, with git keeping your history.
+            </p>
             <div className="cta">
-              <DownloadButton />
-              <StarButton className="button ghost" />
+              <DownloadButton suffix=" — free" />
+              <StarButton className="button ghost" label="Explore on GitHub" />
             </div>
-            <p className="fineprint">macOS · Windows · Linux — free, no account</p>
+            <p className="fineprint">macOS · Windows · Linux · MIT licensed · No account required</p>
 
             <div className="hero-visual">
               <ProductTour />
               <div className="float float-file" aria-hidden>
-                <span className="float-icon">📄</span>
+                <span className="float-icon">
+                  <FileText size={17} />
+                </span>
                 <span>
                   <strong>Welcome.md</strong>
                   <small>Saved · committed to git</small>
                 </span>
               </div>
               <div className="float float-agent" aria-hidden>
-                <span className="float-icon accent">✦</span>
+                <span className="float-icon accent">
+                  <Bot size={18} />
+                </span>
                 <span>
                   <strong>Claude Code read 3 pages</strong>
                   <small>2 hidden from agents</small>
@@ -172,11 +176,11 @@ export default function Home() {
         <ul className="works-with wrap" aria-label="Works with">
           <li>Works with</li>
           <li>Claude Code</li>
-          <li>Claude Desktop</li>
           <li>Cursor</li>
           <li>Any MCP client</li>
+          <li>Obsidian</li>
+          <li>VS Code</li>
           <li>git</li>
-          <li>Any Markdown editor</li>
         </ul>
 
         {/* ---------- Problem ---------- */}
@@ -189,172 +193,172 @@ export default function Home() {
               Then they stopped being ours.
             </h2>
             <p className="intro center">
-              Polished tools keep our notes on their servers and sell AI back to us. Local tools give us the files, but not
-              the polish. You shouldn&apos;t have to choose.
+              Modern tools made writing easier than ever, but our notes ended up tied to proprietary storage,
+              subscriptions and AI ecosystems. Local tools give us ownership, but ask us to give up the polish.{" "}
+              <strong>Betelgeuse brings both together.</strong>
             </p>
           </div>
-          <div className="wrap choices">
-            {choices.map((c, i) => (
-              <div className={`choice${i === 2 ? " answer" : ""}`} key={c.label} data-reveal style={{ transitionDelay: `${i * 90}ms` }}>
-                <p className="choice-label">{c.label}</p>
-                <h3>{c.title}</h3>
-                <ul>
-                  {c.items.map(([ok, text]) => (
-                    <li key={text}>
-                      <Check ok={ok} />
-                      {text}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          <div className="wrap narrow-wide" data-reveal>
+            <Compare />
           </div>
         </section>
 
-        {/* ---------- Solution ---------- */}
-        <section id="solution">
+        {/* ---------- Walkthrough ---------- */}
+        <section id="demo">
           <div className="wrap center" data-reveal>
-            <p className="kicker">Introducing Betelgeuse</p>
-            <h2 className="center">
-              The polish of a modern workspace.
-              <br />
-              <em>The freedom of plain files.</em>
-            </h2>
-            <p className="intro center">What you see in the app is a Markdown file you can open anywhere.</p>
+            <p className="kicker">See it in action</p>
+            <h2 className="center">From a blank page to your first agent.</h2>
           </div>
-          <div className="wrap files-wrap" data-reveal>
+          <div className="wrap" data-reveal>
+            <Walkthrough />
+          </div>
+        </section>
+
+        {/* ---------- Own everything ---------- */}
+        <div className="night band" id="files">
+          <div className="wrap center" data-reveal>
+            <p className="kicker">Own everything</p>
+            <h2 className="center">Your workspace is just a folder.</h2>
+            <p className="intro center">No proprietary database. No account. No export ritual.</p>
+          </div>
+          <div className="wrap own" data-reveal>
+            <FolderDemo />
             <FilesDemo />
           </div>
-        </section>
-
-        {/* ---------- Feature tour ---------- */}
-        <section id="features" className="tour">
-          <div className="wrap">
-            {features.map((f, i) => (
-              <article key={f.id} className={`feature${i % 2 ? " flip" : ""}`} data-reveal>
-                <div className="feature-copy">
-                  <p className="kicker">{f.kicker}</p>
-                  <h2>{f.title}</h2>
-                  <p>{f.body}</p>
-                </div>
-                <div className="feature-visual">{f.demo}</div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* ---------- How it works ---------- */}
-        <div className="night band" id="how">
           <div className="wrap center" data-reveal>
-            <p className="kicker">How it works</p>
-            <h2 className="center">The folder is the product.</h2>
-            <p className="intro center">No servers. No sync service. No export button. Just files.</p>
-            <div className="flow">
-              <div className="node">
-                <Logo size={30} />
-                <strong>Betelgeuse</strong>
-                <span>Where you write</span>
-              </div>
-              <div className="link" aria-hidden />
-              <div className="node core">
-                <span className="node-icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round">
-                    <path d="M3.5 7.5a2 2 0 012-2h4l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2h-13a2 2 0 01-2-2z" />
-                  </svg>
-                </span>
-                <strong>Your folder</strong>
-                <span>Markdown + git</span>
-              </div>
-              <div className="link reverse" aria-hidden />
-              <div className="node">
-                <span className="node-icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3l7.5 3v5.5c0 4.5-3.2 8-7.5 9.5-4.3-1.5-7.5-5-7.5-9.5V6z" />
-                    <path d="M9 12l2 2 4-4" />
-                  </svg>
-                </span>
-                <strong>MCP server</strong>
-                <span>Filters what&apos;s hidden</span>
-              </div>
-              <div className="link reverse" aria-hidden />
-              <div className="node">
-                <span className="node-icon" aria-hidden>
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                    <rect x="4.5" y="8" width="15" height="11" rx="3" />
-                    <path d="M12 8V4.5M9 13h.01M15 13h.01" />
-                  </svg>
-                </span>
-                <strong>Your agents</strong>
-                <span>Claude Code, Cursor…</span>
-              </div>
-            </div>
+            <p className="open-with">
+              Open it in <span>Obsidian</span> <span>VS Code</span> <span>Zed</span> <span>any Markdown editor</span> or{" "}
+              <span>git</span>
+            </p>
           </div>
         </div>
+
+        {/* ---------- Workspace features ---------- */}
+        <section id="features">
+          <div className="wrap center" data-reveal>
+            <p className="kicker">Write beautifully</p>
+            <h2 className="center">A workspace that feels complete.</h2>
+          </div>
+          <FeatureRows items={workspace} />
+        </section>
+
+        {/* ---------- AI ---------- */}
+        <section id="agents">
+          <div className="wrap center" data-reveal>
+            <p className="kicker">Connect anything</p>
+            <h2 className="center">
+              AI on <em>your</em> terms.
+            </h2>
+            <p className="intro center">
+              Bring the agents you already use. They work inside the permissions you set, and you can undo anything they
+              change.
+            </p>
+          </div>
+          <FeatureRows items={agents} offset={1} />
+          <p className="wrap fine-note" data-reveal>
+            Visibility rules apply to agents connected through the Betelgeuse MCP server. An agent you separately give
+            access to the folder can read the files directly.
+          </p>
+        </section>
+
+        {/* ---------- Import ---------- */}
+        <section id="import">
+          <div className="wrap import" data-reveal>
+            <div className="feature-copy">
+              <p className="kicker">Bring your notes</p>
+              <h2>Easy to migrate.</h2>
+              <p>
+                Import from Notion or Obsidian. Your pages, databases, links and images come with you, as a single git
+                commit.
+              </p>
+              <ol className="steps">
+                <li>
+                  <span>
+                    <strong>Export</strong> from Notion as <em>Markdown &amp; CSV</em>, or pick your Obsidian vault.
+                  </span>
+                </li>
+                <li>
+                  <span>
+                    <strong>Import</strong> it from the sidebar in Betelgeuse.
+                  </span>
+                </li>
+                <li>
+                  <span>
+                    <strong>Done.</strong> Databases come with table views, plus board and calendar views where they fit.
+                  </span>
+                </li>
+              </ol>
+            </div>
+            <ImportDemo />
+          </div>
+        </section>
 
         {/* ---------- Open source ---------- */}
         <section id="open-source">
           <div className="wrap center" data-reveal>
             <p className="kicker">Open source</p>
             <h2 className="center">
-              Built in the open. <em>Yours to shape.</em>
+              Built by people who believe <em>your data should be free.</em>
             </h2>
-            <p className="intro center">MIT licensed and developed on GitHub. Star it, fork it, make it better.</p>
+            <p className="intro center">MIT licensed and developed in the open. Use it, change it, make it better.</p>
           </div>
           <div className="wrap oss" data-reveal>
             <div className="oss-card oss-main night">
-              <a className="oss-repo" href={REPO}>
-                <GitHubIcon size={22} />
-                <span>
-                  devian-labs / <strong>betelgeuse</strong>
-                </span>
-              </a>
-              <p>A beautiful workspace on plain Markdown and git, open to AI agents over MCP.</p>
-              <div className="oss-langs">
-                <span>
-                  <i style={{ background: "#3178c6" }} />
-                  TypeScript
-                </span>
-                <span>
-                  <i style={{ background: "#dea584" }} />
-                  Rust
-                </span>
-                <span>MIT</span>
-              </div>
-              <div className="oss-cta">
-                <StarButton className="button primary" />
-                <a className="button" href={`${REPO}/fork`}>
-                  Fork
-                </a>
-              </div>
+              <RepoCard>
+                <div className="oss-cta">
+                  <StarButton className="button primary" />
+                  <a className="button" href={`${REPO}/fork`}>
+                    <GitFork size={16} /> Fork
+                  </a>
+                </div>
+              </RepoCard>
             </div>
-            <a className="oss-card" href={`${REPO}/issues?q=is%3Aopen+label%3A%22good+first+issue%22`}>
-              <span className="oss-icon">🌱</span>
-              <strong>Good first issues</strong>
-              <span>Small, well-scoped tasks to start with.</span>
-            </a>
             <a className="oss-card" href={`${REPO}/blob/main/CONTRIBUTING.md`}>
-              <span className="oss-icon">🛠️</span>
-              <strong>Contributing guide</strong>
-              <span>Set up, ground rules and how to ship.</span>
+              <Wrench className="oss-icon" />
+              <strong>Contribute</strong>
+              <span>Set up in four commands. Start with a good first issue.</span>
             </a>
             <a className="oss-card" href={`${REPO}/discussions`}>
-              <span className="oss-icon">💬</span>
-              <strong>Discussions</strong>
-              <span>Ideas, questions and show-and-tell.</span>
+              <MessageSquarePlus className="oss-icon" />
+              <strong>Request a feature</strong>
+              <span>Share ideas and vote in Discussions.</span>
+            </a>
+            <a className="oss-card" href={`${REPO}/security/advisories/new`}>
+              <ShieldCheck className="oss-icon" />
+              <strong>Report a security issue</strong>
+              <span>Privately, and we&apos;ll reply within a week.</span>
             </a>
             <a className="oss-card" href="https://github.com/sponsors/devian-labs">
-              <span className="oss-icon">💛</span>
+              <Heart className="oss-icon" />
               <strong>Sponsor</strong>
-              <span>Help fund signed builds.</span>
+              <span>Help fund signed builds and development.</span>
             </a>
+            <div className="oss-next">
+              <p className="oss-label">Up next</p>
+              <ul>
+                <li>Faster full-text search</li>
+                <li>Formulas and relations in databases</li>
+                <li>Signed builds for macOS and Windows</li>
+                <li>Handling edits from you and an agent at the same time</li>
+              </ul>
+            </div>
             <div className="oss-hack">
-              <p className="oss-hack-label">Hack on it</p>
-              <Command>{`git clone ${REPO} && cd betelgeuse && npm install && npm --prefix mcp install && npm run app`}</Command>
-              <div className="stack">
-                {["Tauri 2", "Rust", "React 19", "Tiptap 3", "TypeScript", "MCP"].map((s) => (
-                  <span key={s}>{s}</span>
-                ))}
+              <div className="oss-hack-head">
+                <div>
+                  <p className="oss-label">Hack on it</p>
+                  <strong>Run it locally in a few minutes.</strong>
+                </div>
+                <a href={`${REPO}/blob/main/CONTRIBUTING.md`}>Contributing guide →</a>
               </div>
+              <CodeWindow
+                title="Terminal"
+                lines={[
+                  [`git clone ${REPO}`],
+                  ["cd betelgeuse"],
+                  ["npm install && npm --prefix mcp install"],
+                  ["npm run app", "starts the app with hot reload"],
+                ]}
+              />
             </div>
           </div>
           <div className="wrap">
@@ -369,9 +373,9 @@ export default function Home() {
               <p className="kicker">FAQ</p>
               <h2>Questions, answered.</h2>
               <p className="intro">
-                More on{" "}
+                Something else?{" "}
                 <a href={`${REPO}/discussions`} className="text-link">
-                  GitHub Discussions
+                  Ask on GitHub
                 </a>
                 .
               </p>
@@ -394,26 +398,26 @@ export default function Home() {
               <Logo size={64} />
             </div>
             <h2 className="center">Take your notes home.</h2>
-            <p className="intro center">Free and open source, on every desktop.</p>
-            <div className="install">
-              <div className="card">
-                <h3>Download</h3>
-                <p>For macOS, Windows and Linux. Builds aren&apos;t code-signed yet, so confirm on first launch.</p>
-                <DownloadButton />
-              </div>
-              <div className="card">
-                <h3>
-                  Build from source <span className="badge">No warnings</span>
-                </h3>
-                <Tabs
-                  label="Operating system"
-                  tabs={[
-                    { id: "unix", title: "macOS & Linux", content: <Command>{`git clone ${REPO} && cd betelgeuse && ./scripts/install.sh`}</Command> },
-                    { id: "windows", title: "Windows", content: <Command prompt=">">{`git clone ${REPO}; cd betelgeuse; .\\scripts\\install.ps1`}</Command> },
-                  ]}
-                />
-              </div>
+            <p className="intro center">Free. Open source. Yours to keep.</p>
+          </div>
+          <div className="wrap" data-reveal>
+            <Downloads />
+            <div className="card build-card">
+              <h3>
+                Build from source <span className="badge">No warnings</span>
+              </h3>
+              <p>Needs git, Node.js 20+ and Rust. The script checks for anything else.</p>
+              <Tabs
+                label="Operating system"
+                tabs={[
+                  { id: "unix", title: "macOS & Linux", content: <Command>{`git clone ${REPO} && cd betelgeuse && ./scripts/install.sh`}</Command> },
+                  { id: "windows", title: "Windows", content: <Command prompt=">">{`git clone ${REPO}; cd betelgeuse; .\\scripts\\install.ps1`}</Command> },
+                ]}
+              />
             </div>
+            <p className="feedback">
+              Tried it? <a href={`${REPO}/issues/new/choose`}>Tell us what worked and what didn&apos;t</a>.
+            </p>
           </div>
         </section>
       </main>
@@ -431,29 +435,31 @@ export default function Home() {
           <nav aria-label="Product">
             <strong>Product</strong>
             <a href="#features">Features</a>
-            <a href="#how">How it works</a>
+            <a href="#agents">AI agents</a>
+            <a href="#import">Import</a>
             <a href="#download">Download</a>
-            <a href={`${REPO}/releases`}>Releases</a>
           </nav>
           <nav aria-label="Project">
             <strong>Project</strong>
             <a href={REPO}>GitHub</a>
+            <a href={`${REPO}/releases`}>Releases</a>
             <a href={`${REPO}/blob/main/CONTRIBUTING.md`}>Contributing</a>
             <a href={`${REPO}/blob/main/SECURITY.md`}>Security</a>
-            <a href={`${REPO}/blob/main/LICENSE`}>MIT License</a>
           </nav>
           <nav aria-label="Community">
             <strong>Community</strong>
             <a href={`${REPO}/discussions`}>Discussions</a>
             <a href={`${REPO}/issues`}>Issues</a>
             <a href="https://github.com/sponsors/devian-labs">Sponsor</a>
+            <a href={`${REPO}/blob/main/LICENSE`}>MIT License</a>
           </nav>
         </div>
         <div className="wrap legal">
           © 2026 Betelgeuse contributors · Built by{" "}
-          <a href="https://devianlabs.com">Devian Labs</a>
+          <a href="https://devianlabs.com">Devian Labs</a>. Notion and Obsidian are trademarks of their respective owners;
+          Betelgeuse isn&apos;t affiliated with either.
         </div>
       </footer>
-    </>
+    </GitHubProvider>
   );
 }

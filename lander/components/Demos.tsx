@@ -1,3 +1,31 @@
+import {
+  Bot,
+  Check,
+  ChevronRight,
+  CircleCheck,
+  Compass,
+  Database,
+  FileArchive,
+  FileText,
+  Folder,
+  FolderOpen,
+  GitBranch,
+  Heading1,
+  ImageIcon,
+  Lightbulb,
+  Link2,
+  ListTodo,
+  Lock,
+  MapIcon,
+  NotebookPen,
+  Plug,
+  Rocket,
+  Ruler,
+  Type,
+  Wallet,
+  type LucideIcon,
+} from "lucide-react";
+
 /**
  * Animated illustrations of the app. They're plain HTML and CSS (keyframes in globals.css), loop on
  * their own, and settle on a still frame when the visitor prefers reduced motion.
@@ -18,12 +46,12 @@ function Chrome({ title }: { title: string }) {
 
 /* ---------- Write: type "/call", pick Callout, the block appears ---------- */
 
-const menu = [
-  ["T", "Text", ""],
-  ["H₁", "Heading 1", "#"],
-  ["☐", "To-do list", "[]"],
-  ["💡", "Callout", ">"],
-  ["▸", "Toggle list", ""],
+const menu: [LucideIcon, string, string][] = [
+  [Type, "Text", ""],
+  [Heading1, "Heading 1", "#"],
+  [ListTodo, "To-do list", "[]"],
+  [Lightbulb, "Callout", ">"],
+  [ChevronRight, "Toggle list", ""],
 ];
 
 export function SlashDemo() {
@@ -31,10 +59,15 @@ export function SlashDemo() {
     <div className="demo slash-demo" aria-hidden>
       <Chrome title="Launch plan" />
       <div className="sd-page">
-        <div className="sd-title">🚀 Launch plan</div>
+        <div className="sd-title">
+          <Rocket className="ic-title" />
+          Launch plan
+        </div>
         <p className="sd-text">Everything we need before the public beta.</p>
         <div className="sd-todo done">
-          <span className="box">✓</span>Write the announcement
+          <span className="box">
+            <Check size={11} strokeWidth={3} />
+          </span>Write the announcement
         </div>
         <div className="sd-todo">
           <span className="box" />
@@ -46,16 +79,18 @@ export function SlashDemo() {
             <span className="caret" />
           </div>
           <div className="sd-callout">
-            <span>💡</span>
+            <Lightbulb size={17} className="ic-callout" />
             <span>
               <strong>Beta ships Friday.</strong> Agents can read this page.
             </span>
           </div>
           <div className="sd-menu">
             <div className="sd-menu-label">Basic blocks</div>
-            {menu.map(([icon, name, key], i) => (
+            {menu.map(([Icon, name, key], i) => (
               <div key={name} className={`sd-item${i === 3 ? " match" : ""}`}>
-                <span className="sd-icon">{icon}</span>
+                <span className="sd-icon">
+                  <Icon size={13} />
+                </span>
                 {name}
                 <kbd>{key}</kbd>
               </div>
@@ -73,7 +108,10 @@ export function SlashDemo() {
 function Card({ title, tag, date, status }: { title: string; tag: string; date: string; status?: [string, string] }) {
   return (
     <div className="bd-card">
-      <div className="bd-card-title">📄 {title}</div>
+      <div className="bd-card-title">
+        <FileText size={13} />
+        {title}
+      </div>
       <div className="bd-meta">
         {status && <span className={`chip ${status[1]}`}>{status[0]}</span>}
         <span className="chip tag">{tag}</span>
@@ -107,7 +145,10 @@ export function BoardDemo() {
           <div className="bd-slot">
             <div className="bd-mover">
               <div className="bd-card lifted">
-                <div className="bd-card-title">📄 Ship the MCP server</div>
+                <div className="bd-card-title">
+                  <FileText size={13} />
+                  Ship the MCP server
+                </div>
                 <div className="bd-meta">
                   <span className="chip swap-chip">
                     <span className="chip blue">In progress</span>
@@ -151,7 +192,7 @@ const history = [
 function Row({ who, what, when, bot, fresh }: { who: string; what: string; when: string; bot?: boolean; fresh?: boolean }) {
   return (
     <div className={`hd-row${fresh ? " fresh" : ""}`}>
-      <span className={`avatar${bot ? " bot" : ""}`}>{bot ? "✦" : "Y"}</span>
+      <span className={`avatar${bot ? " bot" : ""}`}>{bot ? <Bot size={16} /> : "Y"}</span>
       <span className="hd-commit">
         <strong>{what}</strong>
         <span>
@@ -186,11 +227,11 @@ export function HistoryDemo() {
 
 /* ---------- Control: hide a page, and it disappears for agents ---------- */
 
-const pages = [
-  ["📐", "Product specs"],
-  ["🗺️", "Roadmap"],
-  ["📓", "Journal"],
-  ["🧭", "Decisions"],
+const pages: [LucideIcon, string][] = [
+  [Ruler, "Product specs"],
+  [MapIcon, "Roadmap"],
+  [NotebookPen, "Journal"],
+  [Compass, "Decisions"],
 ];
 
 export function PrivacyDemo() {
@@ -198,9 +239,9 @@ export function PrivacyDemo() {
     <div className="demo privacy-demo" aria-hidden>
       <div className="pv-panel">
         <div className="pv-head">Your workspace</div>
-        {pages.map(([icon, name]) => (
+        {pages.map(([Icon, name]) => (
           <div key={name} className={`pv-row${name === "Journal" ? " target" : ""}`}>
-            <span>{icon}</span>
+            <Icon size={15} className="pv-icon" />
             <span className="pv-name">{name}</span>
             <span className="switch">
               <i />
@@ -208,7 +249,7 @@ export function PrivacyDemo() {
           </div>
         ))}
         <div className="pv-row locked">
-          <span>💰</span>
+          <Wallet size={15} className="pv-icon" />
           <span className="pv-name">Finances</span>
           <span className="switch off">
             <i />
@@ -220,16 +261,16 @@ export function PrivacyDemo() {
       </div>
       <div className="pv-panel agent">
         <div className="pv-head">
-          <span className="pv-bot">✦</span> What your agent sees
+          <Bot size={14} className="pv-bot" /> What your agent sees
         </div>
-        {pages.map(([icon, name]) => (
+        {pages.map(([Icon, name]) => (
           <div key={name} className={`pv-seen${name === "Journal" ? " target" : ""}`}>
-            <span>{icon}</span>
+            <Icon size={15} className="pv-icon" />
             {name}
           </div>
         ))}
         <div className="pv-hidden">
-          <span className="pv-lock">🔒</span>
+          <Lock size={13} className="pv-lock" />
           <span className="pv-hidden-count">
             <span>1 page hidden</span>
             <span>2 pages hidden</span>
@@ -260,7 +301,10 @@ export function FilesDemo() {
       </div>
       <div className="fd-stage">
         <div className="fd-face fd-rendered">
-          <div className="fd-h">🔌 Ship the MCP server</div>
+          <div className="fd-h">
+            <Plug className="ic-title" />
+            Ship the MCP server
+          </div>
           <div className="fd-props">
             <span className="fd-prop">Status</span>
             <span className="chip blue">In progress</span>
@@ -269,9 +313,14 @@ export function FilesDemo() {
             <span className="fd-prop">Tags</span>
             <span className="chip tag">agents</span>
           </div>
-          <div className="fd-callout">💡 Every agent write is its own git commit.</div>
+          <div className="fd-callout">
+            <Lightbulb size={16} className="ic-callout" />
+            Every agent write is its own git commit.
+          </div>
           <div className="sd-todo done">
-            <span className="box">✓</span>Bundle the server
+            <span className="box">
+            <Check size={11} strokeWidth={3} />
+          </span>Bundle the server
           </div>
           <div className="sd-todo">
             <span className="box" />
@@ -297,6 +346,97 @@ export function FilesDemo() {
           {"\n"}
           <span className="k-key">- [ ]</span> Publish to the registry
         </pre>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Own everything: the workspace is a folder ---------- */
+
+const tree: { name: string; depth: number; kind: "dir" | "md" | "git"; note?: string; fresh?: boolean }[] = [
+  { name: ".git", depth: 0, kind: "git", note: "full history" },
+  { name: "Journal.md", depth: 0, kind: "md", note: "hidden from AI" },
+  { name: "Projects", depth: 0, kind: "dir" },
+  { name: "Betelgeuse.md", depth: 1, kind: "md" },
+  { name: "Launch plan.md", depth: 1, kind: "md", fresh: true },
+  { name: "Roadmap.md", depth: 0, kind: "md", note: "database" },
+  { name: "Roadmap", depth: 0, kind: "dir" },
+  { name: "Ship the MCP server.md", depth: 1, kind: "md" },
+  { name: "Welcome.md", depth: 0, kind: "md" },
+];
+
+export function FolderDemo() {
+  return (
+    <div className="demo folder-demo" aria-hidden>
+      <Chrome title="~/Betelgeuse" />
+      <div className="fo-list">
+        {tree.map((f) => (
+          <div key={f.name + f.depth} className={`fo-row ${f.kind}${f.fresh ? " fresh" : ""}`} style={{ paddingLeft: 16 + f.depth * 22 }}>
+            <span className="fo-icon">{f.kind === "md" ? <FileText size={15} /> : f.kind === "git" ? <GitBranch size={15} /> : <Folder size={15} />}</span>
+            <span className="fo-name">{f.name}</span>
+            {f.note && <span className="fo-note">{f.note}</span>}
+            {f.fresh && (
+              <span className="fo-status">
+                <span>saved</span>
+                <span>
+                  committed <Check size={12} strokeWidth={3} />
+                </span>
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="fo-foot">
+        <span>9 items</span>
+        <span>Plain Markdown · git</span>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Import: an export goes in, a workspace comes out ---------- */
+
+const imported: [LucideIcon, string, string][] = [
+  [FileText, "128 pages", "with folders kept"],
+  [Database, "6 databases", "views and property types"],
+  [Link2, "412 links", "turned into [[wikilinks]]"],
+  [ImageIcon, "57 images", "copied to .assets/"],
+];
+
+export function ImportDemo() {
+  return (
+    <div className="demo import-demo" aria-hidden>
+      <div className="im-sources">
+        <div className="im-source a">
+          <FileArchive size={22} className="im-file" />
+          <span>
+            <strong>Notion export.zip</strong>
+            <small>Markdown &amp; CSV</small>
+          </span>
+        </div>
+        <div className="im-source b">
+          <FolderOpen size={22} className="im-file" />
+          <span>
+            <strong>Obsidian vault</strong>
+            <small>Any vault folder</small>
+          </span>
+        </div>
+      </div>
+      <div className="im-pipe">
+        <span className="im-bar" />
+      </div>
+      <div className="im-result">
+        <div className="im-head">Imported into Betelgeuse</div>
+        {imported.map(([Icon, what, how], i) => (
+          <div key={what} className={`im-item i${i}`}>
+            <Icon size={15} className="im-icon" />
+            <strong>{what}</strong>
+            <small>{how}</small>
+          </div>
+        ))}
+        <div className="im-done">
+          <CircleCheck size={15} /> Committed to git as one change
+        </div>
       </div>
     </div>
   );

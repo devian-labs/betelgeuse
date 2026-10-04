@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { RELEASES } from "@/lib/site";
 
 
 function detect(): string | null {
@@ -14,16 +13,17 @@ function detect(): string | null {
   return null;
 }
 
-/** "Download for <your OS>", falling back to a plain "Download" before hydration and on phones. */
-export function DownloadButton({ className = "button primary" }: { className?: string }) {
+/** "Download for <your OS>", scrolling to the download section (which knows what is actually published). */
+export function DownloadButton({ className = "button primary", suffix = "" }: { className?: string; suffix?: string }) {
   const [os, setOs] = useState<string | null>(null);
   useEffect(() => setOs(detect()), []);
   return (
-    <a className={className} href={RELEASES}>
+    <a className={className} href="#download">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M12 3v12m0 0-5-5m5 5 5-5M5 21h14" />
       </svg>
       {os ? `Download for ${os}` : "Download"}
+      {suffix}
     </a>
   );
 }

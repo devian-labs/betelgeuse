@@ -1,11 +1,9 @@
 # Security
 
-Please don't open a public issue for security problems. Report them privately through
-[GitHub security advisories](https://github.com/devian-labs/betelgeuse/security/advisories/new).
-We'll reply within a week.
+Please don't report security problems in public issues. Use a [private security advisory](https://github.com/devian-labs/betelgeuse/security/advisories/new) instead, and we'll reply within a week.
 
-Things we especially want to hear about:
+We especially want to hear about:
 
-- An MCP tool that reveals or changes a page hidden from AI agents
-- Paths that escape the workspace folder
-- Anything that runs code from a page's content
+- An AI agent reading or changing a page that's hidden from it
+- A way to read or write files outside the workspace folder
+- A page that can run code when it's opened

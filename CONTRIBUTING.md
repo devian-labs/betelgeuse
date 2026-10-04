@@ -1,39 +1,42 @@
-# Contributing to Betelgeuse
+# Contributing
 
-Thanks for helping. Bug reports, ideas, docs and code are all welcome.
+Thanks for helping! Bug reports, ideas, docs and code are all welcome. For bigger changes, open an issue or a [discussion](https://github.com/devian-labs/betelgeuse/discussions) first so we can agree on the approach.
 
 ## Set up
 
-You need Node.js 20+, Rust (via [rustup](https://rustup.rs)) and git. On macOS, also install the Xcode Command Line Tools (`xcode-select --install`). On Linux, install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#linux).
+You need [Node.js 20+](https://nodejs.org), [Rust](https://rustup.rs) and git. On macOS, also run `xcode-select --install`. On Linux, install the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/#linux).
 
 ```sh
 git clone https://github.com/devian-labs/betelgeuse && cd betelgeuse
 npm install && npm --prefix mcp install
-npm run tauri dev          # the app, with hot reload
-npm test                   # all test suites
+npm run app      # start the app with hot reload
+npm test         # run all tests
 ```
 
-To develop against a throwaway workspace instead of `~/Betelgeuse`, run `BETELGEUSE_WORKSPACE=/tmp/bg-dev npm run tauri dev`.
+To try things without touching your own notes, use a throwaway workspace: `BETELGEUSE_WORKSPACE=/tmp/bg-dev npm run app`.
 
-## How the code is organised
+## Where things are
 
-| Folder | What's there |
+| Folder | What's in it |
 | --- | --- |
-| `src/editor/` | Tiptap editor, custom blocks and their Markdown syntax (`blocks.tsx`), slash menu |
-| `src/database/` | Database model (filters, sorts, calculations), views and property editors |
-| `src/components/` | App shell: sidebar, page view, settings, dialogs |
-| `src-tauri/src/` | Rust backend: workspace files (`vault.rs`), git (`git.rs`), importers, trash, AI visibility |
-| `mcp/src/` | The MCP server. `vault.ts` mirrors the Rust rules, so the app and agents agree |
-| `tests/` | Markdown round-trip and database tests |
-| `lander/` | The landing page: a Next.js static export, deployed on Vercel. `npm --prefix lander install && npm --prefix lander run dev` |
+| `src/` | The app's interface (React). The editor is in `src/editor/`, databases in `src/database/`. |
+| `src-tauri/` | The desktop backend (Rust): files, git, import, trash. |
+| `src-tauri/seed/` | The Welcome guide every new workspace starts with. |
+| `mcp/` | The MCP server that AI agents connect to. |
+| `tests/` | Editor and database tests. |
+| `lander/` | The website ([betelgeuse.devianlabs.com](https://betelgeuse.devianlabs.com)). Run it with `npm --prefix lander run dev`. |
 
-## Ground rules
+## A few rules
 
-- **Files stay readable.** Anything stored must be plain Markdown, YAML frontmatter or JSON that someone could edit by hand. A new block needs a Markdown syntax plus a round-trip test in `tests/markdown.test.mjs`.
-- **The app and the MCP server agree.** If you change how pages, links, frontmatter or AI visibility work, change both `src-tauri/src/vault.rs` and `mcp/src/vault.ts`, and add tests to both.
-- **Agents never see hidden pages.** Any new MCP tool must go through `Vault.files()` / `Vault.find()`.
-- Keep pull requests focused and include screenshots for UI changes, in light and dark.
+- **Keep files readable.** Everything Betelgeuse saves must be plain Markdown that a person could edit by hand. A new block needs a Markdown form and a test in `tests/markdown.test.mjs`.
+- **Keep the app and the MCP server in sync.** Changes to how pages, links or AI visibility work go in both `src-tauri/src/vault.rs` and `mcp/src/vault.ts`.
+- **Agents never see hidden pages.** New MCP tools must read pages through `Vault.files()` or `Vault.find()`.
+- **Keep pull requests small**, and add light and dark screenshots for UI changes.
 
 ## Releasing
 
-Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, then push a `vX.Y.Z` tag. The Release workflow builds every platform into a draft GitHub release.
+Bump the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json`, then push a tag like `v0.2.0`. GitHub Actions builds the app for every platform into a draft release, ready to publish.
+
+## Updating the screenshots
+
+`npm --prefix lander run screenshots` captures the app in light and dark for the README and website.
