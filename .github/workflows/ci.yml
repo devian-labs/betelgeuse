@@ -36,9 +36,6 @@ jobs:
   rust:
     name: Rust tests and clippy
     runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: apps/desktop
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -52,7 +49,10 @@ jobs:
         with:
           workspaces: apps/desktop/src-tauri
       # The app embeds the built frontend and bundles the MCP server, so build both first.
+      # Install from the repo root: npm ci inside a workspace folder installs only that workspace.
       - run: npm ci
-      - run: npm run mcp:build && npx vite build
-      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-      - run: cargo test --manifest-path src-tauri/Cargo.toml
+      - run: npm run mcp:build
+      - run: npx vite build
+        working-directory: apps/desktop
+      - run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
