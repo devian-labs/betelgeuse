@@ -1,0 +1,29 @@
+{
+  "name": "betelgeuse-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that gives AI agents access to a Betelgeuse workspace (Markdown + git)",
+  "type": "module",
+  "bin": {
+    "betelgeuse-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc && npm run bundle",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --target=node20 --format=esm --minify --legal-comments=none --outfile=dist/betelgeuse-mcp.mjs --banner:js=\"import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.3"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
+}

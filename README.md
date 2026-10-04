@@ -4,14 +4,14 @@
 
 A beautiful workspace for notes, docs and databases that stays yours. Every page is a plain Markdown file on your computer, and your AI agents can read only the pages you share.
 
-[Website](https://betelgeuse.devianlabs.com) · [Download](https://github.com/devian-labs/betelgeuse/releases/latest) · [User guide](src-tauri/seed/Welcome.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://betelgeuse.devianlabs.com) · [Download](https://github.com/devian-labs/betelgeuse/releases/latest) · [User guide](apps/desktop/src-tauri/seed/Welcome.md) · [Contributing](CONTRIBUTING.md)
 
 [![CI](https://github.com/devian-labs/betelgeuse/actions/workflows/ci.yml/badge.svg)](https://github.com/devian-labs/betelgeuse/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="lander/public/assets/editor-dark-1440.jpg">
-  <img alt="The Betelgeuse editor with the Welcome guide open" src="lander/public/assets/editor-light-1440.jpg">
+  <source media="(prefers-color-scheme: dark)" srcset="apps/lander/public/assets/editor-dark-1440.jpg">
+  <img alt="The Betelgeuse editor with the Welcome guide open" src="apps/lander/public/assets/editor-light-1440.jpg">
 </picture>
 
 ## Why Betelgeuse
@@ -41,22 +41,22 @@ git clone https://github.com/devian-labs/betelgeuse && cd betelgeuse
 Click **Connect agents** in the sidebar and copy the setup for Claude Code, Claude Desktop, Cursor or any other MCP client. It shows the exact command for your install. From a source checkout, it looks like this:
 
 ```sh
-claude mcp add betelgeuse -- node /path/to/betelgeuse/mcp/dist/index.js --workspace ~/Betelgeuse
+claude mcp add betelgeuse -- node /path/to/betelgeuse/packages/mcp/dist/index.js --workspace ~/Betelgeuse
 ```
 
-Every change an agent makes is saved as its own git commit, so you can review or undo it. Hide any page from agents in its `•••` menu. [More about agents](src-tauri/seed/Welcome/Connect%20your%20AI%20agents.md).
+Every change an agent makes is saved as its own git commit, so you can review or undo it. Hide any page from agents in its `•••` menu. [More about agents](apps/desktop/src-tauri/seed/Welcome/Connect%20your%20AI%20agents.md).
 
 ## Learn more
 
-Betelgeuse opens with a Welcome guide that explains every feature. You can also [read it here](src-tauri/seed/Welcome.md):
+Betelgeuse opens with a Welcome guide that explains every feature. You can also [read it here](apps/desktop/src-tauri/seed/Welcome.md):
 
-[Writing and blocks](src-tauri/seed/Welcome/Writing%20and%20blocks.md) ·
-[Databases](src-tauri/seed/Welcome/Databases.md) ·
-[History and sync](src-tauri/seed/Welcome/History%20and%20sync.md) ·
-[What AI agents can see](src-tauri/seed/Welcome/What%20AI%20agents%20can%20see.md) ·
-[Import](src-tauri/seed/Welcome/Import.md) ·
-[Your files on disk](src-tauri/seed/Welcome/Your%20files%20on%20disk.md) ·
-[Keyboard shortcuts](src-tauri/seed/Welcome/Keyboard%20shortcuts.md)
+[Writing and blocks](apps/desktop/src-tauri/seed/Welcome/Writing%20and%20blocks.md) ·
+[Databases](apps/desktop/src-tauri/seed/Welcome/Databases.md) ·
+[History and sync](apps/desktop/src-tauri/seed/Welcome/History%20and%20sync.md) ·
+[What AI agents can see](apps/desktop/src-tauri/seed/Welcome/What%20AI%20agents%20can%20see.md) ·
+[Import](apps/desktop/src-tauri/seed/Welcome/Import.md) ·
+[Your files on disk](apps/desktop/src-tauri/seed/Welcome/Your%20files%20on%20disk.md) ·
+[Keyboard shortcuts](apps/desktop/src-tauri/seed/Welcome/Keyboard%20shortcuts.md)
 
 ## Status
 

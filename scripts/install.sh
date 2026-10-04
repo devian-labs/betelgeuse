@@ -44,12 +44,11 @@ fi
 
 bold "Installing dependencies"
 npm ci --no-audit --no-fund
-npm --prefix mcp ci --no-audit --no-fund
 
 bold "Building Betelgeuse (the first build takes a few minutes)"
 if [[ "$OS" == "Darwin" ]]; then
-  npx tauri build --bundles app
-  APP="src-tauri/target/release/bundle/macos/Betelgeuse.app"
+  npm run tauri -w @betelgeuse/desktop -- build --bundles app
+  APP="apps/desktop/src-tauri/target/release/bundle/macos/Betelgeuse.app"
   [[ -d "$APP" ]] || fail "Build finished but $APP was not found."
   ok "Built $APP"
   if $BUILD_ONLY; then exit 0; fi
@@ -65,8 +64,8 @@ if [[ "$OS" == "Darwin" ]]; then
   echo
   bold "Done. Open Betelgeuse from Launchpad or Spotlight, or run: open \"$DEST/Betelgeuse.app\""
 else
-  npx tauri build --bundles appimage,deb
-  BUNDLE="src-tauri/target/release/bundle"
+  npm run tauri -w @betelgeuse/desktop -- build --bundles appimage,deb
+  BUNDLE="apps/desktop/src-tauri/target/release/bundle"
   APPIMAGE="$(ls "$BUNDLE"/appimage/*.AppImage 2>/dev/null | head -1 || true)"
   DEB="$(ls "$BUNDLE"/deb/*.deb 2>/dev/null | head -1 || true)"
   [[ -n "$APPIMAGE$DEB" ]] || fail "Build finished but no bundle was found in $BUNDLE."
