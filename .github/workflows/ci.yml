@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  web-and-mcp:
+    name: Typecheck and tests (frontend, MCP server)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mcp/package-lock.json
+      - run: npm ci
+      - run: npm --prefix mcp ci
+      - run: npm run typecheck
+      - run: node --import tsx --test tests/*.test.mjs
+      - run: npm --prefix mcp test
+
+  lander:
+    name: Landing page build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lander
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: lander/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  rust:
+    name: Rust tests and clippy
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      # The app embeds the built frontend and bundles the MCP server, so build both first.
+      - run: npm ci && npm --prefix mcp ci
+      - run: npm run mcp:build && npx vite build
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      - run: cargo test --manifest-path src-tauri/Cargo.toml

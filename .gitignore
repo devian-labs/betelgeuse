@@ -1,0 +1,17 @@
+# Dependencies and build output
+node_modules
+dist
+mcp/dist
+src-tauri/target
+src-tauri/gen
+lander/.next
+lander/out
+lander/next-env.d.ts
+*.tsbuildinfo
+
+# OS / editor
+.DS_Store
+*.log
+.vscode/*
+!.vscode/extensions.json
+.idea

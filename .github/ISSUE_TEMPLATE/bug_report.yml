@@ -1,0 +1,27 @@
+name: Bug report
+description: Something isn't working
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead? Screenshots help.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open a page
+        2. Type /table
+        3. …
+  - type: input
+    attributes:
+      label: Version and OS
+      placeholder: Betelgeuse 0.1.0, macOS 15.3 (Apple Silicon)
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: How did you install it?
+      options: [Built from source (install script), Built from source (manually), Downloaded from GitHub Releases]

@@ -1,0 +1,16 @@
+name: Feature request
+description: Suggest an idea
+labels: [enhancement]
+body:
+  - type: textarea
+    attributes:
+      label: What problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: What would you like to happen?
+  - type: textarea
+    attributes:
+      label: How should it be stored on disk?
+      description: Betelgeuse keeps everything as readable Markdown. If your idea adds content, how could it look in a .md file?

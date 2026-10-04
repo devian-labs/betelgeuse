@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Betelgeuse",
+  "version": "0.1.0",
+  "identifier": "dev.devianlabs.betelgeuse",
+  "build": {
+    "beforeDevCommand": "npm run mcp:build && npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run mcp:build && npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Betelgeuse",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 760,
+        "minHeight": 500,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 16,
+          "y": 22
+        },
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../mcp/dist/betelgeuse-mcp.mjs": "mcp/betelgeuse-mcp.mjs"
+    },
+    "category": "Productivity",
+    "shortDescription": "Block-based notes on plain Markdown + git, open to AI agents over MCP",
+    "longDescription": "Betelgeuse is a block-based notebook whose pages are plain Markdown files in a git repository. Databases, callouts, toggles and columns are stored as readable Markdown, every change is versioned, and an open MCP server lets AI agents read and write the workspace, with per-page control over what they can see.",
+    "copyright": "© 2026 Betelgeuse contributors · MIT License",
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "11.0"
+    }
+  }
+}

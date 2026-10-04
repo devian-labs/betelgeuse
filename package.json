@@ -1,0 +1,71 @@
+{
+  "name": "betelgeuse",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Block-based notes on plain Markdown + git, open to AI agents over MCP",
+  "license": "MIT",
+  "homepage": "https://devian-labs.github.io/betelgeuse",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devian-labs/betelgeuse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/devian-labs/betelgeuse/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "tauri": "tauri",
+    "app": "npm run mcp:build && tauri dev",
+    "mcp:build": "npm --prefix mcp run build",
+    "test": "node --import tsx --test tests/*.test.mjs && npm --prefix mcp test && cargo test --manifest-path src-tauri/Cargo.toml",
+    "build:app": "tauri build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.8.0",
+    "@tauri-apps/api": "^2.12.1",
+    "@tauri-apps/plugin-dialog": "^2.8.1",
+    "@tauri-apps/plugin-opener": "^2.7.0",
+    "@tiptap/extension-code-block-lowlight": "^3.31.4",
+    "@tiptap/extension-collaboration": "^3.31.4",
+    "@tiptap/extension-details": "^3.31.4",
+    "@tiptap/extension-drag-handle": "^3.31.4",
+    "@tiptap/extension-drag-handle-react": "^3.31.4",
+    "@tiptap/extension-image": "^3.31.4",
+    "@tiptap/extension-list": "^3.31.4",
+    "@tiptap/extension-node-range": "^3.31.4",
+    "@tiptap/extension-placeholder": "^3.31.4",
+    "@tiptap/extension-table": "^3.31.4",
+    "@tiptap/markdown": "^3.31.4",
+    "@tiptap/pm": "^3.31.4",
+    "@tiptap/react": "^3.31.4",
+    "@tiptap/starter-kit": "^3.31.4",
+    "@tiptap/suggestion": "^3.31.4",
+    "@tiptap/y-tiptap": "^3.0.9",
+    "lowlight": "^3.3.0",
+    "lucide-react": "^1.51.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "unicode-emoji-json": "^0.9.0",
+    "y-protocols": "^1.0.7",
+    "yaml": "^2.9.1",
+    "yjs": "^13.6.33"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@tauri-apps/cli": "^2.12.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "happy-dom": "^20.14.5",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.2"
+  }
+}

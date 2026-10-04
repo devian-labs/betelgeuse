@@ -1,0 +1,736 @@
+@import "tailwindcss";
+
+/* Notion's palette, light and dark. */
+:root {
+  --surface: #ffffff;
+  --side: #f8f8f7;
+  --raised: #ffffff;
+  --hover: rgba(55, 53, 47, 0.06);
+  --row-hover: rgba(55, 53, 47, 0.03);
+  --card-hover: #f9f9f8;
+  --line: rgba(55, 53, 47, 0.09);
+  --line-strong: rgba(55, 53, 47, 0.2);
+  --ink: rgb(55, 53, 47);
+  --muted: rgba(55, 53, 47, 0.65);
+  --faint: rgba(55, 53, 47, 0.45);
+  --placeholder: rgba(55, 53, 47, 0.22);
+  --blue: #2383e2;
+  --search-bg: #ffffff;
+  --accent: var(--blue);
+  --accent-soft: color-mix(in srgb, var(--blue) 12%, transparent);
+  --code-bg: rgba(135, 131, 120, 0.15);
+  --code-inline: #eb5757;
+  --codeblock-bg: #f7f6f3;
+  --shadow-pop: rgba(15, 15, 15, 0.05) 0 0 0 1px, rgba(15, 15, 15, 0.1) 0 3px 6px, rgba(15, 15, 15, 0.2) 0 9px 24px;
+  --shadow-card: rgba(15, 15, 15, 0.1) 0 0 0 1px, rgba(15, 15, 15, 0.1) 0 2px 4px;
+  --shadow-peek: rgba(15, 15, 15, 0.04) 0 0 0 1px, rgba(15, 15, 15, 0.03) 0 3px 6px, rgba(15, 15, 15, 0.06) 0 9px 24px;
+
+  --c-gray-text: rgb(120, 119, 116);
+  --c-brown-text: rgb(159, 107, 83);
+  --c-orange-text: rgb(217, 115, 13);
+  --c-yellow-text: rgb(203, 145, 47);
+  --c-green-text: rgb(68, 131, 97);
+  --c-blue-text: rgb(51, 126, 169);
+  --c-purple-text: rgb(144, 101, 176);
+  --c-pink-text: rgb(193, 76, 138);
+  --c-red-text: rgb(212, 76, 71);
+
+  --c-gray-bg: rgb(241, 241, 239);
+  --c-brown-bg: rgb(244, 238, 238);
+  --c-orange-bg: rgb(251, 236, 221);
+  --c-yellow-bg: rgb(251, 243, 219);
+  --c-green-bg: rgb(237, 243, 236);
+  --c-blue-bg: rgb(231, 243, 248);
+  --c-purple-bg: rgba(244, 240, 247, 0.8);
+  --c-pink-bg: rgba(249, 238, 243, 0.8);
+  --c-red-bg: rgb(253, 235, 236);
+
+  --c-gray-tag: rgba(227, 226, 224, 0.75);
+  --c-brown-tag: rgb(238, 224, 218);
+  --c-orange-tag: rgb(250, 222, 201);
+  --c-yellow-tag: rgb(253, 236, 200);
+  --c-green-tag: rgb(219, 237, 219);
+  --c-blue-tag: rgb(211, 229, 239);
+  --c-purple-tag: rgb(232, 222, 238);
+  --c-pink-tag: rgb(245, 224, 233);
+  --c-red-tag: rgb(255, 226, 221);
+
+  /* Syntax colours (Notion uses Prism's defaults). */
+  --tok-comment: slategray;
+  --tok-keyword: #07a;
+  --tok-string: #690;
+  --tok-number: #905;
+  --tok-function: #dd4a68;
+  --tok-title: #dd4a68;
+  --tok-attr: #905;
+  --tok-builtin: #690;
+  --tok-meta: #999;
+  --tok-operator: #9a6e3a;
+  --tok-variable: #e90;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --surface: #191919;
+  --side: #202020;
+  --raised: #252525;
+  --hover: rgba(255, 255, 255, 0.055);
+  --row-hover: rgba(255, 255, 255, 0.025);
+  --card-hover: #2c2c2c;
+  --line: rgba(255, 255, 255, 0.094);
+  --line-strong: rgba(255, 255, 255, 0.2);
+  --ink: rgba(255, 255, 255, 0.81);
+  --muted: rgba(255, 255, 255, 0.55);
+  --faint: rgba(255, 255, 255, 0.35);
+  --placeholder: rgba(255, 255, 255, 0.2);
+  --accent-soft: color-mix(in srgb, var(--blue) 20%, transparent);
+  --search-bg: rgba(255, 255, 255, 0.03);
+  --code-bg: rgba(135, 131, 120, 0.15);
+  --code-inline: #ff7369;
+  --codeblock-bg: rgba(255, 255, 255, 0.03);
+  --shadow-pop: rgba(15, 15, 15, 0.2) 0 0 0 1px, rgba(15, 15, 15, 0.2) 0 3px 6px, rgba(15, 15, 15, 0.4) 0 9px 24px;
+  --shadow-card: rgba(15, 15, 15, 0.2) 0 0 0 1px, rgba(15, 15, 15, 0.2) 0 2px 4px;
+  --shadow-peek: rgba(15, 15, 15, 0.4) 0 0 0 1px, rgba(15, 15, 15, 0.3) 0 9px 24px;
+
+  --c-gray-text: rgb(155, 155, 155);
+  --c-brown-text: rgb(186, 133, 111);
+  --c-orange-text: rgb(199, 125, 72);
+  --c-yellow-text: rgb(202, 152, 73);
+  --c-green-text: rgb(82, 158, 114);
+  --c-blue-text: rgb(55, 154, 211);
+  --c-purple-text: rgb(157, 104, 211);
+  --c-pink-text: rgb(209, 87, 150);
+  --c-red-text: rgb(223, 84, 82);
+
+  --c-gray-bg: rgb(47, 47, 47);
+  --c-brown-bg: rgb(74, 50, 40);
+  --c-orange-bg: rgb(92, 59, 35);
+  --c-yellow-bg: rgb(86, 67, 40);
+  --c-green-bg: rgb(36, 61, 48);
+  --c-blue-bg: rgb(20, 58, 78);
+  --c-purple-bg: rgb(60, 45, 73);
+  --c-pink-bg: rgb(78, 44, 60);
+  --c-red-bg: rgb(82, 46, 42);
+
+  --c-gray-tag: rgb(55, 55, 55);
+  --c-brown-tag: rgb(74, 50, 40);
+  --c-orange-tag: rgb(92, 59, 35);
+  --c-yellow-tag: rgb(86, 67, 40);
+  --c-green-tag: rgb(36, 61, 48);
+  --c-blue-tag: rgb(20, 58, 78);
+  --c-purple-tag: rgb(60, 45, 73);
+  --c-pink-tag: rgb(78, 44, 60);
+  --c-red-tag: rgb(82, 46, 42);
+
+  --tok-comment: #7f848e;
+  --tok-keyword: #c678dd;
+  --tok-string: #98c379;
+  --tok-number: #d19a66;
+  --tok-function: #61afef;
+  --tok-title: #61afef;
+  --tok-attr: #d19a66;
+  --tok-builtin: #e5c07b;
+  --tok-meta: #7f848e;
+  --tok-operator: #56b6c2;
+  --tok-variable: #e06c75;
+  color-scheme: dark;
+}
+
+/* ---------- Palettes (Settings → Appearance). Graphite is the neutral base above. ---------- */
+
+/* Betelgeuse: warm, slightly ember-tinted neutrals. */
+:root[data-palette="betelgeuse"] {
+  --surface: #fffdfb;
+  --side: #f7f3ef;
+  --raised: #ffffff;
+  --hover: rgba(80, 52, 36, 0.06);
+  --row-hover: rgba(80, 52, 36, 0.03);
+  --card-hover: #fbf7f3;
+  --line: rgba(80, 52, 36, 0.1);
+  --line-strong: rgba(80, 52, 36, 0.2);
+  --ink: #2d2622;
+  --muted: rgba(45, 38, 34, 0.66);
+  --faint: rgba(45, 38, 34, 0.45);
+  --placeholder: rgba(45, 38, 34, 0.24);
+  --codeblock-bg: #f6f1ec;
+  --search-bg: #fffdfb;
+}
+:root[data-palette="betelgeuse"][data-theme="dark"] {
+  --surface: #1b1715;
+  --side: #221d1a;
+  --raised: #2b2522;
+  --hover: rgba(255, 228, 210, 0.06);
+  --row-hover: rgba(255, 228, 210, 0.03);
+  --card-hover: #312a26;
+  --line: rgba(255, 228, 210, 0.09);
+  --line-strong: rgba(255, 228, 210, 0.18);
+  --ink: rgba(255, 246, 238, 0.86);
+  --muted: rgba(255, 240, 228, 0.56);
+  --faint: rgba(255, 240, 228, 0.36);
+  --placeholder: rgba(255, 240, 228, 0.2);
+  --codeblock-bg: rgba(255, 228, 210, 0.04);
+  --search-bg: rgba(255, 228, 210, 0.03);
+}
+
+/* Midnight: cool blue-slate. */
+:root[data-palette="midnight"] {
+  --surface: #fbfcfe;
+  --side: #f2f4f8;
+  --raised: #ffffff;
+  --hover: rgba(30, 41, 70, 0.06);
+  --row-hover: rgba(30, 41, 70, 0.03);
+  --card-hover: #f6f8fb;
+  --line: rgba(30, 41, 70, 0.1);
+  --line-strong: rgba(30, 41, 70, 0.2);
+  --ink: #1f2533;
+  --muted: rgba(31, 37, 51, 0.64);
+  --faint: rgba(31, 37, 51, 0.44);
+  --placeholder: rgba(31, 37, 51, 0.24);
+  --codeblock-bg: #f1f4f9;
+  --search-bg: #ffffff;
+}
+:root[data-palette="midnight"][data-theme="dark"] {
+  --surface: #13161d;
+  --side: #191d26;
+  --raised: #212632;
+  --hover: rgba(200, 215, 255, 0.06);
+  --row-hover: rgba(200, 215, 255, 0.03);
+  --card-hover: #262c39;
+  --line: rgba(200, 215, 255, 0.09);
+  --line-strong: rgba(200, 215, 255, 0.18);
+  --ink: rgba(236, 241, 255, 0.86);
+  --muted: rgba(220, 228, 250, 0.56);
+  --faint: rgba(220, 228, 250, 0.36);
+  --placeholder: rgba(220, 228, 250, 0.2);
+  --codeblock-bg: rgba(200, 215, 255, 0.04);
+  --search-bg: rgba(200, 215, 255, 0.03);
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-side: var(--side);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --shadow-pop: var(--shadow-pop);
+  --shadow-card: var(--shadow-card);
+  --shadow-peek: var(--shadow-peek);
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif;
+  --font-serif: "Lyon-Text", Georgia, ui-serif, serif;
+  --font-mono: "iawriter-mono", Nitti, Menlo, Courier, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+  cursor: default;
+}
+
+input,
+textarea,
+.ProseMirror,
+pre {
+  user-select: text;
+}
+
+/* Hand cursor on everything clickable, like Notion. In the base layer so utilities such as
+   cursor-grab (drag handles) and cursor-text (editable cells) still win. */
+@layer base {
+  button,
+  [role="button"],
+  a,
+  summary,
+  select,
+  label,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="color"],
+  .wikilink,
+  [data-type="details"] > button {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: default;
+  }
+  .ProseMirror,
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea {
+    cursor: text;
+  }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--blue) 28%, transparent);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 10px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Page fonts (page menu → Style). */
+[data-font="serif"] .betelgeuse-prose,
+[data-font="serif"] .page-title {
+  font-family: var(--font-serif);
+}
+[data-font="mono"] .betelgeuse-prose,
+[data-font="mono"] .page-title {
+  font-family: var(--font-mono);
+}
+:root[data-text="large"] .betelgeuse-prose {
+  font-size: 17.5px;
+}
+:root[data-text="small"] .betelgeuse-prose {
+  font-size: 15px;
+}
+[data-small] .betelgeuse-prose {
+  font-size: 14px;
+}
+
+/* ---------- Editor ---------- */
+
+.betelgeuse-prose {
+  outline: none;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--ink);
+  caret-color: var(--ink);
+  padding-bottom: 2rem;
+}
+
+/* Notion blocks are separated by ~2px; paragraphs have 3px vertical padding. */
+.betelgeuse-prose > *,
+.betelgeuse-prose .column > *,
+.betelgeuse-prose .callout-content > *,
+.betelgeuse-prose [data-type="detailsContent"] > * {
+  margin-top: 2px;
+  margin-bottom: 1px;
+}
+.betelgeuse-prose p {
+  padding: 3px 2px;
+  min-height: 1.5em;
+}
+
+.betelgeuse-prose .is-empty::before {
+  content: attr(data-placeholder);
+  color: var(--placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.betelgeuse-prose p.is-empty::before {
+  color: var(--faint);
+  opacity: 0.7;
+}
+
+.betelgeuse-prose h1,
+.betelgeuse-prose h2,
+.betelgeuse-prose h3 {
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 3px 2px;
+}
+.betelgeuse-prose h1 { font-size: 1.875em; margin-top: 2rem; margin-bottom: 4px; }
+.betelgeuse-prose h2 { font-size: 1.5em; margin-top: 1.4rem; margin-bottom: 1px; }
+.betelgeuse-prose h3 { font-size: 1.25em; margin-top: 1rem; margin-bottom: 1px; }
+.betelgeuse-prose > h1:first-child,
+.betelgeuse-prose > h2:first-child,
+.betelgeuse-prose > h3:first-child {
+  margin-top: 0;
+}
+
+.betelgeuse-prose strong { font-weight: 600; }
+
+.betelgeuse-prose a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 2px;
+  opacity: 0.85;
+}
+
+.betelgeuse-prose code {
+  font-family: var(--font-mono);
+  font-size: 85%;
+  color: var(--code-inline);
+  background: var(--code-bg);
+  border-radius: 4px;
+  padding: 0.2em 0.4em;
+}
+
+.betelgeuse-prose span.has-bg {
+  border-radius: 3px;
+  padding: 0 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* Code blocks: Notion's grey card with language picker and copy on hover. */
+.betelgeuse-prose .code-block {
+  position: relative;
+  margin: 4px 0;
+  background: var(--codeblock-bg);
+  border-radius: 4px;
+}
+.betelgeuse-prose .code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 30px;
+  padding: 6px 8px 0;
+  font-size: 12px;
+  color: var(--muted);
+  user-select: none;
+}
+.betelgeuse-prose .code-block pre {
+  margin: 0;
+  padding: 8px 20px 26px 32px;
+  font-family: var(--font-mono);
+  font-size: 85%;
+  line-height: 1.5;
+  tab-size: 2;
+  overflow-x: auto;
+  white-space: pre;
+}
+.betelgeuse-prose .code-block pre.wrap {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.betelgeuse-prose .code-block pre code {
+  background: none;
+  color: var(--ink);
+  padding: 0;
+  font-size: inherit;
+  border-radius: 0;
+}
+.hljs-comment,
+.hljs-quote { color: var(--tok-comment); font-style: italic; }
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type { color: var(--tok-keyword); }
+.hljs-string,
+.hljs-regexp,
+.hljs-addition,
+.hljs-template-tag,
+.hljs-template-variable { color: var(--tok-string); }
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet { color: var(--tok-number); }
+.hljs-title,
+.hljs-title.function_,
+.hljs-section { color: var(--tok-function); }
+.hljs-attr,
+.hljs-attribute,
+.hljs-property,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id { color: var(--tok-attr); }
+.hljs-built_in,
+.hljs-title.class_,
+.hljs-class .hljs-title { color: var(--tok-builtin); }
+.hljs-meta,
+.hljs-punctuation,
+.hljs-tag { color: var(--tok-meta); }
+.hljs-operator { color: var(--tok-operator); }
+.hljs-variable,
+.hljs-params,
+.hljs-name { color: var(--tok-variable); }
+.hljs-deletion { color: var(--c-red-text); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+
+.betelgeuse-prose blockquote {
+  border-left: 3px solid currentColor;
+  padding: 0 14px;
+  margin: 4px 0;
+  font-size: 1.1em;
+}
+.betelgeuse-prose blockquote p {
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+.betelgeuse-prose hr {
+  border: none;
+  border-top: 1px solid var(--line-strong);
+  margin: 12px 0;
+}
+.betelgeuse-prose hr.ProseMirror-selectednode {
+  border-top-color: var(--blue);
+}
+
+.betelgeuse-prose ul,
+.betelgeuse-prose ol {
+  padding-left: 1.7em;
+}
+.betelgeuse-prose ul { list-style: disc; }
+.betelgeuse-prose ul ul { list-style: circle; }
+.betelgeuse-prose ul ul ul { list-style: square; }
+.betelgeuse-prose ol { list-style: decimal; }
+.betelgeuse-prose ol ol { list-style: lower-alpha; }
+.betelgeuse-prose ol ol ol { list-style: lower-roman; }
+.betelgeuse-prose li > p { padding-top: 3px; padding-bottom: 3px; }
+.betelgeuse-prose li::marker { color: var(--ink); }
+
+.betelgeuse-prose ul[data-type="taskList"] {
+  list-style: none;
+  padding-left: 5px;
+}
+.betelgeuse-prose ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.betelgeuse-prose ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  margin-top: 6px;
+  user-select: none;
+}
+.betelgeuse-prose ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.betelgeuse-prose ul[data-type="taskList"] input[type="checkbox"] {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.betelgeuse-prose ul[data-type="taskList"] input[type="checkbox"]:hover {
+  background: var(--hover);
+}
+.betelgeuse-prose ul[data-type="taskList"] input[type="checkbox"]:checked {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+.betelgeuse-prose ul[data-type="taskList"] input[type="checkbox"]:checked::after {
+  content: "";
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg);
+}
+.betelgeuse-prose li[data-checked="true"] > div {
+  color: var(--faint);
+  text-decoration: line-through;
+  text-decoration-color: var(--line-strong);
+}
+
+/* Simple tables */
+.betelgeuse-prose .tableWrapper {
+  overflow-x: auto;
+  margin: 6px 0;
+}
+.betelgeuse-prose table {
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.betelgeuse-prose th,
+.betelgeuse-prose td {
+  border: 1px solid var(--line-strong);
+  padding: 7px 9px;
+  text-align: left;
+  vertical-align: top;
+  min-width: 120px;
+}
+.betelgeuse-prose th {
+  background: var(--codeblock-bg);
+  font-weight: 600;
+}
+.betelgeuse-prose th p,
+.betelgeuse-prose td p {
+  padding: 0;
+  min-height: 0;
+}
+.betelgeuse-prose .selectedCell {
+  background: var(--accent-soft);
+}
+
+/* Callout */
+.betelgeuse-prose .callout {
+  display: flex;
+  gap: 8px;
+  padding: 16px 16px 16px 12px;
+  border-radius: 4px;
+  margin: 4px 0;
+}
+.betelgeuse-prose .callout[data-plain] {
+  border: 1px solid var(--line);
+}
+.betelgeuse-prose .callout-content {
+  flex: 1;
+  min-width: 0;
+}
+.betelgeuse-prose .callout-content > :first-child {
+  margin-top: 0;
+}
+.betelgeuse-prose .callout-content p {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Toggle */
+.betelgeuse-prose [data-type="details"] {
+  display: flex;
+  gap: 2px;
+  margin: 2px 0;
+}
+.betelgeuse-prose [data-type="details"] > button {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--ink);
+}
+.betelgeuse-prose [data-type="details"] > button:hover {
+  background: var(--hover);
+}
+.betelgeuse-prose [data-type="details"] > button::before {
+  content: "";
+  border-style: solid;
+  border-width: 5px 0 5px 8px;
+  border-color: transparent transparent transparent currentColor;
+  transition: transform 120ms;
+}
+.betelgeuse-prose [data-type="details"].is-open > button::before {
+  transform: rotate(90deg);
+}
+.betelgeuse-prose [data-type="details"] > div {
+  flex: 1;
+  min-width: 0;
+}
+.betelgeuse-prose [data-type="details"] summary {
+  list-style: none;
+  padding: 3px 2px;
+}
+.betelgeuse-prose [data-type="details"] summary::-webkit-details-marker {
+  display: none;
+}
+.betelgeuse-prose [data-type="details"]:not(.is-open) > div > [data-type="detailsContent"] {
+  display: none;
+}
+
+/* Columns */
+.betelgeuse-prose .columns {
+  display: flex;
+  gap: 46px;
+  margin: 4px 0;
+}
+.betelgeuse-prose .column {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.betelgeuse-prose .column > :first-child {
+  margin-top: 0;
+}
+
+/* Page mentions / wikilinks */
+.betelgeuse-prose .wikilink {
+  color: var(--ink);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 2px;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.betelgeuse-prose .wikilink::before {
+  content: "↗ ";
+  font-size: 0.8em;
+  color: var(--faint);
+  text-decoration: none;
+  display: inline-block;
+  margin-right: 1px;
+}
+.betelgeuse-prose .wikilink:hover {
+  background: var(--hover);
+}
+.betelgeuse-prose .wikilink.ProseMirror-selectednode {
+  background: var(--accent-soft);
+}
+
+.betelgeuse-prose img {
+  max-width: 100%;
+}
+
+.betelgeuse-prose .ProseMirror-selectednode:not(.wikilink):not(hr) {
+  outline: none;
+}
+/* Embedded databases manage their own selection; tinting the whole table looks broken. */
+.betelgeuse-prose > .node-databaseEmbed.ProseMirror-selectednode {
+  background: transparent !important;
+}
+.betelgeuse-prose > .ProseMirror-selectednode,
+.betelgeuse-prose .callout.ProseMirror-selectednode,
+.betelgeuse-prose .code-block.ProseMirror-selectednode {
+  background-color: color-mix(in srgb, var(--blue) 14%, transparent);
+  border-radius: 3px;
+}
+
+/* Drag handle and drop indicator */
+.drag-handle {
+  transition: opacity 120ms;
+}
+.ProseMirror-hideselection .drag-handle {
+  opacity: 0;
+}
+.ProseMirror-gapcursor::after {
+  border-top-color: var(--ink);
+}
+
+/* Side peek slides in from the right. */
+.peek-panel {
+  animation: peek-in 160ms ease-out;
+}
+@keyframes peek-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+}
+
+.toast {
+  animation: toast-in 180ms ease-out;
+}
+@keyframes toast-in {
+  from {
+    transform: translate(-50%, 8px);
+    opacity: 0;
+  }
+}

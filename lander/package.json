@@ -1,0 +1,26 @@
+{
+  "name": "betelgeuse-lander",
+  "private": true,
+  "description": "The Betelgeuse landing page, exported as a static site for GitHub Pages",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "npx serve out",
+    "typecheck": "tsc --noEmit",
+    "screenshots": "node scripts/screenshots.mjs"
+  },
+  "dependencies": {
+    "next": "^16.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "playwright-core": "^1.63.0",
+    "typescript": "^5.9.3"
+  }
+}
