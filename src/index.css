@@ -659,30 +659,78 @@ pre {
   margin-top: 0;
 }
 
-/* Page mentions / wikilinks */
+/* Page mentions / wikilinks: the linked page's icon (or ↗) and an underlined title. */
 .betelgeuse-prose .wikilink {
   color: var(--ink);
   font-weight: 500;
   cursor: pointer;
+  border-radius: 3px;
+  padding: 0 2px;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+.betelgeuse-prose .wikilink-title {
   text-decoration: underline;
   text-decoration-color: var(--line-strong);
   text-underline-offset: 2px;
-  border-radius: 3px;
-  padding: 0 2px;
 }
-.betelgeuse-prose .wikilink::before {
-  content: "↗ ";
-  font-size: 0.8em;
-  color: var(--faint);
-  text-decoration: none;
-  display: inline-block;
-  margin-right: 1px;
+.betelgeuse-prose .wikilink-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15em;
+  margin-right: 0.25em;
+  vertical-align: -0.18em;
+  line-height: 1;
+  color: var(--muted);
 }
 .betelgeuse-prose .wikilink:hover {
   background: var(--hover);
 }
 .betelgeuse-prose .wikilink.ProseMirror-selectednode {
   background: var(--accent-soft);
+}
+.betelgeuse-prose .wikilink.missing {
+  color: var(--muted);
+}
+.betelgeuse-prose .wikilink.missing .wikilink-title {
+  text-decoration-style: dashed;
+}
+
+/* A line that is just a page link reads as a block (Notion's "link to page"): one row, icon centred on the
+   first line, wrapped title aligned under itself, and the whole row highlights on hover. */
+/* A flex row, so ProseMirror's zero-size cursor helpers around the link (forced inline) can't add empty lines. */
+.betelgeuse-prose p.page-link-line {
+  display: flex;
+  align-items: center;
+}
+.betelgeuse-prose p.page-link-line > span {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.betelgeuse-prose p.page-link-line .wikilink {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  margin: 0 -6px;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+/* Like Notion, a page-link row stays on one line; long titles end in "…" (the full title is the tooltip). */
+.betelgeuse-prose p.page-link-line .wikilink-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.betelgeuse-prose p.page-link-line .wikilink-icon {
+  flex-shrink: 0;
+  width: 1.2em;
+  /* As tall as the title's first line, so the icon centres on it however the title wraps. */
+  font-size: 1em;
+  line-height: inherit;
+  height: 1lh;
+  margin: 0;
 }
 
 .betelgeuse-prose img {

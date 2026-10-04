@@ -1,4 +1,10 @@
 import { Node, mergeAttributes } from "@tiptap/core";
+import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import { ReactNodeViewRenderer } from "@tiptap/react";
+import { WikiLinkView } from "./WikiLinkView";
+
+const lineKey = new PluginKey<DecorationSet>("wikiLinkLine");
 
 const WIKILINK = /^\[\[([^\]\n|]+?)(?:\|([^\]\n]+))?\]\]/;
 
@@ -37,6 +43,36 @@ export const WikiLink = Node.create({
       }),
       node.attrs.alias || node.attrs.target,
     ];
+  },
+
+  addProseMirrorPlugins() {
+    // A paragraph that is nothing but one page link reads as a page-link block (Notion's "link to page"):
+    // the arrow hangs in the margin and long titles wrap under the title. Display only; Markdown is unchanged.
+    const lineOnly = (doc: import("@tiptap/pm/model").Node) => {
+      const decos: Decoration[] = [];
+      doc.descendants((n, pos) => {
+        if (n.type.name === "paragraph") {
+          if (n.childCount === 1 && n.firstChild?.type.name === this.name) decos.push(Decoration.node(pos, pos + n.nodeSize, { class: "page-link-line" }));
+          return false;
+        }
+        return true;
+      });
+      return DecorationSet.create(doc, decos);
+    };
+    return [
+      new Plugin({
+        key: lineKey,
+        state: {
+          init: (_, { doc }) => lineOnly(doc),
+          apply: (tr, old) => (tr.docChanged ? lineOnly(tr.doc) : old),
+        },
+        props: { decorations: (state) => lineKey.getState(state) },
+      }),
+    ];
+  },
+
+  addNodeView() {
+    return ReactNodeViewRenderer(WikiLinkView, { as: "span" });
   },
 
   renderText({ node }) {

@@ -274,7 +274,7 @@ export default async function Home() {
               <ol className="steps">
                 <li>
                   <span>
-                    <strong>Export</strong> from Notion as <em>Markdown &amp; CSV</em>, or pick your Obsidian vault.
+                    <strong>Export</strong> from Notion as <em>HTML</em> (keeps icons and colours) or <em>Markdown &amp; CSV</em>, or pick your Obsidian vault.
                   </span>
                 </li>
                 <li>

@@ -411,7 +411,7 @@ export function ImportDemo() {
           <FileArchive size={22} className="im-file" />
           <span>
             <strong>Notion export.zip</strong>
-            <small>Markdown &amp; CSV</small>
+            <small>HTML or Markdown &amp; CSV</small>
           </span>
         </div>
         <div className="im-source b">

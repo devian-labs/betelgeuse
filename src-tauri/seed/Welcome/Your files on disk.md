@@ -47,6 +47,7 @@ Betelgeuse/
 | `small`     | `small: true`          | Small text                                   |
 | `fullWidth` | `fullWidth: true`      | Full width                                   |
 | `ai`        | `ai: false`            | Hide from AI agents, or `true` to share      |
+| `order`     | `order: 2`             | Its place among sibling pages in the sidebar |
 | `type`      | `type: database`       | Makes the page a database                    |
 
 A database row's frontmatter also holds its property values, such as `Status: Done`. See [[Databases]].

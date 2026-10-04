@@ -222,6 +222,10 @@ export function installMockTauri({ files, histories, vault, mcp, git }) {
     const v = fmValue(fm, key)?.toLowerCase();
     return v === "true" || v === "yes" ? true : v === "false" || v === "no" ? false : null;
   };
+  const fmNumber = (fm, key) => {
+    const v = fmValue(fm, key);
+    return v !== null && /^[+-]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?$/i.test(v) ? Number(v) : null;
+  };
   const fmList = (fm, key) => {
     const lines = fm.split("\n");
     for (let i = 0; i < lines.length; i++) {
@@ -247,6 +251,7 @@ export function installMockTauri({ files, histories, vault, mcp, git }) {
       tags: fmList(fm, "tags"),
       kind: fmValue(fm, "type"),
       ai: fmBool(fm, "ai"),
+      order: fmNumber(fm, "order"),
       modified: f.modified,
       created: f.created,
     };

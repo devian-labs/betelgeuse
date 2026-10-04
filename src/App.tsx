@@ -12,6 +12,7 @@ import { Sidebar } from "./components/Sidebar";
 import { api, type AiPolicy, type NoteMeta, type RepoStatus, type VaultInfo } from "./lib/api";
 import { aiAccess } from "./lib/ai";
 import { joinNote, patchFrontmatter, splitNote } from "./lib/frontmatter";
+import { planReorder } from "./lib/order";
 import { ancestorKeys, buildTree } from "./lib/tree";
 import { VaultContext, type VaultContextValue } from "./lib/vault";
 import { useFullscreen } from "./lib/window";
@@ -229,6 +230,30 @@ export default function App() {
     [aiPolicy, refresh],
   );
 
+  // Dragging a page in the sidebar: write the few `order` values that put it where it was dropped.
+  const reorderPage = useCallback(
+    async (path: string, siblings: string[], gap: number) => {
+      const byPath = new Map(notesRef.current.map((n) => [n.path, n]));
+      const writes = planReorder(siblings.map((s) => ({ path: s, order: byPath.get(s)?.order ?? null })), path, gap);
+      if (!Object.keys(writes).length) return;
+      // Re-sort right away; the files follow.
+      setNotes((ns) => ns.map((n) => (n.path in writes ? { ...n, order: writes[n.path] } : n)));
+      try {
+        for (const [page, order] of Object.entries(writes)) {
+          const { frontmatter, body } = splitNote(await api.readNote(page));
+          await api.writeNote(page, joinNote(patchFrontmatter(frontmatter, { order }), body));
+        }
+      } catch (e) {
+        await message(String(e), { title: "Betelgeuse", kind: "error" });
+      } finally {
+        await refresh();
+        // An open page picks up its new frontmatter instead of saving over it.
+        setRefreshKey((k) => k + 1);
+      }
+    },
+    [refresh],
+  );
+
   const ctx: VaultContextValue = useMemo(
     () => ({ notes, refreshKey, openPage, peek: setPeekPath, createPage, refresh, aiPolicy, setPageAi }),
     [notes, refreshKey, openPage, createPage, refresh, aiPolicy, setPageAi],
@@ -287,6 +312,7 @@ export default function App() {
             onDelete={deletePage}
             onDuplicate={async (path) => openPage(await api.duplicateNote(path))}
             onToggleFavorite={toggleFavorite}
+            onReorder={reorderPage}
             onSearch={() => setPalette(true)}
             onSwitchVault={async () => {
               const dir = await openDialog({ directory: true, title: "Open or create a workspace folder" });

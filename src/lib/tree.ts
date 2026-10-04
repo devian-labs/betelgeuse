@@ -1,4 +1,5 @@
 import type { NoteMeta } from "./api";
+import { compareSiblings, orderOf } from "./order";
 
 export type TreeNode = {
   /** Folder path the node's children live in (`A/B` for `A/B.md`). */
@@ -30,8 +31,10 @@ export function buildTree(notes: NoteMeta[]): TreeNode[] {
     node.title = note.title;
   }
 
+  // Manual `order` first, then A–Z; plain folders have no file to hold an order.
+  const key = (n: TreeNode) => ({ order: orderOf(n.note?.order), title: n.title });
   const sort = (n: TreeNode) => {
-    n.children.sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }));
+    n.children.sort((a, b) => compareSiblings(key(a), key(b)));
     n.children.forEach(sort);
   };
   sort(root);

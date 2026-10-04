@@ -18,6 +18,8 @@ pub struct NoteMeta {
     pub kind: Option<String>,
     /// Frontmatter `ai`: `false` hides the page (and its sub-pages) from agents, `true` shares it.
     pub ai: Option<bool>,
+    /// Frontmatter `order`: position among sibling pages (ascending; pages without one follow A–Z).
+    pub order: Option<f64>,
     pub modified: u64,
     pub created: u64,
 }
@@ -121,6 +123,11 @@ pub fn fm_bool(fm: &str, key: &str) -> Option<bool> {
     }
 }
 
+/// A finite number, e.g. `order: 2.5`; anything else reads as `None`.
+pub fn fm_number(fm: &str, key: &str) -> Option<f64> {
+    fm_value(fm, key)?.parse::<f64>().ok().filter(|n| n.is_finite())
+}
+
 pub fn fm_list(fm: &str, key: &str) -> Vec<String> {
     let mut lines = fm.lines();
     while let Some(l) = lines.next() {
@@ -153,6 +160,7 @@ fn meta_for(vault: &Path, abs: &Path) -> NoteMeta {
         tags: fm_list(fm, "tags"),
         kind: fm_value(fm, "type"),
         ai: fm_bool(fm, "ai"),
+        order: fm_number(fm, "order"),
         path: rel,
         modified,
         created,
@@ -594,6 +602,25 @@ mod tests {
         assert_eq!(body, "# Hi\n");
         let (fm, _) = split_frontmatter("---\ntags:\n  - x\n  - y\nicon: a\n---\n");
         assert_eq!(fm_list(fm, "tags"), vec!["x", "y"]);
+    }
+
+    #[test]
+    fn list_notes_exposes_order() {
+        let dir = std::env::temp_dir().join(format!("bg-order-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        write_note(&dir, "A.md", "---\nicon: 🚀\norder: 2\n---\n").unwrap();
+        write_note(&dir, "B.md", "---\norder: -0.5\n---\nbody").unwrap();
+        write_note(&dir, "C.md", "no frontmatter").unwrap();
+        write_note(&dir, "D.md", "---\norder: soon\n---\n").unwrap();
+        write_note(&dir, "E.md", "---\norder: inf\n---\n").unwrap();
+        let orders: Vec<_> = list_notes(&dir).into_iter().map(|n| (n.title, n.order)).collect();
+        assert_eq!(
+            orders,
+            vec![("A".into(), Some(2.0)), ("B".into(), Some(-0.5)), ("C".into(), None), ("D".into(), None), ("E".into(), None)]
+        );
+        let json = serde_json::to_value(&list_notes(&dir)[0]).unwrap();
+        assert_eq!(json["order"], serde_json::json!(2.0));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

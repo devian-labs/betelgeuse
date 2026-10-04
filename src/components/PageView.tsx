@@ -36,7 +36,7 @@ import { timeAgo } from "../lib/time";
 import { ancestorKeys, resolveWikiLink } from "../lib/tree";
 import { aiAccess, type AiAccess } from "../lib/ai";
 import { useVault } from "../lib/vault";
-import { CoverPicker, coverStyle } from "./Cover";
+import { CoverBox, CoverPicker } from "./Cover";
 import { IconPicker } from "./IconPicker";
 import { Outline } from "./Outline";
 import { MenuDivider, MenuItem, MenuSection, Popover } from "./Popover";
@@ -224,7 +224,7 @@ export function PageView(p: Props) {
       {!peekMode && !isDb && <Outline key={`${path}:${editorKey}`} scroller={scroller} />}
       <div ref={scroller} className="h-full overflow-y-auto" data-font={font} data-small={small || undefined}>
         {cover && (
-          <div className="group/cover relative h-[30vh] max-h-[280px] min-h-[160px] w-full" style={coverStyle(cover)}>
+          <CoverBox cover={cover} className="group/cover relative h-[30vh] max-h-[280px] min-h-[160px] w-full">
             <div className="absolute right-4 bottom-3 hidden gap-1 group-hover/cover:flex">
               <button onClick={() => setPicker("cover")} className="rounded-md bg-raised/90 px-2 py-1 text-xs text-muted shadow-sm hover:bg-raised">
                 Change cover
@@ -233,7 +233,7 @@ export function PageView(p: Props) {
                 Remove
               </button>
             </div>
-          </div>
+          </CoverBox>
         )}
 
         <div className={`mx-auto w-full ${width} ${peekMode ? "pt-6" : cover ? "pt-0" : "pt-20"} pb-[30vh]`}>

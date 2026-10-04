@@ -8,6 +8,8 @@ export type NoteMeta = {
   kind: string | null;
   /** Frontmatter `ai`: false hides the page (and sub-pages) from agents, true shares it. */
   ai: boolean | null;
+  /** Frontmatter `order`: position among sibling pages in the sidebar (ascending; unset pages follow A–Z). */
+  order: number | null;
   modified: number;
   created: number;
 };

@@ -7,7 +7,7 @@ import { Document, isMap, parseDocument } from "yaml";
 
 const exec = promisify(execFile);
 
-export type NoteMeta = { path: string; title: string; icon?: string; tags: string[]; type?: string; modified: string };
+export type NoteMeta = { path: string; title: string; icon?: string; tags: string[]; type?: string; order?: number; modified: string };
 export type Frontmatter = Record<string, unknown>;
 export type FrontmatterPatch = Record<string, unknown>;
 
@@ -130,13 +130,15 @@ export class Vault {
       title: titleOf(rel),
       icon: typeof fm.icon === "string" ? fm.icon : undefined,
       type: typeof fm.type === "string" ? fm.type : undefined,
+      order: orderOf(fm.order),
       tags: (Array.isArray(tags) ? tags : [tags]).map(String),
       modified: (await stat(abs)).mtime.toISOString(),
     };
   }
 
+  /** Visible notes in sidebar order: each page followed by its sub-pages, siblings by `order` then A–Z. */
   async list(): Promise<NoteMeta[]> {
-    return Promise.all((await this.files()).map((f) => this.meta(f)));
+    return treeOrder(await Promise.all((await this.files()).map((f) => this.meta(f))));
   }
 
   /** Finds a note by vault path or by title (case-insensitive), the way `[[links]]` resolve. */
@@ -403,4 +405,45 @@ export function isVisible(rel: string, policy: "all" | "shared", flagOf: (rel: s
     if (flag === true) shared = true;
   }
   return policy === "all" || shared;
+}
+
+/** Frontmatter `order` as a number (a numeric string counts too); anything else is unset. */
+function orderOf(v: unknown): number | undefined {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/**
+ * Sorts notes the way the app's sidebar shows them: depth-first, a page before its sub-pages, and
+ * siblings by `order` ascending with unordered pages after the ordered ones, A–Z. A folder with no
+ * page of its own sorts like an unordered page.
+ */
+export function treeOrder(notes: NoteMeta[]): NoteMeta[] {
+  type Node = { title: string; note?: NoteMeta; children: Map<string, Node> };
+  const root: Node = { title: "", children: new Map() };
+  for (const note of notes) {
+    let node = root;
+    for (const part of note.path.replace(/\.md$/, "").split("/")) {
+      let child = node.children.get(part);
+      if (!child) node.children.set(part, (child = { title: part, children: new Map() }));
+      node = child;
+    }
+    node.note = note;
+  }
+  const compare = (a: Node, b: Node) => {
+    const [x, y] = [a.note?.order, b.note?.order];
+    if (x !== undefined && y !== undefined && x !== y) return x - y;
+    if (x !== undefined && y === undefined) return -1;
+    if (x === undefined && y !== undefined) return 1;
+    return a.title.localeCompare(b.title, undefined, { sensitivity: "base" });
+  };
+  const out: NoteMeta[] = [];
+  const walk = (node: Node) => {
+    for (const child of [...node.children.values()].sort(compare)) {
+      if (child.note) out.push(child.note);
+      walk(child);
+    }
+  };
+  walk(root);
+  return out;
 }

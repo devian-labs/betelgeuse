@@ -550,9 +550,10 @@ function ImportSection({ onChanged }: { onChanged: () => void }) {
                   In Notion, open <b>Settings → General → Export all workspace content</b> (or a page’s <b>••• → Export</b>).
                 </li>
                 <li>
-                  Choose <b>Markdown &amp; CSV</b> and turn on <b>Include subpages</b>.
+                  Choose <b>HTML</b> (recommended: it keeps page icons, covers, colours, highlights and toggles) or <b>Markdown &amp; CSV</b>, and turn
+                  on <b>Include subpages</b>.
                 </li>
-                <li>Pick the downloaded .zip here. Databases become Betelgeuse databases with their columns and values.</li>
+                <li>Pick the downloaded .zip here. Both formats work. Databases become Betelgeuse databases with their columns and values.</li>
               </ol>
             </div>
           </div>
@@ -599,7 +600,7 @@ function ImportSection({ onChanged }: { onChanged: () => void }) {
                 {result.report.databases > 0 && `, ${result.report.databases} database${result.report.databases === 1 ? "" : "s"}`}
                 {result.report.assets > 0 && ` and ${result.report.assets} file${result.report.assets === 1 ? "" : "s"}`} into “
                 {result.report.root.replace(/\.md$/, "")}”.
-                {result.report.skipped.length > 0 && <div className="mt-1 text-xs">Skipped (unreadable): {result.report.skipped.join(", ")}</div>}
+                {result.report.skipped.length > 0 && <div className="mt-1 text-xs">Not imported: {result.report.skipped.join("; ")}</div>}
               </>
             ) : (
               <span className="break-words">{result.error}</span>

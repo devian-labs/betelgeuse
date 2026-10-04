@@ -43,6 +43,7 @@ Conventions:
 - A note's title is its file name. Paths are workspace-relative, e.g. "Projects/Launch plan.md".
 - Sub-pages live in a folder named after their parent: "Projects/Launch plan.md" is a child of "Projects.md".
 - Notes may start with YAML frontmatter. Common keys are "icon" (one emoji) and "tags" (a list).
+- Sibling pages are ordered by the frontmatter number "order" (ascending; pages without it follow, A–Z), as list_notes shows. To reorder, set "order" with update_note, e.g. between 2 and 3 use 2.5.
 - Notes link to each other with [[Title]] or [[Title|label]] wikilinks.
 - The body is GitHub-flavoured Markdown: headings, lists, "- [ ]" task lists, tables, code blocks and quotes.
 - Notion-style blocks use readable HTML-ish syntax: <span data-color="red" data-bg="yellow">text</span> for colours,
@@ -114,7 +115,7 @@ function buildServer(): McpServer {
     "list_notes",
     {
       title: "List notes",
-      description: "Lists notes as a page tree with titles, icons and tags. Optionally filter by folder or tag.",
+      description: "Lists notes as a page tree with titles, icons and tags, in the same order as the app's sidebar. Optionally filter by folder or tag.",
       inputSchema: {
         folder: z.string().optional().describe('Only notes under this folder, e.g. "Projects"'),
         tag: z.string().optional().describe("Only notes with this tag"),
@@ -127,7 +128,7 @@ function buildServer(): McpServer {
       if (tag) notes = notes.filter((n) => n.tags.some((t) => t.toLowerCase() === tag.toLowerCase().replace(/^#/, "")));
       const lines = notes.map((n) => {
         const depth = n.path.split("/").length - 1;
-        const meta = [n.tags.length ? `#${n.tags.join(" #")}` : "", n.path].filter(Boolean).join("  ");
+        const meta = [n.tags.length ? `#${n.tags.join(" #")}` : "", n.path, n.order !== undefined ? `order: ${n.order}` : ""].filter(Boolean).join("  ");
         return `${"  ".repeat(depth)}- ${n.icon ? `${n.icon} ` : ""}${n.title}  (${meta})`;
       });
       return text(lines.length ? lines.join("\n") : "No notes match.");

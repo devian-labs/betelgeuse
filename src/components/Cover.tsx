@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { COLORS, colorLabel } from "../lib/colors";
+import { assetUrl } from "./PageIcon";
 
-/** Covers are stored in frontmatter as `cover: gradient_3`, `cover: color_blue` or an image URL. */
+/**
+ * Covers are stored in frontmatter as `cover: gradient_3`, `cover: color_blue`, an image URL or
+ * an image in the workspace (`.assets/…`, e.g. from a Notion import).
+ */
 export const GRADIENTS = [
   "linear-gradient(120deg, #f6d365 0%, #fda085 100%)",
   "linear-gradient(120deg, #a1c4fd 0%, #c2e9fb 100%)",
@@ -19,6 +23,29 @@ export function coverStyle(cover: string): CSSProperties {
   const c = /^color_([a-z]+)$/.exec(cover);
   if (c) return { background: `var(--c-${c[1]}-text)` };
   return { backgroundImage: `url("${cover}")`, backgroundSize: "cover", backgroundPosition: "center" };
+}
+
+/** A cover band; workspace images (`.assets/…`) are loaded the way page icons are. */
+export function CoverBox({ cover, className, children }: { cover: string; className?: string; children?: ReactNode }) {
+  const local = cover.startsWith(".assets/");
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!local) return;
+    let alive = true;
+    setUrl(null);
+    assetUrl(cover)
+      .then((u) => alive && setUrl(u))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [cover, local]);
+  const style = local ? (url ? coverStyle(url) : { background: "var(--hover)" }) : coverStyle(cover);
+  return (
+    <div className={className} style={style}>
+      {children}
+    </div>
+  );
 }
 
 export function CoverPicker({ onPick, onClose }: { onPick: (cover: string) => void; onClose: () => void }) {

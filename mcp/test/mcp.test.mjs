@@ -156,3 +156,23 @@ test("deleting moves a page to the Trash with its sub-pages", async () => {
   assert.equal(readFileSync(path.join(vault, ".trash", id, "Old/Sub.md"), "utf8"), "sub page\n");
   assert.doesNotMatch(await call("list_notes"), /Old/);
 });
+
+test("lists pages in the sidebar's order: by `order`, then A–Z", async () => {
+  mkdirSync(path.join(vault, "Shelf"), { recursive: true });
+  writeFileSync(path.join(vault, "Shelf.md"), "---\norder: -1\n---\n");
+  writeFileSync(path.join(vault, "Shelf/Apple.md"), "a\n");
+  writeFileSync(path.join(vault, "Shelf/Banana.md"), "---\norder: 2\n---\nb\n");
+  writeFileSync(path.join(vault, "Shelf/Cherry.md"), "---\nicon: 🍒\norder: 1\n---\nc\n");
+  writeFileSync(path.join(vault, "Shelf/Date.md"), "d\n");
+  writeFileSync(path.join(vault, "Shelf/Elder.md"), "---\norder: 1.5\n---\ne\n");
+  const titles = (listing) => [...listing.matchAll(/^\s*- (?:\S+ )?(\w+)  \(/gmu)].map((m) => m[1]);
+  assert.deepEqual(titles(await call("list_notes", { folder: "Shelf" })), ["Cherry", "Elder", "Banana", "Apple", "Date"]);
+  // The ordered top-level page comes first, ahead of the A–Z ones, with its sub-pages under it.
+  const all = titles(await call("list_notes"));
+  assert.deepEqual(all.slice(0, 6), ["Shelf", "Cherry", "Elder", "Banana", "Apple", "Date"]);
+  assert.match(await call("list_notes", { folder: "Shelf" }), /Banana  \(Shelf\/Banana\.md  order: 2\)/);
+  // Agents reorder with a frontmatter patch.
+  await call("update_note", { note: "Shelf/Date", frontmatter: { order: 0.5 } });
+  assert.equal(readFileSync(path.join(vault, "Shelf/Date.md"), "utf8"), "---\norder: 0.5\n---\nd\n");
+  assert.deepEqual(titles(await call("list_notes", { folder: "Shelf" })), ["Date", "Cherry", "Elder", "Banana", "Apple"]);
+});
