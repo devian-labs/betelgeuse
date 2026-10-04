@@ -25,7 +25,7 @@ To develop against a throwaway workspace instead of `~/Betelgeuse`, run `BETELGE
 | `src-tauri/src/` | Rust backend: workspace files (`vault.rs`), git (`git.rs`), importers, trash, AI visibility |
 | `mcp/src/` | The MCP server. `vault.ts` mirrors the Rust rules, so the app and agents agree |
 | `tests/` | Markdown round-trip and database tests |
-| `lander/` | The landing page: a Next.js static export, deployed to GitHub Pages. `npm --prefix lander install && npm --prefix lander run dev` |
+| `lander/` | The landing page: a Next.js static export, deployed on Vercel. `npm --prefix lander install && npm --prefix lander run dev` |
 
 ## Ground rules
 

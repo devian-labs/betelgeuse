@@ -1,7 +1,7 @@
 {
   "name": "betelgeuse-lander",
   "private": true,
-  "description": "The Betelgeuse landing page, exported as a static site for GitHub Pages",
+  "description": "The Betelgeuse landing page, exported as a static site",
   "license": "MIT",
   "type": "module",
   "scripts": {

@@ -10,7 +10,7 @@ const description =
   "A beautiful, open-source workspace for notes, docs and databases. Every page is a plain file on your own computer, and your AI agents read only what you share.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://devian-labs.github.io"),
+  metadataBase: new URL("https://betelgeuse.devianlabs.com"),
   title: "Betelgeuse: a beautiful workspace that stays yours",
   description,
   openGraph: {

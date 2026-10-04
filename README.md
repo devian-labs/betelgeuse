@@ -2,7 +2,7 @@
 
 A block-based notebook on a plain-files workspace: every page is a Markdown file in a git repository, and an open MCP server lets AI agents read and write it.
 
-[Website](https://devian-labs.github.io/betelgeuse) · [Download](https://github.com/devian-labs/betelgeuse/releases/latest) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+[Website](https://betelgeuse.devianlabs.com) · [Download](https://github.com/devian-labs/betelgeuse/releases/latest) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 [![CI](https://github.com/devian-labs/betelgeuse/actions/workflows/ci.yml/badge.svg)](https://github.com/devian-labs/betelgeuse/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
@@ -165,7 +165,7 @@ src/              React UI: components/, editor/ (Tiptap extensions), lib/
 src-tauri/src/    vault.rs (workspace files, links, search), git.rs (git CLI), lib.rs (commands, watcher, auto-commit)
 mcp/src/          MCP server: vault.ts mirrors the Rust workspace rules
 tests/            editor Markdown round-trip tests
-lander/           landing page (Next.js static export, deployed to GitHub Pages)
+lander/           landing page (Next.js static export, deployed on Vercel)
 ```
 
 `npm test` runs four test suites: editor round-trip, database engine, MCP end-to-end against a temporary git workspace, and the Rust unit tests.

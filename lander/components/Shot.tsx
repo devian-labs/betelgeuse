@@ -1,5 +1,3 @@
-const base = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-
 type Crop = { x: number; y: number; zoom: number };
 
 /**
@@ -19,7 +17,7 @@ export function Shot({
   theme?: "light" | "dark";
   crop?: Crop;
 }) {
-  const set = (t: "light" | "dark") => `${base}/assets/${name}-${t}-1440.jpg 1440w, ${base}/assets/${name}-${t}.jpg 2880w`;
+  const set = (t: "light" | "dark") => `/assets/${name}-${t}-1440.jpg 1440w, /assets/${name}-${t}.jpg 2880w`;
   const sizes = crop ? "(min-width: 1180px) 1200px, 150vw" : "(min-width: 1180px) 1140px, 94vw";
   const fallback = theme ?? "light";
   return (
@@ -27,7 +25,7 @@ export function Shot({
       <picture>
         {!theme && <source media="(prefers-color-scheme: dark)" srcSet={set("dark")} sizes={sizes} />}
         <img
-          src={`${base}/assets/${name}-${fallback}-1440.jpg`}
+          src={`/assets/${name}-${fallback}-1440.jpg`}
           srcSet={set(fallback)}
           sizes={sizes}
           alt={alt}

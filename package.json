@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Block-based notes on plain Markdown + git, open to AI agents over MCP",
   "license": "MIT",
-  "homepage": "https://devian-labs.github.io/betelgeuse",
+  "homepage": "https://betelgeuse.devianlabs.com",
   "repository": {
     "type": "git",
     "url": "https://github.com/devian-labs/betelgeuse.git"
