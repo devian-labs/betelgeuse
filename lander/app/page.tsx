@@ -340,6 +340,12 @@ export default async function Home() {
                 <li>Formulas and relations in databases</li>
                 <li>Signed builds for macOS and Windows</li>
                 <li>Handling edits from you and an agent at the same time</li>
+                <li>
+                  <span>
+                    <strong>Use it as a CMS.</strong> Connect an external database or spreadsheet, and edit a website&apos;s
+                    FAQs, blog posts or any content right here. Your changes update the source.
+                  </span>
+                </li>
               </ul>
             </div>
             <div className="oss-hack">

@@ -3127,7 +3127,11 @@ a.oss-card:hover {
 .oss-next li {
   display: flex;
   gap: 10px;
-  align-items: center;
+  align-items: baseline;
+}
+
+.oss-next li strong {
+  color: var(--ink);
 }
 
 .oss-next li::before {
@@ -3137,6 +3141,7 @@ a.oss-card:hover {
   border-radius: 50%;
   border: 2px solid var(--accent);
   flex-shrink: 0;
+  transform: translateY(1px);
 }
 
 .oss .oss-hack {
