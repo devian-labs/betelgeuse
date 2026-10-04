@@ -6,14 +6,15 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev": "node scripts/notices.mjs && vite",
+    "build": "node scripts/notices.mjs && tsc --noEmit && vite build",
     "tauri": "tauri",
     "app": "npm run mcp:build && tauri dev",
     "mcp:build": "npm run build -w betelgeuse-mcp",
     "test": "node --import tsx --test tests/*.test.mjs && cargo test --manifest-path src-tauri/Cargo.toml",
     "build:app": "tauri build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "notices": "node scripts/notices.mjs"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",

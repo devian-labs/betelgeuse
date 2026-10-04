@@ -12,6 +12,8 @@ export type Settings = {
   textSize: TextSize;
   /** Seconds of quiet before auto-committing; 0 turns it off. */
   autocommit: number;
+  /** Mark pages hidden from (or, in share-only mode, not shared with) AI agents in the sidebar. */
+  sidebarAiBadges: boolean;
 };
 
 export const ACCENTS: { id: string; label: string; color: string }[] = [
@@ -29,7 +31,7 @@ export const PALETTES: { id: Palette; label: string; hint: string; swatch: [stri
   { id: "midnight", label: "Midnight", hint: "Cool blue slate", swatch: ["#13161d", "#191d26", "#5b7cfa"] },
 ];
 
-const DEFAULTS: Settings = { mode: "system", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8 };
+const DEFAULTS: Settings = { mode: "system", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8, sidebarAiBadges: false };
 const KEY = "betelgeuse-settings";
 
 function load(): Settings {

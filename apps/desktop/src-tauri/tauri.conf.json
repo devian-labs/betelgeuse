@@ -46,7 +46,7 @@
     "category": "Productivity",
     "shortDescription": "Block-based notes on plain Markdown + git, open to AI agents over MCP",
     "longDescription": "Betelgeuse is a block-based notebook whose pages are plain Markdown files in a git repository. Databases, callouts, toggles and columns are stored as readable Markdown, every change is versioned, and an open MCP server lets AI agents read and write the workspace, with per-page control over what they can see.",
-    "copyright": "© 2026 Betelgeuse contributors · MIT License",
+    "copyright": "© 2026 Devian Labs and contributors · MIT License",
     "macOS": {
       "signingIdentity": "-",
       "minimumSystemVersion": "11.0"

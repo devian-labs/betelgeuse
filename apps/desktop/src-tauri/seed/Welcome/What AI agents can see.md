@@ -10,6 +10,7 @@ Every page has a **Visible to AI agents** switch in its `•••` menu. The si
 
 - Hiding a page also hides its sub-pages. A sub-page of a hidden page says so in its menu.
 - A hidden page shows **Hidden from AI** in its top bar.
+- To also mark hidden pages in the sidebar, turn on **Show AI visibility in the sidebar** in **Settings → AI agents**.
 - The setting is saved as `ai: false`, or `ai: true` to share a page, in the page's frontmatter.
 
 ## The workspace policy

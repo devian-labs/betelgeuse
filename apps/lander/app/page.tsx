@@ -451,6 +451,7 @@ export default async function Home() {
             <a href={`${REPO}/releases`}>Releases</a>
             <a href={`${REPO}/blob/main/CONTRIBUTING.md`}>Contributing</a>
             <a href={`${REPO}/blob/main/SECURITY.md`}>Security</a>
+            <a href="/privacy/">Privacy</a>
           </nav>
           <nav aria-label="Community">
             <strong>Community</strong>
@@ -461,9 +462,8 @@ export default async function Home() {
           </nav>
         </div>
         <div className="wrap legal">
-          © 2026 Betelgeuse contributors · Built by{" "}
-          <a href="https://devianlabs.com">Devian Labs</a>. Notion and Obsidian are trademarks of their respective owners;
-          Betelgeuse isn&apos;t affiliated with either.
+          © 2026 Devian Labs and contributors. Betelgeuse™ is a trademark of{" "}
+          <a href="https://devianlabs.com">Devian Labs</a>.
         </div>
       </footer>
     </GitHubProvider>

@@ -8,6 +8,8 @@ apps/desktop/src-tauri/gen
 apps/lander/.next
 apps/lander/out
 apps/lander/next-env.d.ts
+# Written at build time by apps/desktop/scripts/notices.mjs
+apps/desktop/public/third-party-notices.txt
 *.tsbuildinfo
 
 # OS / editor

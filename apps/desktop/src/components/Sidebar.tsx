@@ -27,12 +27,13 @@ import {
 import { PageIcon } from "./PageIcon";
 import { TrashPanel } from "./TrashPanel";
 import { createPortal } from "react-dom";
-import { useCallback, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import type { NoteMeta, RepoStatus, VaultInfo } from "../lib/api";
 import type { TreeNode } from "../lib/tree";
 import { aiAccess } from "../lib/ai";
 import { LINKS, open as openLink } from "../lib/links";
 import { wantsNewTab, type OpenOptions } from "../lib/nav";
+import { useSettings } from "../lib/settings";
 import { useVault } from "../lib/vault";
 import { Logo } from "./Logo";
 import { MenuDivider, MenuItem, Popover } from "./Popover";
@@ -95,7 +96,16 @@ export function Sidebar(p: Props) {
   const changes = p.status?.changes.length ?? 0;
   const byPath = new Map(p.notes.map((n) => [n.path, n]));
   const favorites = p.favorites.map((f) => byPath.get(f)).filter((n): n is NoteMeta => !!n);
-  const recents = p.recents.map((r) => byPath.get(r)).filter((n): n is NoteMeta => !!n);
+  // Recents hold still while the pointer is over the sidebar, so opening a page doesn't move the
+  // rows under it; they catch up when the pointer leaves (or right away for pages opened elsewhere).
+  const hovering = useRef(false);
+  const latestRecents = useRef(p.recents);
+  latestRecents.current = p.recents;
+  const [shownRecents, setShownRecents] = useState(p.recents);
+  useEffect(() => {
+    if (!hovering.current) setShownRecents(p.recents);
+  }, [p.recents]);
+  const recents = shownRecents.map((r) => byPath.get(r)).filter((n): n is NoteMeta => !!n);
 
   const resize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -134,7 +144,12 @@ export function Sidebar(p: Props) {
     >
     <aside
       style={{ width }}
-      onMouseLeave={() => !p.open && p.onPeekEnd()}
+      onMouseEnter={() => (hovering.current = true)}
+      onMouseLeave={() => {
+        hovering.current = false;
+        setShownRecents(latestRecents.current);
+        if (!p.open) p.onPeekEnd();
+      }}
       className={`group/side absolute left-0 flex flex-col bg-side ${resizing ? "" : "transition-[transform,top,bottom,border-radius,box-shadow] duration-[280ms] ease-[cubic-bezier(0.2,0,0,1)]"} ${
         p.open
           ? "inset-y-0 translate-x-0"
@@ -401,6 +416,7 @@ type RowProps = Props & {
 
 function TreeRow({ node, depth, parent, ...p }: RowProps) {
   const { aiPolicy } = useVault();
+  const { sidebarAiBadges: aiBadges } = useSettings();
   const open = p.expanded.has(node.key);
   const active = node.note?.path === p.openPath;
   const isDb = node.note?.kind === "database";
@@ -438,7 +454,7 @@ function TreeRow({ node, depth, parent, ...p }: RowProps) {
           )}
         </span>
         <span className="min-w-0 flex-1 truncate">{node.title}</span>
-        {node.note && !aiAccess(node.note.path, p.notes, aiPolicy).visible && (
+        {aiBadges && node.note && !aiAccess(node.note.path, p.notes, aiPolicy).visible && (
           <span title="Hidden from AI agents" className="shrink-0 text-faint group-hover/row:hidden">
             <EyeOff size={13} />
           </span>

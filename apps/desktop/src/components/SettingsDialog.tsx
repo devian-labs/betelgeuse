@@ -16,6 +16,8 @@ import {
   LoaderCircle,
   Moon,
   Palette as PaletteIcon,
+  Scale,
+  ArrowLeft,
   Sun,
   Upload,
   X,
@@ -107,6 +109,20 @@ function Row({ label, hint, children }: { label: string; hint?: ReactNode; child
       </div>
       <div className="shrink-0">{children}</div>
     </div>
+  );
+}
+
+function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className={`relative h-5 w-9 rounded-full transition-colors ${checked ? "bg-[var(--blue)]" : "bg-[var(--line-strong)]"}`}
+    >
+      <span className={`absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-4" : ""}`} />
+    </button>
   );
 }
 
@@ -428,6 +444,7 @@ function VaultSection({ vault, pageCount, onSwitchVault }: { vault: VaultInfo; p
 
 function AgentsSection({ onOpenAgents, policy, onPolicy }: { onOpenAgents: () => void; policy: AiPolicy; onPolicy: (p: AiPolicy) => Promise<void> }) {
   const { notes, openPage, setPageAi } = useVault();
+  const settings = useSettings();
   const explicit = notes.filter((n) => (policy === "all" ? n.ai === false : n.ai === true));
   const visibleCount = notes.filter((n) => aiAccess(n.path, notes, policy).visible).length;
 
@@ -473,7 +490,11 @@ function AgentsSection({ onOpenAgents, policy, onPolicy }: { onOpenAgents: () =>
         ))}
       </div>
 
-      <div className="mt-5 rounded-lg border border-line">
+      <Row label="Show AI visibility in the sidebar" hint={policy === "all" ? "Mark pages hidden from agents with an eye icon." : "Mark pages agents can't see with an eye icon."}>
+        <Switch label="Show AI visibility in the sidebar" checked={settings.sidebarAiBadges} onChange={(v) => updateSettings({ sidebarAiBadges: v })} />
+      </Row>
+
+      <div className="mt-2 rounded-lg border border-line">
         <div className="border-b border-line px-3.5 py-2 text-xs font-medium text-muted">
           {policy === "all" ? "Hidden from agents" : "Shared with agents"} · {explicit.length}
         </div>
@@ -618,6 +639,26 @@ function ImportSection({ onChanged }: { onChanged: () => void }) {
 }
 
 function About() {
+  // The licenses of the open-source software the app ships, written at build time (scripts/notices.mjs).
+  const [notices, setNotices] = useState<string | null>(null);
+  const showNotices = () =>
+    fetch("/third-party-notices.txt")
+      .then((r) => (r.ok ? r.text() : Promise.reject()))
+      .then(setNotices)
+      .catch(() => setNotices("The license list is written when the app is built (node scripts/notices.mjs)."));
+
+  if (notices !== null) {
+    return (
+      <>
+        <Heading title="Open-source licenses" hint="Betelgeuse is built on these open-source projects, under the licenses below." />
+        <Button onClick={() => setNotices(null)}>
+          <ArrowLeft size={14} /> Back to About
+        </Button>
+        <pre className="mt-4 max-h-[52vh] overflow-auto rounded-lg border border-line bg-side p-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-muted">{notices}</pre>
+      </>
+    );
+  }
+
   return (
     <>
       <Heading title="About" />
@@ -638,6 +679,9 @@ function About() {
         </Button>
         <Button onClick={() => open(LINKS.website)}>
           <Info size={14} /> Website
+        </Button>
+        <Button onClick={showNotices}>
+          <Scale size={14} /> Open-source licenses
         </Button>
       </div>
       <div className="mt-6 rounded-lg border border-line p-4">
@@ -663,7 +707,7 @@ function About() {
         </div>
       </div>
       <p className="mt-6 text-xs text-faint">
-        Betelgeuse™ is a trademark of Devian Labs. © {new Date().getFullYear()} Devian Labs ·{" "}
+        Betelgeuse™ is a trademark of Devian Labs. © 2026 Devian Labs and contributors ·{" "}
         <button onClick={() => open(LINKS.devianlabs)} className="underline decoration-line underline-offset-2 hover:text-ink">
           devianlabs.com
         </button>

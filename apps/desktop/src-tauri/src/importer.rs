@@ -6,6 +6,7 @@
 //! one pipeline; only reading a page differs (`notion_html` converts the HTML export's pages).
 
 mod notion_html;
+mod remote_images;
 
 use crate::vault::{children_dir, sanitize_title, unique_path, write_note};
 use regex::Regex;
@@ -40,6 +41,20 @@ fn stamp() -> u128 {
 
 /// Copies a file into `.assets/<batch>/`, flattening its path, and returns its workspace path.
 fn copy_asset(vault: &Path, batch: &str, src: &Path, rel_hint: &str, used: &mut HashSet<String>) -> Option<String> {
+    let (rel, dest) = asset_slot(vault, batch, rel_hint, used)?;
+    fs::copy(src, &dest).ok()?;
+    Some(rel)
+}
+
+/// Writes `bytes` into `.assets/<batch>/` under a name made from `rel_hint`; returns its workspace path.
+fn store_asset(vault: &Path, batch: &str, bytes: &[u8], rel_hint: &str, used: &mut HashSet<String>) -> Option<String> {
+    let (rel, dest) = asset_slot(vault, batch, rel_hint, used)?;
+    fs::write(&dest, bytes).ok()?;
+    Some(rel)
+}
+
+/// A free `.assets/<batch>/<name>` for an asset (its folder created): workspace path and file path.
+fn asset_slot(vault: &Path, batch: &str, rel_hint: &str, used: &mut HashSet<String>) -> Option<(String, PathBuf)> {
     let flat: String = rel_hint
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_' { c } else { '-' })
@@ -62,8 +77,7 @@ fn copy_asset(vault: &Path, batch: &str, src: &Path, rel_hint: &str, used: &mut 
     }
     let dest = vault.join(&candidate);
     fs::create_dir_all(dest.parent()?).ok()?;
-    fs::copy(src, &dest).ok()?;
-    Some(candidate)
+    Some((candidate, dest))
 }
 
 fn percent_decode(s: &str) -> String {
@@ -1315,7 +1329,16 @@ fn yaml_text(s: &str) -> String {
     if plain { s.to_string() } else { serde_json::to_string(s).unwrap() }
 }
 
+/// Downloads one web image: its bytes and file extension, or None if it isn't one or can't be fetched.
+type Fetch = dyn Fn(&str) -> Option<remote_images::Image> + Sync;
+
+/// Imports a Notion export, downloading the web images its pages show into the workspace.
 pub fn import_notion(vault: &Path, src: &Path) -> Result<ImportReport, String> {
+    import_notion_with(vault, src, Some(&remote_images::fetch))
+}
+
+/// `import_notion`, with web images fetched by `fetch` (None leaves them on the web).
+fn import_notion_with(vault: &Path, src: &Path, fetch: Option<&Fetch>) -> Result<ImportReport, String> {
     let temp = std::env::temp_dir().join(format!("betelgeuse-notion-{}", stamp()));
     let export = if src.is_file() {
         extract_zip(src, &temp)?;
@@ -1325,7 +1348,7 @@ pub fn import_notion(vault: &Path, src: &Path) -> Result<ImportReport, String> {
     } else {
         return Err("Choose the .zip (or unzipped folder) that Notion exported.".into());
     };
-    let result = import_notion_dir(vault, &export);
+    let result = import_notion_dir(vault, &export, fetch);
     let _ = fs::remove_dir_all(&temp);
     result
 }
@@ -1476,7 +1499,7 @@ struct NotionDb {
     rows: Vec<(Option<usize>, Option<usize>)>,
 }
 
-fn import_notion_dir(vault: &Path, export: &Path) -> Result<ImportReport, String> {
+fn import_notion_dir(vault: &Path, export: &Path, fetch: Option<&Fetch>) -> Result<ImportReport, String> {
     let mut files: Vec<String> = WalkDir::new(export)
         .into_iter()
         .filter_map(Result::ok)
@@ -1795,6 +1818,17 @@ fn import_notion_dir(vault: &Path, export: &Path) -> Result<ImportReport, String
     notes.sort();
     notes.dedup();
     report.skipped.extend(notes);
+
+    // 8. Web images (Notion's cover gallery, icons and images hosted elsewhere): downloaded into the
+    //    workspace, so the pages are fully local and don't call out to those servers.
+    if let Some(fetch) = fetch {
+        let done = remote_images::localize(&vault.join(&root_dir), fetch, |name, bytes, _| store_asset(vault, &batch, bytes, name, &mut used));
+        report.assets += done.downloaded;
+        if !done.failed.is_empty() {
+            let n = done.failed.len();
+            report.skipped.push(format!("{n} web image{} couldn't be downloaded, so {} still load from the web", if n == 1 { "" } else { "s" }, if n == 1 { "it will" } else { "they" }));
+        }
+    }
     Ok(report)
 }
 
@@ -2118,7 +2152,7 @@ mod tests {
         let ws = base.join("ws");
         fs::create_dir_all(&ws).unwrap();
         synthetic_export(&export);
-        let report = import_notion(&ws, &export).unwrap();
+        let report = import_notion_with(&ws, &export, None).unwrap();
         (base, ws.join("Notion import"), report)
     }
 
@@ -2363,8 +2397,25 @@ if (a &lt; 2) {}</code></pre>"#,
         let ws = base.join("ws");
         fs::create_dir_all(&ws).unwrap();
         synthetic_html_export(&export);
-        let report = import_notion(&ws, &export).unwrap();
+        let report = import_notion_with(&ws, &export, None).unwrap();
         (base, ws.join("Notion import"), report)
+    }
+
+    /// Web images (here HQ's Notion-gallery cover) are downloaded into the import's assets folder.
+    #[test]
+    fn downloads_web_images_into_the_workspace() {
+        let base = std::env::temp_dir().join(format!("bg-notion-web-{}", stamp()));
+        let (export, ws) = (base.join("export"), base.join("ws"));
+        fs::create_dir_all(&ws).unwrap();
+        synthetic_html_export(&export);
+        let fake = |url: &str| url.contains("met_william_turner").then(|| (vec![0xFF, 0xD8, 0xFF, 0xE0], "jpg"));
+        let report = import_notion_with(&ws, &export, Some(&fake)).unwrap();
+        let hq = fs::read_to_string(ws.join("Notion import/Team HQ/HQ.md")).unwrap();
+        let cover = hq.lines().find_map(|l| l.strip_prefix("cover: ")).unwrap();
+        assert!(cover.starts_with(".assets/notion-") && cover.ends_with("web-met_william_turner_1835.jpg"), "{cover}");
+        assert_eq!(fs::read(ws.join(cover)).unwrap(), [0xFF, 0xD8, 0xFF, 0xE0]);
+        assert_eq!(report.assets, 5);
+        let _ = fs::remove_dir_all(&base);
     }
 
     #[test]
@@ -2447,7 +2498,7 @@ if (a &lt; 2) {}</code></pre>"#,
         fs::create_dir_all(&ws).unwrap();
         fs::write(export.join(format!("Page {ID_A}.md")), "# Page\n\n[saved](Page/saved.html)\n").unwrap();
         fs::write(export.join("Page/saved.html"), "<p>an attachment</p>").unwrap();
-        let report = import_notion(&ws, &export).unwrap();
+        let report = import_notion_with(&ws, &export, None).unwrap();
         assert_eq!((report.pages, report.assets), (1, 1));
         assert!(fs::read_to_string(ws.join("Notion import/Page.md")).unwrap().contains("[saved](.assets/notion-"));
         let _ = fs::remove_dir_all(&base);
@@ -2480,7 +2531,7 @@ if (a &lt; 2) {}</code></pre>"#,
         // A teamspace's top-level page: its folder has no page either, but it isn't a database.
         w(format!("Space/Notes {}.html", id(5)), html_page("Notes", "", "", "<p>Plain.</p>"));
         fs::create_dir_all(&ws).unwrap();
-        let report = import_notion(&ws, &export).unwrap();
+        let report = import_notion_with(&ws, &export, None).unwrap();
         let read = |rel: &str| fs::read_to_string(ws.join("Notion import").join(rel)).unwrap_or_else(|_| panic!("missing {rel}"));
 
         assert!(report.skipped.is_empty(), "{:?}", report.skipped);

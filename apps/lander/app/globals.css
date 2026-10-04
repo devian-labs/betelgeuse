@@ -3393,3 +3393,50 @@ a.oss-card:hover {
 .float-icon svg {
   display: block;
 }
+
+/* ---------- Plain document pages (Privacy) ---------- */
+
+.doc {
+  padding: 56px 0 96px;
+  font-size: 16.5px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.doc h1 {
+  margin: 28px 0 4px;
+  font-family: var(--font-serif), serif;
+  font-size: clamp(36px, 6vw, 52px);
+  font-weight: 400;
+  color: var(--ink);
+}
+.doc h2 {
+  margin: 40px 0 8px;
+  font-family: var(--font-sans), sans-serif;
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.doc strong {
+  color: var(--ink);
+}
+.doc ul {
+  padding-left: 20px;
+}
+.doc li + li {
+  margin-top: 6px;
+}
+.doc a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+.doc a:hover {
+  text-decoration-color: var(--accent);
+}
+.doc-meta {
+  margin: 0;
+  font-size: 14px;
+  color: var(--faint);
+}

@@ -38,6 +38,16 @@ New clients (mobile, browser extension) go in `apps/`. Code shared between them 
 - **Agents never see hidden pages.** New MCP tools must read pages through `Vault.files()` or `Vault.find()`.
 - **Keep pull requests small**, and add light and dark screenshots for UI changes.
 
+## Sign your commits (DCO)
+
+Every commit needs a `Signed-off-by` line, which certifies you wrote the change or otherwise have the right to submit it under the project's MIT license, as set out in the [Developer Certificate of Origin](https://developercertificate.org). Git adds it for you:
+
+```sh
+git commit -s -m "Fix the board's drop target"
+```
+
+That appends `Signed-off-by: Your Name <you@example.com>` using your git name and email. Forgot? `git commit --amend -s` fixes the last commit, and `git rebase --signoff main` fixes every commit on your branch.
+
 ## Releasing
 
 Bump the version in `apps/desktop/package.json`, `apps/desktop/src-tauri/Cargo.toml` and `apps/desktop/src-tauri/tauri.conf.json`, then push a tag like `v0.2.0`. GitHub Actions builds the app for every platform into a draft release, ready to publish.
