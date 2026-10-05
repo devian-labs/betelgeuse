@@ -1,7 +1,8 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { api } from "./api";
 
-export type Mode = "system" | "light" | "dark";
+/** "black" is dark mode with true-black surfaces. */
+export type Mode = "system" | "light" | "dark" | "black";
 export type Palette = "betelgeuse" | "graphite" | "midnight";
 export type TextSize = "small" | "default" | "large";
 
@@ -14,6 +15,8 @@ export type Settings = {
   autocommit: number;
   /** Mark pages hidden from (or, in share-only mode, not shared with) AI agents in the sidebar. */
   sidebarAiBadges: boolean;
+  /** How many Recents rows the sidebar shows; its height stays fixed at this many. */
+  recentRows: number;
 };
 
 export const ACCENTS: { id: string; label: string; color: string }[] = [
@@ -31,7 +34,7 @@ export const PALETTES: { id: Palette; label: string; hint: string; swatch: [stri
   { id: "midnight", label: "Midnight", hint: "Cool blue slate", swatch: ["#13161d", "#191d26", "#5b7cfa"] },
 ];
 
-const DEFAULTS: Settings = { mode: "system", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8, sidebarAiBadges: false };
+const DEFAULTS: Settings = { mode: "system", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8, sidebarAiBadges: false, recentRows: 5 };
 const KEY = "betelgeuse-settings";
 
 function load(): Settings {
@@ -69,8 +72,10 @@ const systemDark = () => window.matchMedia?.("(prefers-color-scheme: dark)").mat
 /** Writes the appearance settings onto <html> as data attributes and the accent variable. */
 function apply() {
   const root = document.documentElement;
-  const dark = current.mode === "dark" || (current.mode === "system" && systemDark());
+  const dark = current.mode === "dark" || current.mode === "black" || (current.mode === "system" && systemDark());
   root.dataset.theme = dark ? "dark" : "light";
+  if (current.mode === "black") root.dataset.black = "";
+  else delete root.dataset.black;
   root.dataset.palette = current.palette;
   root.dataset.text = current.textSize;
   root.style.setProperty("--blue", ACCENTS.find((a) => a.id === current.accent)?.color ?? ACCENTS[0].color);

@@ -91,9 +91,20 @@ export default function App() {
 
   const openVault = useCallback(
     async (info: VaultInfo) => {
+      // Recents come from a file first: it outlives a crash or force-quit, where the webview's storage
+      // may not. Read before any state is set, so the save effect never writes over it with stale data.
+      const recentsFile = await api.uiStateGet(`recents:${info.path}`).catch(() => null);
+      const fromFile = (() => {
+        try {
+          const list: unknown = recentsFile ? JSON.parse(recentsFile) : null;
+          return Array.isArray(list) ? list.filter((x): x is string => typeof x === "string") : null;
+        } catch {
+          return null;
+        }
+      })();
       setVault(info);
       setFavorites(readList(`favorites:${info.path}`));
-      setRecents(readList(`recents:${info.path}`));
+      setRecents(fromFile ?? readList(`recents:${info.path}`));
       api.getAiPolicy().then(setAiPolicyState).catch(() => {});
       const n = await refresh();
       const exists = (p: string) => n.some((x) => x.path === p);
@@ -135,7 +146,9 @@ export default function App() {
     if (vault) store.set(`tabs:${vault.path}`, JSON.stringify(tabs.list.map(current)));
   }, [vault, tabs]);
   useEffect(() => {
-    if (vault) store.set(`recents:${vault.path}`, JSON.stringify(recents));
+    if (!vault) return;
+    store.set(`recents:${vault.path}`, JSON.stringify(recents));
+    api.uiStateSet(`recents:${vault.path}`, JSON.stringify(recents)).catch(() => {});
   }, [vault, recents]);
   // Every page shown goes to the top of Recents.
   useEffect(() => {
@@ -424,7 +437,7 @@ export default function App() {
         }
 
         <div className="relative flex min-w-0 flex-1 flex-col">
-          {tabs.list.length > 1 && (
+          {openPath && (
             <TabBar
               tabs={tabs.list.map((tab) => ({ id: tab.id, path: current(tab)! }))}
               active={tabs.active}
@@ -433,6 +446,10 @@ export default function App() {
               onSelect={selectTab}
               onClose={closeTab}
               onNew={() => openPath && openPage(openPath, { newTab: true })}
+              onBack={activeTab && activeTab.index > 0 ? () => go(-1) : undefined}
+              onForward={activeTab && activeTab.index < activeTab.stack.length - 1 ? () => go(1) : undefined}
+              onShowSidebar={sidebar ? undefined : () => (setSidebar(true), setSidebarPeek(false))}
+              onPeekSidebar={() => setSidebarPeek(true)}
             />
           )}
           <div className="relative flex min-h-0 flex-1">
@@ -441,11 +458,6 @@ export default function App() {
               key={vault.path}
               path={openPath}
               historyOpen={history}
-              inset={!sidebar && !fullscreen && tabs.list.length < 2}
-              onShowSidebar={sidebar ? undefined : () => (setSidebar(true), setSidebarPeek(false))}
-              onPeekSidebar={() => setSidebarPeek(true)}
-              onBack={activeTab && activeTab.index > 0 ? () => go(-1) : undefined}
-              onForward={activeTab && activeTab.index < activeTab.stack.length - 1 ? () => go(1) : undefined}
               favorite={favorites.includes(openPath)}
               onToggleFavorite={() => toggleFavorite(openPath)}
               onToggleHistory={() => setHistory((v) => !v)}

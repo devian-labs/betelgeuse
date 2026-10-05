@@ -145,17 +145,43 @@ function Toolbar({
   const [filterMenu, setFilterMenu] = useState<HTMLElement | null>(null);
   const [sortMenu, setSortMenu] = useState<HTMLElement | null>(null);
   const [settings, setSettings] = useState<HTMLElement | null>(null);
+  // Dragging a tab: which view, and the gap it would drop into (0 = before the first tab).
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [gap, setGap] = useState<number | null>(null);
+  const endDrag = () => (setDragging(null), setGap(null));
   const props = allProperties(schema);
 
   return (
     <div className="flex h-10 items-center gap-1 border-b border-line">
       <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        {schema.views.map((v) => (
+        {schema.views.map((v, i) => (
           <button
             key={v.id}
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData("text/betelgeuse-view", v.id);
+              e.dataTransfer.effectAllowed = "move";
+              setDragging(v.id);
+            }}
+            onDragOver={(e) => {
+              if (!dragging) return;
+              e.preventDefault();
+              const r = e.currentTarget.getBoundingClientRect();
+              setGap(e.clientX > r.left + r.width / 2 ? i + 1 : i);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const from = schema.views.findIndex((x) => x.id === dragging);
+              // The gap counts the dragged tab itself; its new index is among the other tabs.
+              if (dragging && gap !== null && gap !== from && gap !== from + 1) db.reorderView(dragging, gap > from ? gap - 1 : gap);
+              endDrag();
+            }}
+            onDragEnd={endDrag}
             onClick={(e) => (v.id === view.id ? setTabMenu({ view: v, el: e.currentTarget }) : select(v.id))}
-            className={`relative flex h-10 shrink-0 items-center gap-1.5 px-2 text-sm ${v.id === view.id ? "text-ink" : "text-muted hover:text-ink"}`}
+            className={`relative flex h-10 shrink-0 items-center gap-1.5 px-2 text-sm ${v.id === view.id ? "text-ink" : "text-muted hover:text-ink"} ${dragging === v.id ? "opacity-40" : ""}`}
           >
+            {dragging && gap === i && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-[var(--blue)]" />}
+            {dragging && gap === i + 1 && i === schema.views.length - 1 && <span className="absolute inset-y-2 right-0 w-0.5 rounded-full bg-[var(--blue)]" />}
             <span className="flex h-7 items-center gap-1.5 rounded-md px-1 hover:bg-hover">
               {VIEW_ICONS[v.type](15)}
               {v.name}
@@ -375,6 +401,33 @@ function ViewSettings({ db, schema, view, anchor, onClose }: { db: Database; sch
             <MenuItem key={p.name} icon={<PropIcon type={p.type} />} label={p.name} right={view.groupBy === p.name ? <span className="text-muted">✓</span> : null} onClick={() => db.updateView(view.id, { groupBy: p.name })} />
           ))}
           {!groupable.length && <div className="px-2 pb-1 text-xs text-faint">Add a Select or Status property first</div>}
+        </>
+      )}
+      {view.type === "gallery" && (
+        <>
+          <MenuSection label="Card preview" />
+          {(
+            [
+              ["auto", "Cover, else page content"],
+              ["cover", "Page cover"],
+              ["content", "Page content"],
+              ["none", "None"],
+            ] as const
+          ).map(([mode, label]) => (
+            <MenuItem key={mode} label={label} right={(view.cardPreview ?? "auto") === mode ? <span className="text-muted">✓</span> : null} onClick={() => db.updateView(view.id, { cardPreview: mode })} />
+          ))}
+          <MenuSection label="Card size" />
+          <div className="grid grid-cols-3 gap-1 px-1 pb-1">
+            {(["small", "medium", "large"] as const).map((size) => (
+              <button
+                key={size}
+                onClick={() => db.updateView(view.id, { cardSize: size })}
+                className={`rounded-md border py-1 text-xs capitalize ${(view.cardSize ?? "medium") === size ? "border-[var(--blue)] text-[var(--blue)]" : "border-line text-muted hover:bg-hover"}`}
+              >
+                {size}
+              </button>
+            ))}
+          </div>
         </>
       )}
       {view.type === "calendar" && (

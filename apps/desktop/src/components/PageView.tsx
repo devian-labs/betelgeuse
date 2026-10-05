@@ -6,10 +6,7 @@ import {
   ChevronsRight,
   Copy,
   FileText,
-  ChevronLeft,
-  ChevronRight,
   History,
-  PanelLeft,
   Image as ImageIcon,
   KanbanSquare,
   Link2,
@@ -47,16 +44,9 @@ type Props = {
   /** "peek" renders the compact side panel used for database rows. */
   mode?: "page" | "peek";
   historyOpen?: boolean;
-  inset?: boolean;
   favorite?: boolean;
   onToggleFavorite?: () => void;
   onToggleHistory?: () => void;
-  /** Shown when the sidebar is hidden, to bring it back. */
-  onShowSidebar?: () => void;
-  /** Hovering the sidebar button previews the sidebar. */
-  onPeekSidebar?: () => void;
-  onBack?: () => void;
-  onForward?: () => void;
   onClose?: () => void;
   onRenamed: (oldPath: string, newPath: string) => void;
   onDeleted: (path: string) => void;
@@ -416,29 +406,8 @@ function TopBar(p: Props & { meta?: NoteMeta; saving: boolean; onMenu: (el: HTML
   return (
     <header
       data-tauri-drag-region
-      className={`flex h-10 shrink-0 items-center gap-1 px-3 text-sm transition-[padding] duration-[280ms] ease-[cubic-bezier(0.2,0,0,1)] ${p.inset ? "pl-[88px]" : ""}`}
+      className="flex h-11 shrink-0 items-center gap-1 px-3 text-sm"
     >
-      {p.onShowSidebar && !peekMode && (
-        <button
-          onClick={p.onShowSidebar}
-          onMouseEnter={p.onPeekSidebar}
-          title="Open sidebar (⌘\)"
-          className="group/menu grid size-6 shrink-0 place-items-center rounded-md text-muted hover:bg-hover"
-        >
-          <PanelLeft size={16} className="group-hover/menu:hidden" />
-          <ChevronsRight size={16} className="hidden group-hover/menu:block" />
-        </button>
-      )}
-      {!peekMode && (
-        <span className="mr-1 flex shrink-0 items-center">
-          <button onClick={p.onBack} disabled={!p.onBack} title="Back (⌘[)" className="grid size-6 place-items-center rounded-md text-muted enabled:hover:bg-hover disabled:opacity-35">
-            <ChevronLeft size={17} />
-          </button>
-          <button onClick={p.onForward} disabled={!p.onForward} title="Forward (⌘])" className="grid size-6 place-items-center rounded-md text-muted enabled:hover:bg-hover disabled:opacity-35">
-            <ChevronRight size={17} />
-          </button>
-        </span>
-      )}
       {peekMode ? (
         <div className="flex flex-1 items-center gap-0.5 text-muted">
           <button onClick={p.onClose} title="Close" className="grid size-7 place-items-center rounded-md hover:bg-hover">

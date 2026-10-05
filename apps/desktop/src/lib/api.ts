@@ -61,4 +61,7 @@ export const api = {
   setAiPolicy: (policy: AiPolicy) => invoke<void>("set_ai_policy", { policy }),
   importPages: (source: "notion" | "obsidian", path: string) => invoke<ImportReport>("import_pages", { source, path }),
   mcpInfo: () => invoke<McpInfo>("mcp_info"),
+  /** Per-machine UI state kept in a file, for things that must survive a quit or crash (Recents). */
+  uiStateGet: (key: string) => invoke<string | null>("ui_state_get", { key }),
+  uiStateSet: (key: string, value: string) => invoke<void>("ui_state_set", { key, value }),
 };

@@ -27,6 +27,7 @@ export function EditableValue({
   placeholder,
   children,
   style,
+  limit,
 }: {
   db: Database;
   row: Row;
@@ -36,6 +37,8 @@ export function EditableValue({
   style?: React.CSSProperties;
   placeholder?: string;
   children?: ReactNode;
+  /** Relations: how many linked pages to show before "+N more". */
+  limit?: number;
 }) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const value = getValue(row, prop);
@@ -60,7 +63,7 @@ export function EditableValue({
         }}
         className={`${readOnly ? "" : "cursor-pointer"} ${className}`}
       >
-        {children ?? <ValueView prop={prop} value={value} wrap={wrap} />}
+        {children ?? <ValueView prop={prop} value={value} wrap={wrap} limit={limit} />}
         {placeholder && !children && value == null && <span className="text-faint">{placeholder}</span>}
       </div>
       {anchor && (

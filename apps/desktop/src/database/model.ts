@@ -108,7 +108,51 @@ export type View = {
   groupBy?: string;
   dateProperty?: string;
   wrap?: boolean;
+  /** Gallery: what the top of each card shows. "auto" is the cover, else the page's text, else nothing. */
+  cardPreview?: CardPreview;
+  cardSize?: "small" | "medium" | "large";
 };
+
+export type CardPreview = "auto" | "cover" | "content" | "none";
+
+/** What a gallery card's preview shows for a row, if anything. */
+export function cardPreviewOf(row: Row, mode: CardPreview = "auto"): "cover" | "content" | null {
+  const cover = typeof row.values.cover === "string" && row.values.cover.trim() !== "";
+  const content = row.body.trim() !== "";
+  if (mode === "none") return null;
+  if (mode === "cover") return cover ? "cover" : null;
+  if (mode === "content") return "content";
+  return cover ? "cover" : content ? "content" : null;
+}
+
+/**
+ * How a card lays out a row's properties: text-like values as lines under the title, tags in one
+ * wrapping row, and counts (numbers, rollups, relations) in a footer. Empty values are left out,
+ * except relation and rollup counts, which always show (zero included) so cards line up and
+ * "0 Projects" reads as an answer.
+ */
+export function cardSections(props: Property[], row: Row, exclude?: string) {
+  const shown = props.filter((p) => {
+    if (p.type === "title" || p.name === exclude) return false;
+    const v = getValue(row, p);
+    if (p.type === "relation" || p.type === "rollup") return true;
+    return !isEmptyValue(p, v);
+  });
+  return {
+    lines: shown.filter((p) => ["text", "url", "email", "date", "created_time", "last_edited_time", "checkbox"].includes(p.type)),
+    tags: shown.filter((p) => isSelectLike(p.type)),
+    stats: shown.filter((p) => p.type === "number" || p.type === "rollup" || p.type === "relation"),
+  };
+}
+
+/** Views with `id` moved to position `index` (counted among the other views), as when a tab is dragged. */
+export function moveView(views: View[], id: string, index: number): View[] {
+  const view = views.find((v) => v.id === id);
+  if (!view) return views;
+  const rest = views.filter((v) => v.id !== id);
+  rest.splice(Math.max(0, Math.min(index, rest.length)), 0, view);
+  return rest;
+}
 
 export type Schema = {
   /** The title column's name, when it isn't "Name" (e.g. Notion's "Source"). */

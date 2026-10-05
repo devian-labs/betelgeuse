@@ -156,3 +156,46 @@ test("removing a property clears it from views", () => {
   assert.equal(next.views[0].groupBy, undefined);
   assert.deepEqual(next.views[0].hidden, []);
 });
+
+import { moveView, cardPreviewOf } from "../src/database/model.ts";
+
+test("moves a view's tab to a new position", () => {
+  const vs = ["a", "b", "c", "d"].map((id) => ({ id, name: id, type: "table" }));
+  const ids = (v) => v.map((x) => x.id).join("");
+  assert.equal(ids(moveView(vs, "a", 2)), "bcad");
+  assert.equal(ids(moveView(vs, "d", 0)), "dabc");
+  assert.equal(ids(moveView(vs, "b", 9)), "acdb");
+  assert.equal(ids(moveView(vs, "x", 0)), "abcd");
+});
+
+test("gallery cards preview the cover, else the text, else nothing", () => {
+  const r = (fm, body = "") => toRow({ path: "DB/R.md", title: "R", content: fm ? `---\n${fm}\n---\n${body}` : body, created: 0, modified: 0 });
+  assert.equal(cardPreviewOf(r("cover: gradient_2", "Hi")), "cover");
+  assert.equal(cardPreviewOf(r("", "Hi")), "content");
+  assert.equal(cardPreviewOf(r("Status: Active")), null);
+  assert.equal(cardPreviewOf(r("", "Hi"), "cover"), null);
+  assert.equal(cardPreviewOf(r("Status: Active"), "content"), "content");
+  assert.equal(cardPreviewOf(r("cover: gradient_2", "Hi"), "none"), null);
+});
+
+import { cardSections } from "../src/database/model.ts";
+
+test("cards group properties into lines, tags and counts; relation and rollup counts show even at zero", () => {
+  const props = [
+    { name: "Name", type: "title" },
+    { name: "Status", type: "status", options: [] },
+    { name: "Review", type: "select", options: [] },
+    { name: "Description", type: "text" },
+    { name: "Projects", type: "relation", database: "[[Projects]]" },
+    { name: "Project count", type: "rollup", relation: "Projects", target: "Name", calc: "count_all" },
+    { name: "Budget", type: "number" },
+  ];
+  const row = (fm, computed) => ({ ...toRow({ path: "A/R.md", title: "R", content: `---\n${fm}\n---\n`, created: 0, modified: 0 }), computed });
+  const names = (ps) => ps.map((p) => p.name).join(",");
+  const full = cardSections(props, row('Status: Active\nReview: Monthly\nDescription: Jobs\nProjects: ["[[A]]"]\nBudget: 5', { "Project count": "1" }));
+  assert.deepEqual([names(full.lines), names(full.tags), names(full.stats)], ["Description", "Status,Review", "Projects,Project count,Budget"]);
+  const bare = cardSections(props, row("Status: Active\nBudget: 0", { "Project count": "0" }), "Status");
+  assert.deepEqual([names(bare.lines), names(bare.tags), names(bare.stats)], ["", "", "Projects,Project count,Budget"]);
+  const none = cardSections(props, row("Status: Active", {}));
+  assert.equal(names(none.stats), "Projects,Project count", "an empty number is still left out");
+});

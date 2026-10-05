@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The release workflow runs these same checks before it builds anything.
+  workflow_call:
 
 jobs:
   web-and-mcp:

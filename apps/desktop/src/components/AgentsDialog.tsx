@@ -37,6 +37,7 @@ const WRITE_TOOLS: Tool[] = [
   { name: "create_note", desc: "New pages and database rows", icon: <FilePlus2 size={15} /> },
   { name: "update_note", desc: "Append, prepend, replace, set properties", icon: <PencilLine size={15} /> },
   { name: "rename_note", desc: "Rename and rewrite links to it", icon: <BookOpen size={15} /> },
+  { name: "move_note", desc: "Move a page under another page", icon: <BookOpen size={15} /> },
   { name: "delete_note", desc: "Delete a page and its sub-pages", icon: <X size={15} /> },
 ];
 

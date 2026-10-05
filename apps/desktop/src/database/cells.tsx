@@ -93,7 +93,7 @@ export function StatusDot({ color }: { color?: string }) {
 }
 
 /** Read-only rendering of a property value, as shown in table cells and cards. */
-export function ValueView({ prop, value, wrap }: { prop: Property; value: unknown; wrap?: boolean }) {
+export function ValueView({ prop, value, wrap, limit }: { prop: Property; value: unknown; wrap?: boolean; limit?: number }) {
   switch (prop.type) {
     case "select":
     case "status":
@@ -132,7 +132,7 @@ export function ValueView({ prop, value, wrap }: { prop: Property; value: unknow
       return d ? <span className="whitespace-nowrap">{formatDate(d, prop.type !== "date")}</span> : null;
     }
     case "relation":
-      return <RelationChips prop={prop} value={value} wrap={wrap} />;
+      return <RelationChips prop={prop} value={value} wrap={wrap} limit={limit} />;
     case "url":
     case "email": {
       const s = asList(value)[0];
@@ -146,11 +146,12 @@ export function ValueView({ prop, value, wrap }: { prop: Property; value: unknow
 }
 
 /** Linked pages as chips; clicking one opens it (in a side peek, or a new tab with ⌘/Ctrl). */
-function RelationChips({ prop, value, wrap }: { prop: Property; value: unknown; wrap?: boolean }) {
+function RelationChips({ prop, value, wrap, limit }: { prop: Property; value: unknown; wrap?: boolean; limit?: number }) {
   const { notes } = useVault();
   const openRow = useOpenRow();
-  const titles = relationTitles(value);
-  if (!titles.length) return null;
+  const all = relationTitles(value);
+  if (!all.length) return null;
+  const titles = limit ? all.slice(0, limit) : all;
   const dbPath = relationDatabase(prop, notes);
   return (
     <span className={`flex gap-1.5 ${wrap ? "flex-wrap" : "overflow-hidden"}`}>
@@ -174,6 +175,7 @@ function RelationChips({ prop, value, wrap }: { prop: Property; value: unknown; 
           </span>
         );
       })}
+      {titles.length < all.length && <span className="shrink-0 text-[13px] whitespace-nowrap text-faint">+{all.length - titles.length} more</span>}
     </span>
   );
 }

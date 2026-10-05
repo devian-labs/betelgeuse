@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { Document, isMap, parseDocument } from "yaml";
@@ -279,6 +279,45 @@ export class Vault {
   }
 
   /**
+   * Moves a note and its sub-pages under another page (or to the top level with `parent` ""),
+   * like dragging it in the app's sidebar. Links that name it or a sub-page by path follow it.
+   */
+  async move(rel: string, parent: string): Promise<{ path: string; touched: string[] }> {
+    const destDir = parent ? childrenDir(await this.find(parent)) : "";
+    const own = childrenDir(rel);
+    if (destDir === own || destDir.startsWith(`${own}/`)) throw new Error("A page can't be moved inside itself.");
+    const dir = path.posix.dirname(rel) === "." ? "" : path.posix.dirname(rel);
+    if (dir === destDir) return { path: rel, touched: [] };
+    const next = this.uniquePath(destDir, titleOf(rel));
+    const nextOwn = childrenDir(next);
+    await mkdir(path.dirname(this.resolve(next)), { recursive: true });
+    await rename(this.resolve(rel), this.resolve(next));
+    const touched = [rel, next];
+    if (existsSync(path.join(this.root, own))) {
+      await rename(path.join(this.root, own), path.join(this.root, nextOwn));
+      touched.push(own, nextOwn);
+    }
+    // A folder left empty (the page was its only content) goes too.
+    if (dir) await rmdir(path.join(this.root, dir)).catch(() => {});
+    const [from, to] = [titleOf(rel), titleOf(next)];
+    for (const f of await this.allFiles()) {
+      const text = await readFile(this.resolve(f), "utf8");
+      const updated = text.replace(/\[\[([^\]\n|#]+)([|#][^\]\n]*)?\]\]/g, (m, target: string, rest = "") => {
+        const t = target.trim();
+        if (t === own) return `[[${nextOwn}${rest}]]`;
+        if (t.startsWith(`${own}/`)) return `[[${nextOwn}${t.slice(own.length)}${rest}]]`;
+        // Numbered to avoid a page of the same name there ("Plan 2"): title links follow, as on rename.
+        return t === from && from !== to ? `[[${to}${rest}]]` : m;
+      });
+      if (updated !== text) {
+        await writeFile(this.resolve(f), updated);
+        touched.push(f);
+      }
+    }
+    return { path: next, touched };
+  }
+
+  /**
    * Moves a note (and its sub-pages) to the workspace Trash, where the user can restore it from the
    * app. Same layout as the desktop app: `.trash/<id>/<file>.md` plus `meta.json`.
    */
@@ -449,6 +488,12 @@ export class Vault {
     for (let attempt = 0; ; attempt++) {
       try {
         await this.git(["add", "-A", "--", ...paths]);
+        // A folder left with no files (its pages all moved out) is nothing git can commit.
+        const tracked = await Promise.all(
+          paths.map(async (p) => !!(await this.git(["ls-files", "--", p])).trim() || !!(await this.git(["ls-tree", "-r", "--name-only", "HEAD", "--", p]).catch(() => "")).trim()),
+        );
+        paths = paths.filter((_, i) => tracked[i]);
+        if (paths.length === 0) return null;
         const staged = await this.git(["diff", "--cached", "--name-only", "--", ...paths]);
         if (!staged.trim()) return null;
         await this.git([

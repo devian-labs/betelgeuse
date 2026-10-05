@@ -70,6 +70,37 @@ fn remember_vault(app: &AppHandle, path: &Path) {
     }
 }
 
+/// Small bits of per-machine UI state (e.g. Recents) that must survive a quit or a crash. They live in
+/// the app's config folder, not the workspace, so they never show up in the workspace's git history.
+fn ui_state_file(app: &AppHandle) -> Option<PathBuf> {
+    app.path().app_config_dir().ok().map(|d| d.join("ui-state.json"))
+}
+
+fn read_ui_state(app: &AppHandle) -> serde_json::Map<String, serde_json::Value> {
+    ui_state_file(app)
+        .and_then(|f| std::fs::read_to_string(f).ok())
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .and_then(|v| v.as_object().cloned())
+        .unwrap_or_default()
+}
+
+#[tauri::command]
+fn ui_state_get(app: AppHandle, key: String) -> Option<String> {
+    read_ui_state(&app).get(&key).and_then(|v| v.as_str()).map(str::to_string)
+}
+
+/// Writes through a temporary file and a rename, so a crash mid-write can't leave it half written.
+#[tauri::command]
+fn ui_state_set(app: AppHandle, key: String, value: String) -> Result<(), String> {
+    let file = ui_state_file(&app).ok_or("no config folder")?;
+    std::fs::create_dir_all(file.parent().unwrap()).map_err(|e| e.to_string())?;
+    let mut state = read_ui_state(&app);
+    state.insert(key, serde_json::Value::String(value));
+    let tmp = file.with_extension("json.tmp");
+    std::fs::write(&tmp, serde_json::Value::Object(state).to_string()).map_err(|e| e.to_string())?;
+    std::fs::rename(&tmp, &file).map_err(|e| e.to_string())
+}
+
 fn info(path: &Path) -> VaultInfo {
     VaultInfo {
         path: path.to_string_lossy().into_owned(),
@@ -404,6 +435,8 @@ pub fn run() {
             git_publish,
             set_autocommit,
             get_ai_policy,
+            ui_state_get,
+            ui_state_set,
             import_pages,
             set_ai_policy,
             mcp_info

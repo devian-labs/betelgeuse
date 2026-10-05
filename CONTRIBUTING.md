@@ -50,7 +50,15 @@ That appends `Signed-off-by: Your Name <you@example.com>` using your git name an
 
 ## Releasing
 
-Bump the version in `apps/desktop/package.json`, `apps/desktop/src-tauri/Cargo.toml` and `apps/desktop/src-tauri/tauri.conf.json`, then push a tag like `v0.2.0`. GitHub Actions builds the app for every platform into a draft release, ready to publish.
+```bash
+npm run version:set 0.2.0          # writes the version everywhere it appears
+git commit -am "release: v0.2.0"
+git tag v0.2.0 && git push --follow-tags
+```
+
+The tag starts the Release workflow. It runs the tests, checks that the tag matches the app version, then builds macOS (Apple Silicon and Intel), Windows and Linux (x64 and ARM64) and attaches the installers to a draft GitHub release. Review the draft and click **Publish**. A tag with a suffix, like `v0.2.0-beta.1`, makes a pre-release.
+
+To try the builds without releasing, run the workflow by hand (**Actions → Release → Run workflow**): the installers are attached to the run as artifacts and nothing is published.
 
 ## Updating the screenshots
 

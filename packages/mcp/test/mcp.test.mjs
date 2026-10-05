@@ -3,7 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
@@ -45,7 +45,7 @@ test("lists tools and instructions", async () => {
   const { tools } = await client.listTools();
   const names = tools.map((t) => t.name).sort();
   assert.deepEqual(names, [
-    "create_note", "delete_note", "list_notes", "note_history", "query_database", "read_note", "rename_note", "search_notes", "update_note", "workspace_info",
+    "create_note", "delete_note", "list_notes", "move_note", "note_history", "query_database", "read_note", "rename_note", "search_notes", "update_note", "workspace_info",
   ]);
   assert.match(client.getInstructions(), /wikilinks/);
 });
@@ -213,4 +213,30 @@ test("relations read as titles, rollups are calculated, and writes take titles",
   await call("rename_note", { note: "Areas/Apps/Khao", title: "Khaoo" });
   const after = JSON.parse(await call("query_database", { database: "Work", where: { Product: "Khaoo" } }));
   assert.equal(after.rows.length, 2);
+});
+
+test("moving a page takes its sub-pages along and updates path links", async () => {
+  mkdirSync(path.join(vault, "Inbox/Trip"), { recursive: true });
+  writeFileSync(path.join(vault, "Inbox.md"), "");
+  writeFileSync(path.join(vault, "Inbox/Trip.md"), "Plan.\n");
+  writeFileSync(path.join(vault, "Inbox/Trip/Day 1.md"), "Hike.\n");
+  writeFileSync(path.join(vault, "Areas.md"), "");
+  writeFileSync(path.join(vault, "Links.md"), "[[Inbox/Trip]], [[Inbox/Trip/Day 1|day one]] and [[Trip]]\n");
+  git("add", "-A");
+  git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "move setup");
+  const r = JSON.parse(await call("move_note", { note: "Inbox/Trip", parent: "Areas" }));
+  assert.equal(r.path, "Areas/Trip.md");
+  assert.equal(readFileSync(path.join(vault, "Areas/Trip/Day 1.md"), "utf8"), "Hike.\n");
+  assert.equal(readFileSync(path.join(vault, "Links.md"), "utf8"), "[[Areas/Trip]], [[Areas/Trip/Day 1|day one]] and [[Trip]]\n");
+  assert.ok(!existsSync(path.join(vault, "Inbox")), "the emptied folder is removed");
+  assert.equal(git("status", "--porcelain"), "");
+  // A page whose sub-pages have all moved away leaves an empty folder behind; moving it still works.
+  await call("move_note", { note: "Areas/Trip/Day 1", parent: "" });
+  mkdirSync(path.join(vault, "Areas/Trip/Old/Empty"), { recursive: true });
+  assert.equal(JSON.parse(await call("move_note", { note: "Areas/Trip", parent: "" })).path, "Trip.md");
+  assert.equal(git("status", "--porcelain"), "");
+  await call("move_note", { note: "Trip", parent: "Areas" });
+  await call("move_note", { note: "Day 1", parent: "Areas/Trip" });
+  const bad = await client.callTool({ name: "move_note", arguments: { note: "Areas/Trip", parent: "Areas/Trip/Day 1" } });
+  assert.match(bad.content[0].text, /inside itself/);
 });

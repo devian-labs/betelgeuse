@@ -15,6 +15,7 @@ import {
   Laptop,
   LoaderCircle,
   Moon,
+  MoonStar,
   Palette as PaletteIcon,
   Scale,
   ArrowLeft,
@@ -150,12 +151,13 @@ function Appearance() {
       <Heading title="Appearance" hint="Make Betelgeuse yours. These settings are stored on this device." />
 
       <div className="mb-2 text-sm font-medium text-ink">Theme</div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         {(
           [
             { id: "system", label: "System", icon: <Laptop size={14} /> },
             { id: "light", label: "Light", icon: <Sun size={14} /> },
             { id: "dark", label: "Dark", icon: <Moon size={14} /> },
+            { id: "black", label: "Black", icon: <MoonStar size={14} /> },
           ] as { id: Mode; label: string; icon: ReactNode }[]
         ).map((m) => (
           <button key={m.id} onClick={() => updateSettings({ mode: m.id })} className="group text-left">
@@ -206,6 +208,17 @@ function Appearance() {
             ))}
           </div>
         </Row>
+        <Row label="Recents in the sidebar" hint="How many recent pages show. The section keeps this height; older ones scroll.">
+          <Segmented<"3" | "5" | "8">
+            value={String(s.recentRows) as "3" | "5" | "8"}
+            onChange={(v) => updateSettings({ recentRows: Number(v) })}
+            options={[
+              { id: "3", label: "3" },
+              { id: "5", label: "5" },
+              { id: "8", label: "8" },
+            ]}
+          />
+        </Row>
         <Row label="Text size" hint="Size of page text in the editor.">
           <Segmented<TextSize>
             value={s.textSize}
@@ -223,12 +236,12 @@ function Appearance() {
 }
 
 function ThemePreview({ mode, selected }: { mode: Mode; selected: boolean }) {
-  const half = (dark: boolean) => (
-    <div className="flex h-full flex-1" style={{ background: dark ? "#1d1a18" : "#fbf9f7" }}>
-      <div className="w-1/3" style={{ background: dark ? "#25211e" : "#f1ede9" }} />
+  const half = (tone: "light" | "dark" | "black") => (
+    <div className="flex h-full flex-1" style={{ background: { light: "#fbf9f7", dark: "#1d1a18", black: "#000000" }[tone] }}>
+      <div className="w-1/3" style={{ background: { light: "#f1ede9", dark: "#25211e", black: "#0a0a0a" }[tone], borderRight: tone === "black" ? "1px solid #262626" : undefined }} />
       <div className="flex-1 space-y-1.5 p-2">
-        <div className="h-1.5 w-3/4 rounded-full" style={{ background: dark ? "#5b534d" : "#cfc8c1" }} />
-        <div className="h-1.5 w-1/2 rounded-full" style={{ background: dark ? "#47403b" : "#ddd7d1" }} />
+        <div className="h-1.5 w-3/4 rounded-full" style={{ background: { light: "#cfc8c1", dark: "#5b534d", black: "#5a5a5a" }[tone] }} />
+        <div className="h-1.5 w-1/2 rounded-full" style={{ background: { light: "#ddd7d1", dark: "#47403b", black: "#3a3a3a" }[tone] }} />
         <div className="h-1.5 w-2/3 rounded-full bg-[var(--blue)] opacity-80" />
       </div>
     </div>
@@ -237,11 +250,11 @@ function ThemePreview({ mode, selected }: { mode: Mode; selected: boolean }) {
     <div className={`flex h-20 overflow-hidden rounded-lg border ${selected ? "border-[var(--blue)] ring-1 ring-[var(--blue)]" : "border-line"}`}>
       {mode === "system" ? (
         <>
-          {half(false)}
-          {half(true)}
+          {half("light")}
+          {half("dark")}
         </>
       ) : (
-        half(mode === "dark")
+        half(mode)
       )}
     </div>
   );

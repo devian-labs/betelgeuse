@@ -10,6 +10,7 @@ import {
   linksTo,
   linkTarget,
   mapProperty,
+  moveView,
   newId,
   parseSchema,
   relationDatabase,
@@ -306,6 +307,15 @@ export function useDatabase(path: string) {
     [saveSchema],
   );
 
+  /** Moves a view's tab to position `index`. */
+  const reorderView = useCallback(
+    (id: string, index: number) => {
+      const s = latest.current;
+      if (s) saveSchema({ ...s.schema, views: moveView(s.schema.views, id, index) });
+    },
+    [saveSchema],
+  );
+
   const deleteView = useCallback(
     (id: string) => {
       const s = latest.current;
@@ -365,6 +375,7 @@ export function useDatabase(path: string) {
     updateView,
     addView,
     deleteView,
+    reorderView,
     createRow,
     renameRow,
     deleteRow,

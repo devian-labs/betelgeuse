@@ -25,6 +25,7 @@
     "lander": "npm run dev -w @betelgeuse/lander",
     "mcp:build": "npm run build -w betelgeuse-mcp",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm test --workspaces --if-present"
+    "test": "npm test --workspaces --if-present",
+    "version:set": "node scripts/set-version.mjs"
   }
 }

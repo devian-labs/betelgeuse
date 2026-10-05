@@ -1,16 +1,23 @@
 import { ChevronLeft, ChevronRight, MoreHorizontal, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { CoverBox } from "../components/Cover";
+import { PageIcon } from "../components/PageIcon";
 import { useOpenRow } from "../lib/vault";
 import { monthGrid, StatusDot, Tag } from "./cells";
 import {
   asDate,
   asList,
+  cardPreviewOf,
+  cardSections,
+  displayValue,
+  relationTitles,
   findProperty,
   getValue,
   isEmptyValue,
   isoDay,
   visibleProperties,
   withOption,
+  type CardPreview,
   type Property,
   type Row,
 } from "./model";
@@ -48,12 +55,23 @@ function Card({
   exclude?: string;
   editing: string | null;
   setEditing: (p: string | null) => void;
-  preview?: boolean;
+  /** Gallery cards show a preview: the page's cover or the start of its text (see the view's settings). */
+  preview?: CardPreview;
   draggable?: boolean;
 }) {
   const openRow = useOpenRow();
   const [menu, setMenu] = useState<HTMLElement | null>(null);
-  const text = row.body.replace(/[#>*_`~\-[\]|]/g, " ").replace(/\s+/g, " ").trim();
+  const shown = preview ? cardPreviewOf(row, preview) : null;
+  const text = row.body
+    .replace(/!\[[^\]]*\]\([^)]*\)|<[^>]+>|```database[\s\S]*?```/g, " ")
+    .replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, "$2")
+    .replace(/[#>*_`~[\]|]/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+  const { lines, tags, stats } = cardSections(props, row, exclude);
+  const big = !!preview; // gallery cards get a header with a large icon; board cards stay compact
+  const stop = (e: React.MouseEvent) => e.stopPropagation();
   return (
     <div
       draggable={draggable && editing !== row.path}
@@ -62,31 +80,77 @@ function Card({
         e.dataTransfer.effectAllowed = "move";
       }}
       onClick={(e) => editing !== row.path && openRow(row.path, e)}
-      className="group/card relative cursor-pointer overflow-hidden rounded-md bg-raised shadow-card transition-colors hover:bg-[var(--card-hover)]"
+      className="group/card relative cursor-pointer overflow-hidden rounded-lg border border-line bg-raised transition-[background-color,border-color,box-shadow] hover:border-[var(--line-strong)] hover:bg-[var(--card-hover)] hover:shadow-card"
     >
-      {preview && (
-        <div className="h-32 overflow-hidden border-b border-line bg-side px-3 pt-3 text-[11px] leading-snug text-faint">
+      {shown === "cover" && <CoverBox cover={String(row.values.cover)} className="h-32 w-full border-b border-line" />}
+      {shown === "content" && (
+        <div className="h-32 overflow-hidden border-b border-line bg-side px-3 pt-3 text-[11px] leading-snug whitespace-pre-line text-faint">
           {text || <span className="opacity-60">Empty page</span>}
         </div>
       )}
-      <div className="space-y-1.5 px-2.5 py-2">
+      <div className={big ? "space-y-2.5 p-3.5" : "space-y-1.5 px-3 py-2.5"}>
         {editing === row.path ? (
           <TitleInput row={row} db={vp.db} onDone={() => setEditing(null)} />
+        ) : big ? (
+          <div className="flex min-w-0 items-center gap-2.5 pr-6">
+            {row.icon && shown !== "cover" && (
+              <span className="grid size-9 shrink-0 place-items-center rounded-md bg-side">
+                <PageIcon icon={row.icon} size={22} />
+              </span>
+            )}
+            <span className={`truncate text-[15px] font-semibold ${row.title === "Untitled" ? "text-faint" : "text-ink"}`}>{row.title}</span>
+          </div>
         ) : (
-          <RowTitle row={row} className="text-sm" />
+          <RowTitle row={row} className="pr-6 text-[14px]" />
         )}
-        {cardProps(props, row, exclude).map((p) => (
-          <div key={p.name} onClick={(e) => e.stopPropagation()} className="text-xs">
-            <EditableValue db={vp.db} row={row} prop={p} wrap className="rounded hover:bg-hover" />
+
+        {lines.map((p) => (
+          <div key={p.name} onClick={stop} className="text-[13px] leading-snug text-muted">
+            <EditableValue db={vp.db} row={row} prop={p} className="line-clamp-2 rounded hover:bg-hover">
+              {p.type === "text" ? <span className="line-clamp-2">{displayValue(p, getValue(row, p))}</span> : undefined}
+            </EditableValue>
           </div>
         ))}
+
+        {tags.length > 0 && (
+          <div onClick={stop} className="flex flex-wrap items-center gap-1">
+            {tags.map((p) => (
+              <EditableValue key={p.name} db={vp.db} row={row} prop={p} wrap className="rounded hover:bg-hover" />
+            ))}
+          </div>
+        )}
+
+        {stats.length > 0 && (
+          <div onClick={stop} className={`flex flex-wrap items-center gap-y-1 text-xs text-faint ${big ? "gap-x-3 border-t border-line pt-2.5" : "gap-x-2.5"}`}>
+            {stats.map((p) => {
+              const v = getValue(row, p);
+              // Relations show how many pages they link; open the cell to see or change which.
+              const count = p.type === "relation" ? relationTitles(v).length : null;
+              return (
+                <EditableValue key={p.name} db={vp.db} row={row} prop={p} className="flex items-baseline gap-1 rounded px-0.5 hover:bg-hover">
+                  {count !== null ? (
+                    <>
+                      <span className="font-medium text-muted tabular-nums">{count}</span>
+                      <span>{p.name}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{p.name}</span>
+                      <span className="font-medium text-muted tabular-nums">{(Array.isArray(v) ? v.join(", ") : displayValue(p, v)) || "0"}</span>
+                    </>
+                  )}
+                </EditableValue>
+              );
+            })}
+          </div>
+        )}
       </div>
       <button
         onClick={(e) => {
           e.stopPropagation();
           setMenu(e.currentTarget);
         }}
-        className="absolute top-1.5 right-1.5 grid size-6 place-items-center rounded-md border border-line bg-raised text-muted opacity-0 shadow-sm group-hover/card:opacity-100 hover:bg-hover"
+        className="absolute top-2 right-2 grid size-6 place-items-center rounded-md border border-line bg-raised text-muted opacity-0 shadow-sm group-hover/card:opacity-100 hover:bg-hover"
       >
         <MoreHorizontal size={14} />
       </button>
@@ -134,6 +198,7 @@ export function BoardView(vp: ViewProps) {
         const items = rowsIn(g);
         if (g === NONE && items.length === 0) return null;
         const option = group.options?.find((o) => o.name === g);
+        const add = async () => setEditing(await db.createRow(g === NONE ? {} : { [group.name]: group.type === "multi_select" ? [g] : g }));
         return (
           <div
             key={g}
@@ -147,10 +212,12 @@ export function BoardView(vp: ViewProps) {
               const path = e.dataTransfer.getData("text/betelgeuse-row");
               if (path) move(path, g);
             }}
-            style={{ background: over === g ? `var(--c-${option?.color ?? "gray"}-bg)` : `color-mix(in srgb, var(--c-${option?.color ?? "gray"}-bg) 40%, transparent)` }}
-            className="flex w-64 shrink-0 flex-col gap-2 self-start rounded-lg p-2 transition-colors"
+            // Columns stay neutral; the status colour lives in the header pill, and tints the column
+            // only while a card is dragged over it, as a drop hint.
+            style={{ background: over === g ? `color-mix(in srgb, var(--c-${option?.color ?? "gray"}-bg) 70%, transparent)` : undefined }}
+            className={`group/col flex w-72 shrink-0 flex-col gap-2 self-start rounded-xl p-2 transition-colors ${over === g ? "" : "bg-[var(--row-hover)]"}`}
           >
-            <div className="flex h-6 items-center gap-2 px-1">
+            <div className="flex h-7 items-center gap-2 px-1.5">
               {g === NONE ? (
                 <Tag name={`No ${group.name}`} color="default" />
               ) : group.type === "status" ? (
@@ -164,16 +231,24 @@ export function BoardView(vp: ViewProps) {
               ) : (
                 <Tag name={g} color={option?.color} />
               )}
-              <span className="text-sm text-faint">{items.length}</span>
+              <span className="text-[13px] text-faint tabular-nums">{items.length}</span>
+              <button
+                onClick={add}
+                title="New page in this group"
+                className="ml-auto grid size-6 place-items-center rounded-md text-faint opacity-0 group-hover/col:opacity-100 hover:bg-hover hover:text-ink"
+              >
+                <Plus size={14} />
+              </button>
             </div>
             {items.map((row) => (
               <Card key={row.path} row={row} props={props} vp={vp} exclude={group.name} editing={editing} setEditing={setEditing} draggable />
             ))}
-            <button
-              onClick={async () => setEditing(await db.createRow(g === NONE ? {} : { [group.name]: group.type === "multi_select" ? [g] : g }))}
-              className="flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-faint hover:bg-hover"
-            >
-              <Plus size={15} /> New page
+            {/* An empty column is a drop target, so it keeps some height and says so. */}
+            {!items.length && (
+              <div className="grid h-16 place-items-center rounded-lg border border-dashed border-line text-xs text-faint">Drop pages here</div>
+            )}
+            <button onClick={add} className="flex h-7 items-center gap-1.5 rounded-md px-1.5 text-[13px] text-faint hover:bg-hover hover:text-muted">
+              <Plus size={14} /> New page
             </button>
           </div>
         );
@@ -207,15 +282,17 @@ export function GalleryView(vp: ViewProps) {
   const { db, schema, view, rows } = vp;
   const [editing, setEditing] = useAutoEditTitle(vp);
   const props = visibleProperties(schema, view);
+  const width = { small: 180, medium: 240, large: 320 }[view.cardSize ?? "medium"];
   return (
-    <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4 pb-4">
-      {rows.map((row) => (
-        <Card key={row.path} row={row} props={props} vp={vp} editing={editing} setEditing={setEditing} preview />
-      ))}
-      <button
-        onClick={async () => setEditing(await db.createRow())}
-        className="flex min-h-48 items-center justify-center gap-1.5 rounded-md border border-dashed border-line text-sm text-faint hover:bg-hover"
-      >
+    <div className="pb-4">
+      {/* Cards size to their content (start-aligned) rather than stretching to the tallest in the row. */}
+      <div className="grid items-start gap-4" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${width}px, 1fr))` }}>
+        {rows.map((row) => (
+          <Card key={row.path} row={row} props={props} vp={vp} editing={editing} setEditing={setEditing} preview={view.cardPreview ?? "auto"} />
+        ))}
+      </div>
+      {/* A slim line like the table's, not a card-sized tile: it adds a page, it isn't one. */}
+      <button onClick={async () => setEditing(await db.createRow())} className="mt-2 flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-faint hover:bg-hover">
         <Plus size={15} /> New page
       </button>
     </div>

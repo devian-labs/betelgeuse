@@ -89,7 +89,7 @@ const frontmatterSchema = z
   .describe('Frontmatter keys to set, e.g. {"icon": "🚀", "tags": ["project"], "Status": "Done", "Estimate": 3}. Set a key to null to remove it.');
 
 function buildServer(): McpServer {
-  const server = new McpServer({ name: "betelgeuse", version: "0.1.0" }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "betelgeuse", version: "0.2.0" }, { instructions: INSTRUCTIONS });
   const agent = () => server.server.getClientVersion()?.name ?? "agent";
   const commit = (paths: string[], message: string) => vault.commit(paths, message, agent());
 
@@ -319,6 +319,26 @@ function buildServer(): McpServer {
       const rel = await vault.find(note);
       const { path: next, touched } = await vault.rename(rel, title);
       const rev = await commit(touched, `rename ${rel} → ${next}`);
+      return json({ path: next, updated: touched, commit: rev });
+    }),
+  );
+
+  server.registerTool(
+    "move_note",
+    {
+      title: "Move note",
+      description:
+        'Moves a note and its sub-pages under another page, or to the top level with parent "". Links to it by path are updated. If the parent already has a page with that title, a number is added.',
+      inputSchema: {
+        note: z.string().describe("Note path or title"),
+        parent: z.string().describe('Path or title of the new parent page, or "" for the top level'),
+      },
+      annotations: { destructiveHint: true },
+    },
+    safe(async ({ note, parent }) => {
+      const rel = await vault.find(note);
+      const { path: next, touched } = await vault.move(rel, parent);
+      const rev = await commit(touched, `move ${rel} → ${next}`);
       return json({ path: next, updated: touched, commit: rev });
     }),
   );

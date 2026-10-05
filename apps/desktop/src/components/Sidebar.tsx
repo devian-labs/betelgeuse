@@ -106,6 +106,7 @@ export function Sidebar(p: Props) {
     if (!hovering.current) setShownRecents(p.recents);
   }, [p.recents]);
   const recents = shownRecents.map((r) => byPath.get(r)).filter((n): n is NoteMeta => !!n);
+  const settings = useSettings();
 
   const resize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -191,9 +192,13 @@ export function Sidebar(p: Props) {
         <div className={drag.state ? "pointer-events-none" : ""}>
           {recents.length > 0 && (
             <Section label="Recents" id="recents">
-              {recents.map((n) => (
-                <TreeRow key={`recent-${n.path}`} node={{ key: `recent:${n.path}`, note: n, title: n.title, children: [] }} depth={0} parent={null} {...rowProps} />
-              ))}
+              {/* A fixed height (Settings → Appearance), so opening pages never shifts the tree below;
+                  pages past it scroll inside the box. Each row is 30px plus 1px margins. */}
+              <div className="overflow-y-auto" style={{ height: settings.recentRows * 32, scrollbarWidth: "thin" }}>
+                {recents.map((n) => (
+                  <TreeRow key={`recent-${n.path}`} node={{ key: `recent:${n.path}`, note: n, title: n.title, children: [] }} depth={0} parent={null} {...rowProps} />
+                ))}
+              </div>
             </Section>
           )}
           {favorites.length > 0 && (

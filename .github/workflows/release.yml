@@ -1,5 +1,10 @@
-# Builds the app for macOS, Linux and Windows when a version tag (v0.1.0, …) is pushed,
-# and attaches the files to a draft GitHub release.
+# Builds Betelgeuse for macOS, Windows and Linux.
+#
+#   Release:  npm run version:set 0.2.0 → commit → git tag v0.2.0 → git push --follow-tags
+#             The tests run first; then every platform builds and its installers are attached to a
+#             draft GitHub release. Review the draft and click Publish.
+#   Dry run:  Actions → Release → Run workflow. Builds everything and attaches the installers to the
+#             run as downloadable artifacts; publishes nothing.
 #
 # The builds are NOT signed with an Apple Developer ID or a Windows certificate. macOS builds are
 # ad-hoc signed, so they run, but Gatekeeper warns on first launch: see the release notes below.
@@ -10,21 +15,55 @@ on:
     tags: ["v*"]
   workflow_dispatch:
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  checks:
+    name: Tests
+    uses: ./.github/workflows/ci.yml
+
+  version:
+    name: Tag matches the app version
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Compare
+        run: |
+          app=$(node -p "require('./apps/desktop/src-tauri/tauri.conf.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$app" != "$tag" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match the app version $app. Run 'npm run version:set $tag', commit, and tag that commit."
+            exit 1
+          fi
+
   build:
+    name: Build (${{ matrix.name }})
+    needs: [checks, version]
+    # `version` only runs for tags; a dry run skips it.
+    if: ${{ !cancelled() && needs.checks.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.version.result) }}
     permissions:
       contents: write
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
+          - name: macOS Apple Silicon
+            platform: macos-latest
             args: --target aarch64-apple-darwin
-          - platform: macos-latest
+          - name: macOS Intel
+            platform: macos-latest
             args: --target x86_64-apple-darwin
-          - platform: ubuntu-22.04
+          - name: Linux x64
+            platform: ubuntu-22.04
             args: ""
-          - platform: windows-latest
+          - name: Linux ARM64
+            platform: ubuntu-22.04-arm
+            args: ""
+          - name: Windows x64
+            platform: windows-latest
             args: ""
     runs-on: ${{ matrix.platform }}
     steps:
@@ -35,26 +74,30 @@ jobs:
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
+          key: ${{ matrix.args }}
       - name: Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: startsWith(matrix.platform, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      # Install from the repo root: the app's build also builds the MCP server it bundles.
       - run: npm ci
-      - uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: apps/desktop
-          tagName: ${{ github.ref_name }}
-          releaseName: Betelgeuse ${{ github.ref_name }}
-          releaseDraft: true
-          prerelease: false
           args: ${{ matrix.args }}
+          # A tag makes (or adds to) the draft release; a dry run has no tag and only uploads artifacts.
+          tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && format('Betelgeuse {0}', github.ref_name) || '' }}
+          releaseDraft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          uploadWorkflowArtifacts: true
           releaseBody: |
             ## Install
 
@@ -67,6 +110,6 @@ jobs:
               The first time, macOS says it "can't verify the developer". Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
               Or run once in Terminal: `xattr -dr com.apple.quarantine /Applications/Betelgeuse.app`
             - **Windows**: run the `.exe` installer. If SmartScreen appears, click **More info → Run anyway**.
-            - **Linux**: `.AppImage` (make it executable and run it) or `.deb` (`sudo apt install ./betelgeuse_*.deb`).
+            - **Linux** (`amd64` or `arm64`): `.AppImage` (make it executable and run it), `.deb` (`sudo apt install ./betelgeuse_*.deb`) or `.rpm`.
 
             The MCP server for AI agents needs **Node.js 20+**.
