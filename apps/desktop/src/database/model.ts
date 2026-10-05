@@ -3,9 +3,10 @@
  * ```database JSON block describing properties and views. Each row is a sub-page
  * (`Tasks/<Row>.md`) whose property values live in its YAML frontmatter.
  */
-import type { RawRow } from "../lib/api";
+import type { NoteMeta, RawRow } from "../lib/api";
 import { nextColor, type Color } from "../lib/colors";
 import { readFrontmatter, splitNote } from "../lib/frontmatter";
+import { resolveWikiLink } from "../lib/tree";
 
 export type PropType =
   | "title"
@@ -19,12 +20,34 @@ export type PropType =
   | "url"
   | "email"
   | "created_time"
-  | "last_edited_time";
+  | "last_edited_time"
+  | "relation"
+  | "rollup";
 
 export type SelectOption = { name: string; color: Color };
 export type NumberFormat = "number" | "comma" | "percent" | "dollar" | "euro" | "pound" | "rupee" | "yen";
 
-export type Property = { name: string; type: PropType; options?: SelectOption[]; format?: NumberFormat };
+export type Property = {
+  name: string;
+  type: PropType;
+  options?: SelectOption[];
+  format?: NumberFormat;
+  /** relation: the related database as a path link, `[[Areas/Projects]]`, so renames and moves keep it. */
+  database?: string;
+  /** relation: "one" allows a single linked page. */
+  limit?: "one";
+  /** relation: the paired property shown on the related database (two-way relations). */
+  reverse?: string;
+  /**
+   * relation: set on the related side of a two-way relation. Its values are not stored; they are the
+   * rows of `database` whose `synced` property links to this row.
+   */
+  synced?: string;
+  /** rollup: the relation property to follow, the related database's property to read, and how to sum it up. */
+  relation?: string;
+  target?: string;
+  calc?: RollupCalc;
+};
 
 export type Sort = { property: string; direction: "asc" | "desc" };
 export type FilterOp =
@@ -69,6 +92,8 @@ export type Calc =
   | "latest"
   | "date_range";
 
+export type RollupCalc = Calc | "show_original";
+
 export type View = {
   id: string;
   name: string;
@@ -101,6 +126,8 @@ export type Row = {
   body: string;
   created: number;
   modified: number;
+  /** Values that are worked out rather than stored: two-way relations and rollups. */
+  computed?: Record<string, unknown>;
 };
 
 export const TITLE = "Name";
@@ -121,6 +148,8 @@ export const TYPE_LABELS: Record<PropType, string> = {
   email: "Email",
   created_time: "Created time",
   last_edited_time: "Last edited time",
+  relation: "Relation",
+  rollup: "Rollup",
 };
 
 export const ADDABLE_TYPES: PropType[] = [
@@ -133,6 +162,8 @@ export const ADDABLE_TYPES: PropType[] = [
   "checkbox",
   "url",
   "email",
+  "relation",
+  "rollup",
   "created_time",
   "last_edited_time",
 ];
@@ -212,7 +243,7 @@ export function getValue(row: Row, prop: Property): unknown {
     case "last_edited_time":
       return row.modified;
     default:
-      return row.values[prop.name];
+      return isComputed(prop) ? row.computed?.[prop.name] : row.values[prop.name];
   }
 }
 
@@ -275,6 +306,8 @@ export function displayValue(prop: Property, v: unknown): string {
       const d = asDate(v);
       return d ? formatDate(d, prop.type !== "date") : "";
     }
+    case "relation":
+      return relationTitles(v).join(", ");
     default:
       return asList(v).join(", ");
   }
@@ -329,7 +362,7 @@ export const FILTER_OPS: Record<string, { op: FilterOp; label: string; needsValu
 export function filterOpsFor(type: PropType) {
   if (type === "number") return FILTER_OPS.number;
   if (type === "select" || type === "status") return FILTER_OPS.select;
-  if (type === "multi_select") return FILTER_OPS.multi_select;
+  if (type === "multi_select" || type === "relation") return FILTER_OPS.multi_select;
   if (type === "date" || type === "created_time" || type === "last_edited_time") return FILTER_OPS.date;
   if (type === "checkbox") return FILTER_OPS.checkbox;
   return FILTER_OPS.text;
@@ -361,13 +394,14 @@ function matches(row: Row, prop: Property, f: Filter): boolean {
     const day = isoDay(d);
     return f.op === "is" ? day === f.value : f.op === "before" ? day < f.value : f.op === "after" ? day > f.value : true;
   }
-  const list = asList(v).map((s) => s.toLowerCase());
+  const list = (prop.type === "relation" ? relationTitles(v) : asList(v)).map((s) => s.toLowerCase());
   const text = list.join(", ");
+  const exact = prop.type === "multi_select" || prop.type === "relation";
   switch (f.op) {
     case "contains":
-      return prop.type === "multi_select" ? list.includes(want) : text.includes(want);
+      return exact ? list.includes(want) : text.includes(want);
     case "not_contains":
-      return prop.type === "multi_select" ? !list.includes(want) : !text.includes(want);
+      return exact ? !list.includes(want) : !text.includes(want);
     case "is":
       return text === want;
     case "is_not":
@@ -573,6 +607,29 @@ export function uniquePropertyName(schema: Schema, base: string): string {
   return name;
 }
 
+/** The schema without property `name`, and without the view settings that mention it. */
+export function removeProperty(schema: Schema, name: string): Schema {
+  return {
+    ...schema,
+    properties: schema.properties.filter((p) => p.name !== name),
+    views: schema.views.map((v) => ({
+      ...v,
+      order: v.order?.filter((n) => n !== name),
+      hidden: v.hidden?.filter((n) => n !== name),
+      sorts: v.sorts?.filter((x) => x.property !== name),
+      filters: v.filters?.filter((x) => x.property !== name),
+      groupBy: v.groupBy === name ? undefined : v.groupBy,
+      dateProperty: v.dateProperty === name ? undefined : v.dateProperty,
+    })),
+  };
+}
+
+/** The schema with property `name` changed by `fn`. */
+export const mapProperty = (schema: Schema, name: string, fn: (p: Property) => Property): Schema => ({
+  ...schema,
+  properties: schema.properties.map((p) => (p.name === name ? fn(p) : p)),
+});
+
 export function withOption(prop: Property, name: string): { prop: Property; option: SelectOption } {
   const existing = prop.options?.find((o) => o.name === name);
   if (existing) return { prop, option: existing };
@@ -581,4 +638,104 @@ export function withOption(prop: Property, name: string): { prop: Property; opti
 }
 
 export const isSelectLike = (t: PropType) => t === "select" || t === "status" || t === "multi_select";
-export const isReadOnly = (t: PropType) => t === "created_time" || t === "last_edited_time";
+export const isReadOnly = (t: PropType) => t === "created_time" || t === "last_edited_time" || t === "rollup";
+
+// ---------- relations & rollups ----------
+
+/** The page a link names: `[[Khao|label]]` and plain `Khao` both give `Khao`. */
+export function linkTarget(s: string): string {
+  const m = /^\s*\[\[([^\]|#]*)(?:[|#][^\]]*)?\]\]\s*$/.exec(s);
+  return (m ? m[1] : s).trim();
+}
+
+export const toLink = (title: string) => `[[${title}]]`;
+
+/** Titles of the pages a relation value links to. */
+export const relationTitles = (v: unknown): string[] => asList(v).map(linkTarget).filter(Boolean);
+
+/** A database page path as a relation's `database` link: `Areas/Projects.md` -> `[[Areas/Projects]]`. */
+export const databaseLink = (path: string) => toLink(path.replace(/\.md$/, ""));
+
+/** Values that are worked out from other rows rather than stored on the row. */
+export const isComputed = (prop: Property) => prop.type === "rollup" || (prop.type === "relation" && !!prop.synced);
+
+/** The folder a database's rows live in: `A/Tasks.md` -> `A/Tasks`. */
+const rowsDir = (dbPath: string) => dbPath.replace(/\.md$/, "");
+
+/** The path of the database a relation points at, if it still exists. */
+export function relationDatabase(prop: Property, notes: NoteMeta[]): string | undefined {
+  if (!prop.database) return undefined;
+  return resolveWikiLink(linkTarget(prop.database), notes.filter((n) => n.kind === "database"))?.path;
+}
+
+/** The page a relation links to: a row of the related database first, then any page with that title. */
+export function relationPage(title: string, dbPath: string | undefined, notes: NoteMeta[]): NoteMeta | undefined {
+  const inDb = dbPath && notes.find((n) => n.path.toLowerCase() === `${rowsDir(dbPath)}/${title}.md`.toLowerCase());
+  return inDb || resolveWikiLink(title, notes);
+}
+
+/** Whether `title` (a link target) names `row`: by title, or by its path. */
+export function linksTo(title: string, row: { path: string; title: string }): boolean {
+  const t = title.replace(/\.md$/, "").toLowerCase();
+  return t === row.title.toLowerCase() || t === rowsDir(row.path).toLowerCase();
+}
+
+/**
+ * Turns the values a property held before it became a relation into links: `Khao` -> `[[Khao]]`.
+ * Text such as "A, B" (how imports kept relations) splits into one link per name.
+ */
+export function toRelationValue(v: unknown, limit?: "one"): string[] | null {
+  const titles = asList(v).flatMap((s) => (/^\s*\[\[/.test(s) ? [linkTarget(s)] : s.split(/,\s*/))).map((s) => s.trim()).filter(Boolean);
+  const links = [...new Set(titles)].map(toLink);
+  return links.length ? (limit === "one" ? links.slice(0, 1) : links) : null;
+}
+
+export type RelatedDatabase = { path: string; schema: Schema; rows: Row[] };
+
+/** How a rollup can sum up the related pages' values of a property of type `type`. */
+export const rollupCalcsFor = (type: PropType): RollupCalc[][] => [["show_original"], ...calcsFor(type).slice(1)];
+export const rollupCalcLabel = (c: RollupCalc) => (c === "show_original" ? "Show original" : CALC_LABELS[c]);
+
+/** Rows of `db` that a relation value (or a two-way relation, from the other side) points at. */
+function relatedRows(row: Row, prop: Property, db: RelatedDatabase | undefined): Row[] {
+  if (!db) return [];
+  if (prop.synced) {
+    const source = findProperty(db.schema, prop.synced);
+    if (!source) return [];
+    return db.rows.filter((r) => relationTitles(r.values[source.name]).some((t) => linksTo(t, row)));
+  }
+  return relationTitles(row.values[prop.name]).flatMap((t) => db.rows.find((r) => linksTo(t, r)) ?? []);
+}
+
+/**
+ * Fills in each row's computed values: the related side of two-way relations, then rollups.
+ * `related` maps each related database's path to its schema and rows (this database included
+ * when it relates to itself).
+ */
+export function withComputed(rows: Row[], schema: Schema, related: Map<string, RelatedDatabase>, resolve: (prop: Property) => string | undefined): Row[] {
+  const computedProps = schema.properties.filter(isComputed);
+  if (!computedProps.length) return rows;
+  return rows.map((row) => {
+    const computed: Record<string, unknown> = {};
+    for (const prop of computedProps.filter((p) => p.type === "relation")) {
+      computed[prop.name] = relatedRows(row, prop, related.get(resolve(prop) ?? "")).map((r) => toLink(r.title));
+    }
+    const withRelations = { ...row, computed };
+    for (const prop of computedProps.filter((p) => p.type === "rollup")) {
+      const rel = schema.properties.find((p) => p.name === prop.relation && p.type === "relation");
+      const db = rel && related.get(resolve(rel) ?? "");
+      const target = db && prop.target ? findProperty(db.schema, prop.target) : undefined;
+      if (!rel || !db || !target) continue;
+      const linked = relatedRows(withRelations, rel, db);
+      const calc = prop.calc ?? "show_original";
+      computed[prop.name] =
+        calc === "show_original"
+          ? linked.flatMap((r) => {
+              const v = getValue(r, target);
+              return target.type === "relation" ? relationTitles(v) : target.type === "date" || target.type === "number" ? [displayValue(target, v)].filter(Boolean) : asList(v);
+            })
+          : calculate(linked, target, calc);
+    }
+    return { ...row, computed };
+  });
+}

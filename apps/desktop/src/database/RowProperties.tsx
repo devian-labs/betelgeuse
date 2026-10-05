@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { useState } from "react";
 import { readFrontmatter } from "../lib/frontmatter";
 import { CellEditor, Checkbox, PropIcon, ValueView } from "./cells";
-import { asBool, isReadOnly, type Property } from "./model";
+import { asBool, isComputed, isReadOnly, type Property } from "./model";
 import { PropertyMenu, TypeMenu } from "./PropertyMenu";
 import { useDatabase } from "./useDatabase";
 
@@ -12,11 +12,13 @@ import { useDatabase } from "./useDatabase";
  */
 export function RowProperties({
   dbPath,
+  rowPath,
   frontmatter,
   times,
   onPatch,
 }: {
   dbPath: string;
+  rowPath: string;
   frontmatter: string;
   times: { created: number; modified: number };
   onPatch: (patch: Record<string, unknown>) => void;
@@ -29,7 +31,11 @@ export function RowProperties({
   if (!schema) return null;
 
   const values = readFrontmatter(frontmatter);
-  const valueOf = (p: Property) => (p.type === "created_time" ? times.created : p.type === "last_edited_time" ? times.modified : values[p.name]);
+  // Two-way relations and rollups are worked out from other pages, so they come from the database.
+  const row = db.state?.rows.find((r) => r.path === rowPath);
+  const valueOf = (p: Property) =>
+    p.type === "created_time" ? times.created : p.type === "last_edited_time" ? times.modified : isComputed(p) ? row?.computed?.[p.name] : values[p.name];
+  const set = (p: Property, v: unknown) => (isComputed(p) ? row && db.setValue(row, p.name, v) : onPatch({ [p.name]: v }));
 
   return (
     <div className="mt-4 mb-2 space-y-px text-sm">
@@ -64,10 +70,10 @@ export function RowProperties({
       {editing && (
         <CellEditor
           prop={editing.prop}
-          value={values[editing.prop.name]}
+          value={valueOf(editing.prop)}
           anchor={editing.el}
           onClose={() => setEditing(null)}
-          onChange={(v) => onPatch({ [editing.prop.name]: v })}
+          onChange={(v) => set(editing.prop, v)}
           onPropChange={(next) => db.updateProperty(editing.prop.name, next)}
         />
       )}

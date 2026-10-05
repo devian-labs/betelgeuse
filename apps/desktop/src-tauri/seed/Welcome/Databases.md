@@ -43,10 +43,30 @@ Each database can have several views. Every view keeps its own sorts, filters, c
 | Checkbox         | Yes or no                                                                                                   |
 | URL              | A web link                                                                                                  |
 | Email            | An email address                                                                                            |
+| Relation         | Links to rows of another database (or the same one)                                                         |
+| Rollup           | A value worked out from the rows a relation links to                                                        |
 | Created time     | When the row was created, filled in for you                                                                 |
 | Last edited time | When the row was last changed, filled in for you                                                            |
 
 Click a column header to rename the property, change its type or number format, sort or filter by it, hide it, wrap its text or delete it. Options for select, multi-select and status properties each have a colour: open an option's menu, while picking a value, to rename it, recolour it or delete it. Drag a header to reorder the columns, and drag its edge to resize.
+
+## Relations and rollups
+
+A **Relation** links each row to rows of another database: tasks to the project they belong to, books to their authors. Pick the database under **Related to** in the property's menu, then click a cell to link pages, search for them, or create a new one there. **Limit to one page** keeps it to a single link.
+
+Turn on **Show on …** to see the relation from the other side too: the related database gets a property listing the rows that link to each of its pages. Editing either side changes the same links.
+
+A **Rollup** follows a relation and reads a property of the linked rows. It can show their values as they are, or calculate over them: count the tasks of a project, sum their estimates, or show what percentage are done.
+
+Links are stored as ordinary wikilinks in the row's frontmatter, so they show up as backlinks and follow renames:
+
+```yaml
+---
+Task: ["[[Ship the MCP server]]"]
+---
+```
+
+If a property held names before it became a relation (a select of project names, say), choosing its database turns them into links.
 
 ## Sort, filter and search
 
@@ -89,4 +109,4 @@ Tags: [agents]
 Agents can read a database as records, filtered and sorted, with `query_database`. See [[Connect your AI agents]].
 
 > [!gray] 🚧
-> Formulas, relations and rollups aren't supported yet. Boards group by Select or Status, and calendars by a date.
+> Formulas aren't supported yet. Boards group by Select or Status, and calendars by a date.

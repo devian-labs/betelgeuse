@@ -1,11 +1,13 @@
 import {
   AlignLeft,
+  ArrowUpRight,
   AtSign,
   Calendar,
   CheckSquare,
   ChevronDown,
   CircleDot,
   Clock,
+  FileText,
   GripVertical,
   Hash,
   Link,
@@ -13,6 +15,9 @@ import {
   Loader,
   MoreHorizontal,
   Plus,
+  Search,
+  Sigma,
+  Table2,
   Trash2,
   Type,
   X,
@@ -20,6 +25,9 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { COLORS, colorLabel, tagColor, type Color } from "../lib/colors";
 import { MenuDivider, MenuItem, MenuSection, Popover } from "../components/Popover";
+import { PageIcon } from "../components/PageIcon";
+import { api } from "../lib/api";
+import { useOpenRow, useVault } from "../lib/vault";
 import {
   asBool,
   asDate,
@@ -28,7 +36,15 @@ import {
   formatDate,
   formatNumber,
   isoDay,
+  databaseLink,
+  linksTo,
+  relationDatabase,
+  relationPage,
+  relationTitles,
+  toLink,
+  toRow,
   withOption,
+  type Row,
   type PropType,
   type Property,
   type SelectOption,
@@ -48,6 +64,8 @@ export function PropIcon({ type, size = 14 }: { type: PropType; size?: number })
     email: <AtSign size={size} />,
     created_time: <Clock size={size} />,
     last_edited_time: <Clock size={size} />,
+    relation: <ArrowUpRight size={size} />,
+    rollup: <Sigma size={size} />,
   };
   return <>{icons[type]}</>;
 }
@@ -113,6 +131,8 @@ export function ValueView({ prop, value, wrap }: { prop: Property; value: unknow
       const d = asDate(value);
       return d ? <span className="whitespace-nowrap">{formatDate(d, prop.type !== "date")}</span> : null;
     }
+    case "relation":
+      return <RelationChips prop={prop} value={value} wrap={wrap} />;
     case "url":
     case "email": {
       const s = asList(value)[0];
@@ -123,6 +143,39 @@ export function ValueView({ prop, value, wrap }: { prop: Property; value: unknow
       return s ? <span className={wrap ? "break-words whitespace-pre-wrap" : "truncate"}>{s}</span> : null;
     }
   }
+}
+
+/** Linked pages as chips; clicking one opens it (in a side peek, or a new tab with ⌘/Ctrl). */
+function RelationChips({ prop, value, wrap }: { prop: Property; value: unknown; wrap?: boolean }) {
+  const { notes } = useVault();
+  const openRow = useOpenRow();
+  const titles = relationTitles(value);
+  if (!titles.length) return null;
+  const dbPath = relationDatabase(prop, notes);
+  return (
+    <span className={`flex gap-1.5 ${wrap ? "flex-wrap" : "overflow-hidden"}`}>
+      {titles.map((t) => {
+        const page = relationPage(t, dbPath, notes);
+        return (
+          <span
+            key={t}
+            onClick={(e) => {
+              if (!page) return;
+              e.stopPropagation();
+              openRow(page.path, e);
+            }}
+            className={`inline-flex max-w-full shrink-0 items-center gap-1 text-[14px] whitespace-nowrap underline-offset-2 ${
+              page ? "cursor-pointer text-ink underline decoration-[var(--line)] hover:decoration-current" : "text-faint line-through"
+            }`}
+            title={page ? page.path : `No page named “${t}”`}
+          >
+            {page?.icon ? <PageIcon icon={page.icon} size={14} /> : <FileText size={13} className="shrink-0 text-faint" />}
+            <span className="truncate">{t}</span>
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
 export function Checkbox({ checked, onChange }: { checked: boolean; onChange?: (v: boolean) => void }) {
@@ -165,6 +218,8 @@ export function CellEditor(p: EditorProps) {
       return <SelectEditor {...p} />;
     case "date":
       return <DateEditor {...p} />;
+    case "relation":
+      return <RelationEditor {...p} />;
     default:
       return <TextEditor {...p} />;
   }
@@ -409,6 +464,151 @@ function SelectEditor({ prop, value, anchor, onChange, onPropChange, onClose }: 
           }}
         />
       )}
+    </Popover>
+  );
+}
+
+/** Lists databases to relate to; picking one sets the relation's `database`. */
+export function DatabasePicker({ current, onPick }: { current?: string; onPick: (path: string) => void }) {
+  const { notes } = useVault();
+  const [query, setQuery] = useState("");
+  const dbs = notes.filter((n) => n.kind === "database" && n.title.toLowerCase().includes(query.trim().toLowerCase()));
+  return (
+    <>
+      <div className="flex items-center gap-1.5 border-b border-line px-2.5 py-2">
+        <Search size={13} className="text-faint" />
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search for a database…"
+          className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
+        />
+      </div>
+      <div className="max-h-72 overflow-y-auto p-1">
+        <MenuSection label="Relate to a database" />
+        {dbs.map((n) => (
+          <MenuItem
+            key={n.path}
+            icon={n.icon ? <PageIcon icon={n.icon} size={14} /> : <Table2 size={14} />}
+            label={n.title}
+            hint={n.path.includes("/") ? n.path.replace(/\/[^/]*$/, "") : undefined}
+            right={current === databaseLink(n.path) ? <span className="text-muted">✓</span> : null}
+            onClick={() => onPick(n.path)}
+          />
+        ))}
+        {!dbs.length && <div className="px-2 py-1.5 text-sm text-faint">No databases found</div>}
+      </div>
+    </>
+  );
+}
+
+/** Picks pages from the related database, or creates one there. */
+function RelationEditor({ prop, value, anchor, onChange, onPropChange, onClose }: EditorProps) {
+  const { notes, refresh } = useVault();
+  const dbPath = relationDatabase(prop, notes);
+  const [rows, setRows] = useState<Row[] | null>(null);
+  const [selected, setSelected] = useState(relationTitles(value));
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+  const single = prop.limit === "one";
+
+  useEffect(() => {
+    if (dbPath) api.databaseRows(dbPath).then((raw) => setRows(raw.map(toRow)), () => setRows([]));
+  }, [dbPath]);
+  useEffect(() => setActive(0), [query]);
+
+  if (!dbPath) {
+    return (
+      <Popover anchor={anchor} onClose={onClose} className="w-72 overflow-hidden">
+        <DatabasePicker
+          onPick={(path) => {
+            onPropChange({ ...prop, database: databaseLink(path) });
+            onClose();
+          }}
+        />
+      </Popover>
+    );
+  }
+
+  const q = query.trim();
+  const isSelected = (r: Row) => selected.some((t) => linksTo(t, r));
+  const shown = (rows ?? []).filter((r) => r.title.toLowerCase().includes(q.toLowerCase()));
+  const canCreate = !!q && !(rows ?? []).some((r) => r.title.toLowerCase() === q.toLowerCase());
+
+  const commit = (titles: string[]) => {
+    setSelected(titles);
+    onChange(titles.length ? titles.map(toLink) : null);
+  };
+  const toggle = (title: string) => {
+    const has = selected.some((t) => t.toLowerCase() === title.toLowerCase());
+    if (single) {
+      commit(has ? [] : [title]);
+      onClose();
+    } else commit(has ? selected.filter((t) => t.toLowerCase() !== title.toLowerCase()) : [...selected, title]);
+    setQuery("");
+  };
+  const create = async () => {
+    const path = await api.createNote(dbPath, q);
+    await refresh();
+    const title = path.replace(/^.*\//, "").replace(/\.md$/, "");
+    setRows((rs) => [...(rs ?? []), { path, title, frontmatter: "", values: {}, body: "", created: Date.now(), modified: Date.now() }]);
+    toggle(title);
+  };
+  const items = shown.length + (canCreate ? 1 : 0);
+
+  return (
+    <Popover anchor={anchor} onClose={onClose} className="w-80 overflow-hidden">
+      <div className="flex min-h-9 flex-wrap items-center gap-1 border-b border-line bg-side px-2 py-1.5">
+        {selected.map((t) => (
+          <Tag key={t} name={t} onRemove={() => commit(selected.filter((s) => s !== t))} />
+        ))}
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") (e.preventDefault(), setActive((a) => Math.min(a + 1, items - 1)));
+            if (e.key === "ArrowUp") (e.preventDefault(), setActive((a) => Math.max(a - 1, 0)));
+            if (e.key === "Enter") {
+              e.preventDefault();
+              if (active < shown.length) toggle(shown[active].title);
+              else if (canCreate) create();
+            }
+            if (e.key === "Backspace" && !query && selected.length) commit(selected.slice(0, -1));
+          }}
+          placeholder={selected.length ? "" : "Link a page…"}
+          className="min-w-16 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
+        />
+      </div>
+      <div className="max-h-72 overflow-y-auto p-1">
+        <div className="px-2 pt-1 pb-1 text-[11px] text-faint">
+          In {notes.find((n) => n.path === dbPath)?.title ?? dbPath}
+          {single ? " · one page" : ""}
+        </div>
+        {rows === null && <div className="px-2 py-1.5 text-sm text-faint">Loading…</div>}
+        {shown.map((r, i) => (
+          <div
+            key={r.path}
+            onMouseEnter={() => setActive(i)}
+            onClick={() => toggle(r.title)}
+            className={`flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm text-ink ${active === i ? "bg-hover" : ""}`}
+          >
+            {r.icon ? <PageIcon icon={r.icon} size={15} /> : <FileText size={14} className="shrink-0 text-faint" />}
+            <span className="min-w-0 flex-1 truncate">{r.title}</span>
+            {isSelected(r) && <span className="text-muted">✓</span>}
+          </div>
+        ))}
+        {canCreate && (
+          <div
+            onMouseEnter={() => setActive(shown.length)}
+            onClick={create}
+            className={`flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm text-ink ${active === shown.length ? "bg-hover" : ""}`}
+          >
+            <Plus size={14} className="text-faint" /> New page “{q}”
+          </div>
+        )}
+      </div>
     </Popover>
   );
 }

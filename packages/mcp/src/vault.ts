@@ -4,6 +4,7 @@ import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/p
 import path from "node:path";
 import { promisify } from "node:util";
 import { Document, isMap, parseDocument } from "yaml";
+import { isComputed, linksTo, linkTarget, relationTitles, rollup, type Property, type Row } from "./relations.js";
 
 const exec = promisify(execFile);
 
@@ -259,12 +260,16 @@ export class Vault {
       touched.push(childrenDir(rel), childrenDir(next));
     }
     const [from, to] = [titleOf(rel), titleOf(next)];
+    const [fromDir, toDir] = [childrenDir(rel), childrenDir(next)];
     // Rewrites links in every page (hidden ones too) so nothing breaks; nothing is returned from them.
+    // Path links follow as well: `[[Areas/Old]]` (how relations name their database) and `[[Areas/Old/Sub]]`.
     for (const f of await this.allFiles()) {
       const text = await readFile(this.resolve(f), "utf8");
-      const updated = text.replace(/\[\[([^\]\n|#]+)([|#][^\]\n]*)?\]\]/g, (m, target: string, rest = "") =>
-        target.trim() === from ? `[[${to}${rest}]]` : m,
-      );
+      const updated = text.replace(/\[\[([^\]\n|#]+)([|#][^\]\n]*)?\]\]/g, (m, target: string, rest = "") => {
+        const t = target.trim();
+        if (t === from || t === fromDir) return `[[${t === from ? to : toDir}${rest}]]`;
+        return t.startsWith(`${fromDir}/`) ? `[[${toDir}${t.slice(fromDir.length)}${rest}]]` : m;
+      });
       if (updated !== text) {
         await writeFile(this.resolve(f), updated);
         touched.push(f);
@@ -296,8 +301,97 @@ export class Vault {
 
   // ---------- databases ----------
 
-  /** A database page's schema (properties and views) and its rows with property values. */
+  /**
+   * A database page's schema (properties and views) and its rows with property values. Relations
+   * read as the titles of the linked pages, and two-way relations and rollups are worked out.
+   */
   async database(rel: string) {
+    const { schema, rows } = await this.rawDatabase(rel);
+    const properties: Property[] = schema.properties ?? [];
+    const related = new Map<string, Awaited<ReturnType<Vault["rawDatabase"]>>>([[rel, { schema, rows }]]);
+    const relatedTo = async (p: Property) => {
+      const db = await this.relatedDatabase(p);
+      if (db && !related.has(db)) related.set(db, await this.rawDatabase(db));
+      return db ? related.get(db)! : undefined;
+    };
+    const titleKey = (sc: { title?: string }) => (typeof sc.title === "string" && sc.title.trim() ? sc.title : "Name");
+    const rowRef = (r: Row, sc: { title?: string }) => ({ path: r.path, title: String(r[titleKey(sc)]) });
+    /** Rows of the related database a row links to through relation `p` (or that link to it, for a two-way one). */
+    const linked = async (row: Row, p: Property): Promise<{ rows: Row[]; schema: { title?: string; properties?: Property[] } }> => {
+      const db = await relatedTo(p);
+      if (!db) return { rows: [], schema: {} };
+      if (p.synced) {
+        const me = rowRef(row, schema);
+        return { rows: db.rows.filter((r) => relationTitles(r[p.synced!]).some((t) => linksTo(t, me))), schema: db.schema };
+      }
+      const hits = relationTitles(row[p.name]).flatMap((t) => db.rows.find((r) => linksTo(t, rowRef(r, db.schema))) ?? []);
+      return { rows: hits, schema: db.schema };
+    };
+    const out: Row[] = [];
+    for (const row of rows) {
+      const next: Row = { ...row };
+      for (const p of properties) {
+        if (p.type === "relation") {
+          // Titles of pages the agent can see; links to hidden or missing pages are left out.
+          const { rows: hits, schema: sc } = await linked(row, p);
+          if (hits.length || p.synced) next[p.name] = hits.map((r) => rowRef(r, sc).title);
+          else delete next[p.name];
+        } else if (p.type === "rollup") {
+          const rel = properties.find((r) => r.name === p.relation && r.type === "relation");
+          if (!rel || !p.target) continue;
+          const { rows: hits } = await linked(row, rel);
+          next[p.name] = rollup(hits.map((r) => r[p.target!]), p.calc);
+        }
+      }
+      out.push(next);
+    }
+    return { schema, rows: out };
+  }
+
+  /** The path of the database a relation points at, if the agent can see it. */
+  async relatedDatabase(p: Property): Promise<string | undefined> {
+    if (!p.database) return undefined;
+    const hit = await this.find(linkTarget(p.database)).catch(() => undefined);
+    return hit && (await this.isDatabase(hit)) ? hit : undefined;
+  }
+
+  async isDatabase(rel: string): Promise<boolean> {
+    return parseFrontmatter(splitNote(await readFile(this.resolve(rel), "utf8")).frontmatter).type === "database";
+  }
+
+  /**
+   * Checks and normalises frontmatter written to a database row: relation values may be given as
+   * titles ("Khao" or ["Khao", "Axon"]) and are stored as `[[Title]]` links to rows that exist.
+   */
+  async rowFrontmatter(database: string | undefined, patch: FrontmatterPatch | undefined): Promise<FrontmatterPatch | undefined> {
+    if (!database || !patch || !(await this.isDatabase(database))) return patch;
+    const { schema } = await this.rawDatabase(database);
+    const out: FrontmatterPatch = { ...patch };
+    for (const p of (schema.properties ?? []) as Property[]) {
+      if (!(p.name in patch)) continue;
+      if (isComputed(p)) {
+        const how = p.synced ? `set "${p.synced}" on the pages of the related database instead` : "it is calculated from related pages";
+        throw new Error(`"${p.name}" can't be set directly: ${how}.`);
+      }
+      if (p.type !== "relation" || patch[p.name] === null) continue;
+      const titles = relationTitles(patch[p.name]);
+      const db = await this.relatedDatabase(p);
+      if (!db) throw new Error(`"${p.name}" relates to a database that doesn't exist.`);
+      const related = await this.rawDatabase(db);
+      const key = typeof related.schema.title === "string" && related.schema.title.trim() ? related.schema.title : "Name";
+      const links = titles.map((t) => {
+        const hit = related.rows.find((r) => linksTo(t, { path: r.path, title: String(r[key]) }));
+        if (!hit) throw new Error(`"${t}" is not a page in ${titleOf(db)}. Create it there first, or use an existing title.`);
+        return `[[${String(hit[key])}]]`;
+      });
+      if (p.limit === "one" && links.length > 1) throw new Error(`"${p.name}" links to one page only.`);
+      out[p.name] = links.length ? links : null;
+    }
+    return out;
+  }
+
+  /** A database's schema and its rows with the values stored in their frontmatter. */
+  private async rawDatabase(rel: string) {
     const { frontmatter, body } = splitNote(await readFile(this.resolve(rel), "utf8"));
     if (parseFrontmatter(frontmatter).type !== "database") throw new Error(`"${rel}" is not a database`);
     const m = /```database[ \t]*\n([\s\S]*?)\n```/.exec(body);
@@ -305,7 +399,7 @@ export class Vault {
     // The title column is "Name" unless the schema names it (e.g. "Source", from a Notion import).
     const titleKey: string = typeof schema.title === "string" && schema.title.trim() ? schema.title : "Name";
     const dir = path.join(this.root, childrenDir(rel));
-    const rows = [];
+    const rows: Row[] = [];
     const visible = new Set(await this.files());
     if (existsSync(dir)) {
       for (const entry of await readdir(dir, { withFileTypes: true })) {

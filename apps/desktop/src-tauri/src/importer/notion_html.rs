@@ -312,6 +312,8 @@ pub(super) struct HtmlProp {
     pub value: String,
     /// Select / status / multi-select options with their Notion colours.
     pub options: Vec<(String, String)>,
+    /// A relation's links to the pages it points at, as exported (`../Launch%20<id>.html`).
+    pub links: Vec<String>,
 }
 
 /// Everything an exported HTML page carries besides its body.
@@ -372,6 +374,9 @@ fn parse_prop(tr: ElementRef) -> Option<HtmlProp> {
     let td = tr.child_elements().find(|e| e.value().name() == "td")?;
     let name = squash(&th.text().collect::<String>());
     let mut prop = HtmlProp { name, kind, ..Default::default() };
+    if prop.kind == "relation" {
+        prop.links = td.descendent_elements().filter(|e| e.value().name() == "a").filter_map(|a| a.attr("href")).map(str::to_string).collect();
+    }
     // Options: `<span class="selected-value select-value-color-red">`; uncoloured ones are default.
     let colored: Vec<ElementRef> = td
         .descendent_elements()
@@ -1674,6 +1679,7 @@ pub(super) fn property_hints(props: &[&HtmlProp]) -> HashMap<String, (String, Ha
 /// The Betelgeuse property type for a Notion property type; `None` = work it out from the values.
 pub(super) fn property_type(notion: &str) -> Option<&'static str> {
     Some(match notion {
+        // A relation becomes one when its links all lead to rows of one imported database; else text.
         "text" | "phone_number" | "relation" => "text",
         "number" => "number",
         "select" => "select",
@@ -1758,6 +1764,7 @@ mod tests {
         assert_eq!(p("Done").value, "Yes");
         assert_eq!(p("Due").value, "October 4, 2026");
         assert_eq!(p("Supplier").value, "Flour Mill, Dairy Farm");
+        assert_eq!(p("Supplier").links, vec!["x.html", "y.html"]);
         assert_eq!(p("Stage").options, vec![("Proofing".to_string(), "default".to_string())]);
         assert_eq!(page.body, "<p>Flaky.</p>");
         let builtin = parse_page(r#"<article><header><div class="page-header-icon"><img class="icon notion-static-icon" src="https://app.notion.com/icons/cake_orange.svg"/></div><h1 class="page-title">X</h1></header><div class="page-body"></div></article>"#);

@@ -1,49 +1,118 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
 import { joinNote, patchFrontmatter, splitNote } from "../lib/frontmatter";
 import { useVault } from "../lib/vault";
 import {
+  asList,
+  databaseLink,
   defaultSchema,
+  findProperty,
+  linksTo,
+  linkTarget,
+  mapProperty,
   newId,
   parseSchema,
+  relationDatabase,
+  relationTitles,
+  removeProperty,
+  toLink,
+  toRelationValue,
   toRow,
   uniquePropertyName,
+  withComputed,
   writeSchema,
   TYPE_LABELS,
   VIEW_LABELS,
   type PropType,
   type Property,
+  type RelatedDatabase,
   type Row,
   type Schema,
   type View,
   type ViewType,
 } from "./model";
 
-type State = { schema: Schema; pageFrontmatter: string; pageBody: string; rows: Row[] };
+type State = {
+  schema: Schema;
+  pageFrontmatter: string;
+  pageBody: string;
+  rows: Row[];
+  /** Databases this one relates to (itself included), for two-way relations and rollups. */
+  related: Map<string, RelatedDatabase>;
+};
+
+const titleOf = (path: string) => path.replace(/^.*\//, "").replace(/\.md$/, "");
+
+/** Reads another database's schema and rows. */
+async function readDatabase(path: string): Promise<RelatedDatabase> {
+  const [page, raw] = await Promise.all([api.readNote(path), api.databaseRows(path)]);
+  return { path, schema: parseSchema(splitNote(page).body), rows: raw.map(toRow) };
+}
 
 export type Database = ReturnType<typeof useDatabase>;
 
 export function useDatabase(path: string) {
-  const { refreshKey, peek } = useVault();
+  const { refreshKey, peek, notes } = useVault();
   const [state, setState] = useState<State | null>(null);
   const [missing, setMissing] = useState(false);
   const latest = useRef<State | null>(null);
   latest.current = state;
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const resolve = useCallback((prop: Property) => relationDatabase(prop, notesRef.current), []);
+  // Related databases resolve against the page list, so reload when databases come, go or move.
+  const databases = useMemo(() => notes.filter((n) => n.kind === "database").map((n) => n.path).join("\n"), [notes]);
+
+  /** State with `rows` as this database's rows, and every row's computed values worked out again. */
+  const withRows = useCallback(
+    (s: Omit<State, "rows">, rows: Row[]): State => {
+      const related = new Map(s.related).set(path, { path, schema: s.schema, rows });
+      return { ...s, related, rows: withComputed(rows, s.schema, related, resolve) };
+    },
+    [path, resolve],
+  );
 
   const load = useCallback(async () => {
     try {
       const [page, raw] = await Promise.all([api.readNote(path), api.databaseRows(path)]);
       const { frontmatter, body } = splitNote(page);
-      setState({ schema: parseSchema(body), pageFrontmatter: frontmatter, pageBody: body, rows: raw.map(toRow) });
+      const schema = parseSchema(body);
+      const targets = new Set(schema.properties.filter((p) => p.type === "relation").map(resolve));
+      const related = new Map<string, RelatedDatabase>();
+      for (const t of targets) {
+        if (t && t !== path) await readDatabase(t).then((db) => related.set(t, db), () => {});
+      }
+      setState(withRows({ schema, pageFrontmatter: frontmatter, pageBody: body, related }, raw.map(toRow)));
       setMissing(false);
     } catch {
       setMissing(true);
     }
-  }, [path]);
+  }, [path, resolve, withRows]);
 
   useEffect(() => {
     load();
-  }, [load, refreshKey]);
+  }, [load, refreshKey, databases]);
+
+  /**
+   * Applies schema edits that may reach other databases (the other side of a two-way relation).
+   * Edits to this database fold into `own`, which is returned for the caller to save.
+   */
+  const editSchemas = useCallback(
+    async (own: Schema, edits: [string | undefined, (sc: Schema) => Schema][]) => {
+      let next = own;
+      for (const [target, fn] of edits) {
+        if (!target) continue;
+        if (target === path) {
+          next = fn(next);
+          continue;
+        }
+        const { frontmatter, body } = splitNote(await api.readNote(target));
+        await api.writeNote(target, joinNote(frontmatter, writeSchema(body, fn(parseSchema(body)))));
+      }
+      return next;
+    },
+    [path],
+  );
 
   const saveSchema = useCallback(
     async (schema: Schema) => {
@@ -63,14 +132,69 @@ export function useDatabase(path: string) {
     const values = { ...row.values, ...patch };
     for (const [k, v] of Object.entries(patch)) if (v === null || v === undefined) delete values[k];
     const next: Row = { ...row, frontmatter, values, modified: Date.now() };
-    setState((s) => (s ? { ...s, rows: s.rows.map((r) => (r.path === row.path ? next : r)) } : s));
+    setState((s) => (s ? withRows(s, s.rows.map((r) => (r.path === row.path ? next : r))) : s));
     await api.writeNote(row.path, joinNote(frontmatter, row.body));
-  }, []);
+  }, [withRows]);
 
-  const setValue = useCallback((row: Row, prop: string, value: unknown) => writeRow(row, { [prop]: value }), [writeRow]);
+  /**
+   * Sets a property value. The related side of a two-way relation stores nothing itself, so
+   * changing it links or unlinks this row on the pages of the other database instead.
+   */
+  const setValue = useCallback(
+    async (row: Row, name: string, value: unknown) => {
+      const s = latest.current;
+      const prop = s?.schema.properties.find((p) => p.name === name);
+      if (!s || !prop?.synced) return writeRow(row, { [name]: value });
+      const source = s.related.get(resolve(prop) ?? "");
+      const sourceProp = source && findProperty(source.schema, prop.synced);
+      if (!source || !sourceProp) return;
+      const want = relationTitles(value);
+      for (const r of source.rows) {
+        const current = asList(r.values[sourceProp.name]);
+        const linked = current.some((v) => linksTo(linkTarget(v), row));
+        const wanted = want.some((t) => linksTo(t, r));
+        if (linked === wanted) continue;
+        const next = wanted
+          ? sourceProp.limit === "one"
+            ? [toLink(row.title)]
+            : [...current, toLink(row.title)]
+          : current.filter((v) => !linksTo(linkTarget(v), row));
+        await api.writeNote(r.path, joinNote(patchFrontmatter(r.frontmatter, { [sourceProp.name]: next.length ? next : null }), r.body));
+      }
+      await load();
+    },
+    [writeRow, resolve, load],
+  );
+
+  /** Turns a relation's other side on (a property on the related database) or off. */
+  const setTwoWay = useCallback(
+    async (name: string, on: boolean) => {
+      const s = latest.current;
+      const prop = s?.schema.properties.find((p) => p.name === name);
+      const target = prop && resolve(prop);
+      if (!s || !prop || !target || on === !!prop.reverse) return prop?.reverse;
+      let reverse: string | undefined;
+      let schema = await editSchemas(s.schema, [
+        [
+          target,
+          (sc) => {
+            if (!on) return removeProperty(sc, prop.reverse!);
+            reverse = uniquePropertyName(sc, titleOf(path));
+            return { ...sc, properties: [...sc.properties, { name: reverse, type: "relation", database: databaseLink(path), synced: name }] };
+          },
+        ],
+      ]);
+      schema = mapProperty(schema, name, ({ reverse: _, ...p }) => (reverse ? { ...p, reverse } : p));
+      await saveSchema(schema);
+      await load();
+      return reverse;
+    },
+    [resolve, editSchemas, saveSchema, path, load],
+  );
 
   const updateProperty = useCallback(
-    async (oldName: string, prop: Property) => {
+    async (oldName: string, next: Property) => {
+      const prop = { ...next };
       const s = latest.current;
       if (!s) return;
       const renamed = oldName !== prop.name;
@@ -88,12 +212,34 @@ export function useDatabase(path: string) {
             groupBy: v.groupBy && rename(v.groupBy),
             dateProperty: v.dateProperty && rename(v.dateProperty),
           }));
-      await saveSchema({ ...s.schema, properties: s.schema.properties.map((p) => (p.name === oldName ? prop : p)), views });
-      if (renamed) {
-        for (const row of s.rows) if (oldName in row.values) await writeRow(row, { [prop.name]: row.values[oldName], [oldName]: null });
+      const old = s.schema.properties.find((p) => p.name === oldName);
+      // Keep both sides of a two-way relation pointing at each other.
+      const edits: [string | undefined, (sc: Schema) => Schema][] = [];
+      if (old?.reverse) {
+        const stillPaired = prop.type === "relation" && !prop.synced && resolve(prop) === resolve(old);
+        if (!stillPaired) {
+          edits.push([resolve(old), (sc) => removeProperty(sc, old.reverse!)]);
+          delete prop.reverse;
+        } else if (renamed) edits.push([resolve(old), (sc) => mapProperty(sc, old.reverse!, (p) => ({ ...p, synced: prop.name }))]);
       }
+      if (old?.synced) {
+        const stillPaired = prop.type === "relation" && prop.synced === old.synced;
+        if (!stillPaired) edits.push([resolve(old), (sc) => mapProperty(sc, old.synced!, ({ reverse: _, ...p }) => p)]);
+        else if (renamed) edits.push([resolve(old), (sc) => mapProperty(sc, old.synced!, (p) => ({ ...p, reverse: prop.name }))]);
+      }
+      const schema = await editSchemas({ ...s.schema, properties: s.schema.properties.map((p) => (p.name === oldName ? prop : p)), views }, edits);
+      await saveSchema(schema);
+      // A property that just became a relation (or was pointed at a database) holds names; make them links.
+      const converting = prop.type === "relation" && !prop.synced && !!prop.database && (old?.type !== "relation" || old.database !== prop.database);
+      for (const row of s.rows) {
+        if (!(oldName in row.values)) continue;
+        const value = converting ? toRelationValue(row.values[oldName], prop.limit) : row.values[oldName];
+        if (renamed) await writeRow(row, { [prop.name]: value, [oldName]: null });
+        else if (converting) await writeRow(row, { [prop.name]: value });
+      }
+      if (edits.length || converting || prop.type === "relation" || prop.type === "rollup") await load();
     },
-    [saveSchema, writeRow],
+    [saveSchema, writeRow, editSchemas, resolve, load],
   );
 
   const addProperty = useCallback(
@@ -126,19 +272,15 @@ export function useDatabase(path: string) {
     async (name: string) => {
       const s = latest.current;
       if (!s) return;
-      const views = s.schema.views.map((v) => ({
-        ...v,
-        order: v.order?.filter((n) => n !== name),
-        hidden: v.hidden?.filter((n) => n !== name),
-        sorts: v.sorts?.filter((x) => x.property !== name),
-        filters: v.filters?.filter((x) => x.property !== name),
-        groupBy: v.groupBy === name ? undefined : v.groupBy,
-        dateProperty: v.dateProperty === name ? undefined : v.dateProperty,
-      }));
-      await saveSchema({ ...s.schema, properties: s.schema.properties.filter((p) => p.name !== name), views });
+      const old = s.schema.properties.find((p) => p.name === name);
+      const schema = await editSchemas(removeProperty(s.schema, name), [
+        [old?.reverse ? resolve(old) : undefined, (sc) => removeProperty(sc, old!.reverse!)],
+        [old?.synced ? resolve(old) : undefined, (sc) => mapProperty(sc, old!.synced!, ({ reverse: _, ...p }) => p)],
+      ]);
+      await saveSchema(schema);
       for (const row of s.rows) if (name in row.values) await writeRow(row, { [name]: null });
     },
-    [saveSchema, writeRow],
+    [saveSchema, writeRow, editSchemas, resolve],
   );
 
   const updateView = useCallback(
@@ -215,6 +357,8 @@ export function useDatabase(path: string) {
     reload: load,
     saveSchema,
     setValue,
+    setTwoWay,
+    resolve,
     updateProperty,
     addProperty,
     deleteProperty,

@@ -298,7 +298,7 @@ export function PageView(p: Props) {
           )}
 
           {parentIsDb && doc && (
-            <RowProperties dbPath={parent!} frontmatter={doc.frontmatter} times={{ created: meta?.created ?? 0, modified: meta?.modified ?? 0 }} onPatch={patch} />
+            <RowProperties dbPath={parent!} rowPath={path} frontmatter={doc.frontmatter} times={{ created: meta?.created ?? 0, modified: meta?.modified ?? 0 }} onPatch={patch} />
           )}
 
           {isDb ? (

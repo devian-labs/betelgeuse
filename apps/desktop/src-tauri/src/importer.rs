@@ -246,7 +246,7 @@ static VIEW_ID: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(.*) ([0-9a-f]{
 static PROPERTY_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([^\s:#>|`*\[!<-][^:\n]{0,79}?):(?: (.*))?$").unwrap());
 /// ` (../Suppliers/Flour%20Mill%20<id>.md)` after a relation value.
 static RELATION_LINK: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r" \((?:[^()\s]|\([^()\s]*\))*\.(?:md|csv)\)").unwrap());
+    LazyLock::new(|| Regex::new(r" \(((?:[^()\s]|\([^()\s]*\))*\.(?:md|csv))\)").unwrap());
 /// Notion's built-in callout icons: `<img src="https://…/icons/<name>_<colour>.svg" … />`.
 static ICON_IMG: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"^<img\s[^>]*src="([^"]*)"[^>]*>$"#).unwrap());
 static LIST_ITEM: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^([-*+]|\d{1,9}[.)])(?:[ \t]+(.*))?$").unwrap());
@@ -1679,6 +1679,8 @@ fn import_notion_dir(vault: &Path, export: &Path, fetch: Option<&Fetch>) -> Resu
     // 6. Databases: schema from the CSV (plus properties only the row pages have, e.g.
     //    relations), rows from the CSV merged with each row's own page.
     let mut written: HashSet<usize> = HashSet::new();
+    // Row page -> its database, to tell which database a relation's links lead into.
+    let row_db: HashMap<usize, usize> = dbs.iter().enumerate().flat_map(|(d, db)| db.rows.iter().filter_map(move |&(_, p)| Some((p?, d)))).collect();
     for (d, db) in dbs.iter().enumerate() {
         let page = &ctx.pages[db.page];
         let columns: HashSet<String> = db.headers.iter().cloned().collect();
@@ -1713,11 +1715,63 @@ fn import_notion_dir(vault: &Path, export: &Path, fetch: Option<&Fetch>) -> Resu
                     .map(|name| {
                         let from_csv = r.and_then(|r| db.headers.iter().position(|h| h == name).and_then(|c| db.records[r].get(c)));
                         match from_csv {
-                            Some(v) => v.clone(),
+                            Some(v) => relation_text(v),
                             None => props.iter().find(|(k, _)| k == name).map(|(_, v)| relation_text(v)).unwrap_or_default(),
                         }
                     })
                     .collect()
+            })
+            .collect();
+        // Pages each value links to (relations), per row and column; `None` when a link leads nowhere
+        // in the export, or a value names pages without links.
+        let csv_dir = parent_dir(page.csv.as_deref().unwrap_or(""));
+        let linked: Vec<Vec<Option<Vec<usize>>>> = db
+            .rows
+            .iter()
+            .enumerate()
+            .map(|(k, &(r, p))| {
+                let props = p.and_then(|p| row_pages.get(&p)).map(|(props, _)| props.as_slice()).unwrap_or(&[]);
+                let doc_dir = p.map_or("", |p| parent_dir(ctx.pages[p].doc.as_deref().unwrap_or("")));
+                names
+                    .iter()
+                    .enumerate()
+                    .map(|(c, name)| {
+                        let from_csv = r.is_some_and(|r| db.headers.iter().position(|h| h == name).is_some_and(|c| db.records[r].get(c).is_some()));
+                        let html = p.and_then(|p| ctx.pages[p].html.as_ref()).and_then(|h| h.props.iter().find(|x| &x.name == name));
+                        let links_in = |raw: &str| RELATION_LINK.captures_iter(raw).map(|m| m[1].to_string()).collect::<Vec<_>>();
+                        let page_raw = props.iter().find(|(n, _)| n == name).map(|(_, v)| v.as_str()).unwrap_or("");
+                        // The row page's links (HTML property table, or `Title (path.md)` text), else the CSV's.
+                        let (urls, dir): (Vec<String>, &str) = match html {
+                            Some(h) if h.kind == "relation" || !from_csv => (h.links.clone(), doc_dir),
+                            _ if !links_in(page_raw).is_empty() => (links_in(page_raw), doc_dir),
+                            _ => {
+                                let raw = r.and_then(|r| db.headers.iter().position(|h| h == name).and_then(|c| db.records[r].get(c)));
+                                (raw.map_or(vec![], |v| links_in(v)), csv_dir)
+                            }
+                        };
+                        let pages: Option<Vec<usize>> = urls.iter().map(|u| match ctx.resolve(dir, u) {
+                            Some(Target::Page(i)) => Some(i),
+                            _ => None,
+                        }).collect();
+                        pages.filter(|ps| !ps.is_empty() || values[k][c].trim().is_empty())
+                    })
+                    .collect()
+            })
+            .collect();
+        // A column whose every value links only to rows of one database relates to that database.
+        let relation_to: Vec<Option<usize>> = (0..names.len())
+            .map(|c| {
+                let mut target = None;
+                for row in &linked {
+                    for i in row[c].as_ref()? {
+                        let rd = *row_db.get(i)?;
+                        if target.is_some_and(|t| t != rd) {
+                            return None;
+                        }
+                        target = Some(rd);
+                    }
+                }
+                target
             })
             .collect();
         let mut properties = vec![];
@@ -1728,8 +1782,12 @@ fn import_notion_dir(vault: &Path, export: &Path, fetch: Option<&Fetch>) -> Resu
             let col: Vec<&str> = values.iter().map(|v| v[c].as_str()).collect();
             let hint = hints.get(name);
             let kind = hint.and_then(|(k, _)| notion_html::property_type(k)).unwrap_or_else(|| infer_type(name, &col));
+            let kind = if relation_to[c].is_some() { "relation" } else { kind };
             kinds.push(kind);
             let mut prop = json!({ "name": name, "type": kind });
+            if let Some(rd) = relation_to[c] {
+                prop["database"] = json!(format!("[[{}]]", children_dir(&ctx.pages[dbs[rd].page].rel)));
+            }
             if matches!(kind, "select" | "status" | "multi_select") {
                 let mut seen: Vec<&str> = vec![];
                 // A single select's value is one option even when it contains ", ".
@@ -1785,7 +1843,13 @@ fn import_notion_dir(vault: &Path, export: &Path, fetch: Option<&Fetch>) -> Resu
                 None => order.map_or(String::new(), |o| format!("order: {o}\n")),
             };
             for (c, name) in names.iter().enumerate() {
-                if let Some(v) = convert_value(kinds[c], &values[k][c]).map(|v| if percent[c] { as_fraction(v) } else { v }) {
+                let value = match &linked[k][c] {
+                    Some(pages) if relation_to[c].is_some() => {
+                        (!pages.is_empty()).then(|| json!(pages.iter().map(|&i| format!("[[{}]]", ctx.link_target(i))).collect::<Vec<_>>()))
+                    }
+                    _ => convert_value(kinds[c], &values[k][c]).map(|v| if percent[c] { as_fraction(v) } else { v }),
+                };
+                if let Some(v) = value {
                     fm.push_str(&format!("{}: {}\n", yaml_key(name), yaml_scalar(&v)));
                 }
             }
@@ -2203,6 +2267,44 @@ mod tests {
         assert_eq!(read("Private & Shared/@May 6, 2026 4 09 PM.md"), "Meeting notes.\n");
         assert_eq!(read("Private & Shared/Chapter 1 Intro (1950 - now).md"), "Text.\n");
         assert!(!out.join("Untitled.md").exists(), "the linked view is not imported as a database");
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    /// A relation whose links all lead to rows of another imported database becomes a relation
+    /// to it, with `[[Title]]` links as values; one that leads to plain pages stays text.
+    #[test]
+    fn imports_relations_between_databases() {
+        let base = std::env::temp_dir().join(format!("bg-notion-relations-{}", stamp()));
+        let (export, ws) = (base.join("export"), base.join("ws"));
+        let team = export.join("Team");
+        for dir in [team.join("Products"), team.join("Tasks"), ws.clone()] {
+            fs::create_dir_all(dir).unwrap();
+        }
+        let w = |p: PathBuf, s: &str| fs::write(p, s).unwrap();
+        let (products, khao, axon) = ("aaaa0000000000000000000000000001", "aaaa0000000000000000000000000002", "aaaa0000000000000000000000000003");
+        let (tasks, design, build, note) = ("bbbb0000000000000000000000000001", "bbbb0000000000000000000000000002", "bbbb0000000000000000000000000003", "cccc0000000000000000000000000001");
+        w(team.join(format!("Products {products}.md")), &format!("# Products\n\n[Products](Products%20{products}.csv)\n"));
+        w(team.join(format!("Products {products}.csv")), "\u{feff}Name\nKhao\nAxon\n");
+        w(team.join(format!("Products/Khao {khao}.md")), "# Khao\n");
+        w(team.join(format!("Products/Axon {axon}.md")), "# Axon\n");
+        w(team.join(format!("Note {note}.md")), "# Note\n");
+        w(team.join(format!("Tasks {tasks}.md")), &format!("# Tasks\n\n[Tasks](Tasks%20{tasks}.csv)\n"));
+        w(
+            team.join(format!("Tasks {tasks}.csv")),
+            &format!("\u{feff}Name,Product,See\nDesign,Khao (Products/Khao%20{khao}.md),Note (Note%20{note}.md)\nBuild,\"Khao (Products/Khao%20{khao}.md), Axon (Products/Axon%20{axon}.md)\",\n"),
+        );
+        w(team.join(format!("Tasks/Design {design}.md")), &format!("# Design\n\nProduct: Khao (../Products/Khao%20{khao}.md)\nSee: Note (../Note%20{note}.md)\n"));
+        w(team.join(format!("Tasks/Build {build}.md")), &format!("# Build\n\nProduct: Khao (../Products/Khao%20{khao}.md), Axon (../Products/Axon%20{axon}.md)\n"));
+        import_notion_with(&ws, &export, None).unwrap();
+        let read = |p: &str| fs::read_to_string(ws.join("Notion import").join(p)).unwrap_or_else(|_| panic!("missing {p}"));
+
+        let db = read("Team/Tasks.md");
+        let schema: Value = serde_json::from_str(db.split("```database\n").nth(1).unwrap().split("\n```").next().unwrap()).unwrap();
+        let prop = |n: &str| schema["properties"].as_array().unwrap().iter().find(|p| p["name"] == n).unwrap().clone();
+        assert_eq!(prop("Product"), json!({ "name": "Product", "type": "relation", "database": "[[Notion import/Team/Products]]" }));
+        assert_ne!(prop("See")["type"], "relation", "links to a plain page stay names");
+        assert!(read("Team/Tasks/Design.md").contains("Product: [\"[[Khao]]\"]\nSee: Note\n"), "{}", read("Team/Tasks/Design.md"));
+        assert!(read("Team/Tasks/Build.md").contains("Product: [\"[[Khao]]\", \"[[Axon]]\"]\n"), "{}", read("Team/Tasks/Build.md"));
         let _ = fs::remove_dir_all(&base);
     }
 

@@ -57,6 +57,11 @@ Databases:
 - Use query_database to read a database as a table. To add a row, call create_note with parent set to the
   database and the property values in frontmatter. To change values, call update_note with frontmatter only.
 - Select and status values must match one of the property's option names; dates are YYYY-MM-DD.
+- A relation property links rows to pages of another database. query_database shows it as the linked titles;
+  set it with titles too, e.g. {"Project": ["Khao"]}, and they're stored as [[Khao]] links. The titles must be
+  rows of the related database (create a missing one there first). A relation marked "synced" is the other
+  side of a two-way relation and can't be set; set the property it names on the related database instead.
+  Rollups are calculated from related rows and are read-only.
 
 How to work:
 - Start with search_notes or list_notes. Call read_note before editing a note.
@@ -270,7 +275,8 @@ function buildServer(): McpServer {
       },
     },
     safe(async ({ title, body, parent, frontmatter }) => {
-      const rel = await vault.create(title, body, { parent, frontmatter: frontmatter as FrontmatterPatch });
+      const fm = await vault.rowFrontmatter(parent && (await vault.find(parent)), frontmatter as FrontmatterPatch);
+      const rel = await vault.create(title, body, { parent, frontmatter: fm });
       const rev = await commit([rel], `create ${rel}`);
       return json({ path: rel, commit: rev });
     }),
@@ -293,7 +299,9 @@ function buildServer(): McpServer {
     },
     safe(async ({ note, body, mode, frontmatter, summary }) => {
       const rel = await vault.find(note);
-      await vault.update(rel, { body, mode, frontmatter: frontmatter as FrontmatterPatch });
+      const parent = rel.includes("/") ? `${rel.slice(0, rel.lastIndexOf("/"))}.md` : undefined;
+      const fm = await vault.rowFrontmatter(parent && (await vault.find(parent).catch(() => undefined)), frontmatter as FrontmatterPatch);
+      await vault.update(rel, { body, mode, frontmatter: fm });
       const rev = await commit([rel], summary ?? `${mode} ${rel}`);
       return json({ path: rel, commit: rev });
     }),

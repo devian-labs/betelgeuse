@@ -285,7 +285,9 @@ pub fn rename_note(vault: &Path, rel: &str, new_title: &str) -> Result<String, S
     }
     for file in markdown_files(vault) {
         let Ok(text) = fs::read_to_string(&file) else { continue };
-        let updated = rewrite_links(&text, &old_title, &final_title);
+        // Path links (`[[Areas/Old]]`, as relations name their database) follow too.
+        let updated = rewrite_link_paths(&text, children_dir(rel), children_dir(&new_rel));
+        let updated = rewrite_links(&updated, &old_title, &final_title);
         if updated != text {
             let _ = fs::write(&file, updated);
         }
@@ -729,6 +731,28 @@ mod tests {
         assert_eq!(rewrite_links(t, "Ideas", "Plans"), "see [[Plans]] and [[Plans|my ideas]] and [[Other#h]]");
         assert!(link_matches("ideas", "Ideas.md"));
         assert!(link_matches("Welcome/Ideas", "Welcome/Ideas.md"));
+    }
+
+    #[test]
+    fn relations_in_frontmatter_are_backlinks_and_follow_renames() {
+        let dir = std::env::temp_dir().join(format!("bg-relations-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("Areas/Projects")).unwrap();
+        fs::create_dir_all(dir.join("Tasks")).unwrap();
+        fs::write(dir.join("Areas/Projects.md"), "---\ntype: database\n---\n").unwrap();
+        fs::write(dir.join("Areas/Projects/Khao.md"), "").unwrap();
+        let schema = "---\ntype: database\n---\n```database\n{\"properties\":[{\"name\":\"Project\",\"type\":\"relation\",\"database\":\"[[Areas/Projects]]\"}]}\n```\n";
+        fs::write(dir.join("Tasks.md"), schema).unwrap();
+        fs::write(dir.join("Tasks/Design.md"), "---\nProject: [\"[[Khao]]\"]\n---\n").unwrap();
+
+        assert_eq!(backlinks(&dir, "Areas/Projects/Khao.md").iter().map(|n| n.path.as_str()).collect::<Vec<_>>(), vec!["Tasks/Design.md"]);
+        rename_note(&dir, "Areas/Projects/Khao.md", "Khaoo").unwrap();
+        assert_eq!(fs::read_to_string(dir.join("Tasks/Design.md")).unwrap(), "---\nProject: [\"[[Khaoo]]\"]\n---\n");
+        rename_note(&dir, "Areas/Projects.md", "Products").unwrap();
+        assert!(fs::read_to_string(dir.join("Tasks.md")).unwrap().contains("\"[[Areas/Products]]\""));
+        move_note(&dir, "Areas/Products.md", "").unwrap();
+        assert!(fs::read_to_string(dir.join("Tasks.md")).unwrap().contains("\"[[Products]]\""));
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

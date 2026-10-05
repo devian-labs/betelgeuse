@@ -176,3 +176,41 @@ test("lists pages in the sidebar's order: by `order`, then A–Z", async () => {
   assert.equal(readFileSync(path.join(vault, "Shelf/Date.md"), "utf8"), "---\norder: 0.5\n---\nd\n");
   assert.deepEqual(titles(await call("list_notes", { folder: "Shelf" })), ["Date", "Cherry", "Elder", "Banana", "Apple"]);
 });
+
+test("relations read as titles, rollups are calculated, and writes take titles", async () => {
+  const db = (props) => `---\ntype: database\n---\n\`\`\`database\n${JSON.stringify({ properties: props, views: [{ id: "t", name: "Table", type: "table" }] })}\n\`\`\`\n`;
+  mkdirSync(path.join(vault, "Areas/Products"), { recursive: true });
+  mkdirSync(path.join(vault, "Work"));
+  writeFileSync(
+    path.join(vault, "Areas/Products.md"),
+    db([
+      { name: "Work", type: "relation", database: "[[Work]]", synced: "Product" },
+      { name: "Points", type: "rollup", relation: "Work", target: "Points", calc: "sum" },
+    ]),
+  );
+  writeFileSync(path.join(vault, "Areas/Products/Khao.md"), "");
+  writeFileSync(path.join(vault, "Areas/Products/Axon.md"), "");
+  writeFileSync(path.join(vault, "Work.md"), db([{ name: "Product", type: "relation", database: "[[Areas/Products]]", reverse: "Work" }, { name: "Points", type: "number" }]));
+  writeFileSync(path.join(vault, "Work/Menu.md"), '---\nProduct: ["[[Khao]]"]\nPoints: 3\n---\n');
+  git("add", "-A");
+  git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "relations");
+
+  await call("create_note", { title: "Login", parent: "Work", frontmatter: { Product: ["khao", "Axon"], Points: 5 } });
+  assert.equal(readFileSync(path.join(vault, "Work/Login.md"), "utf8"), '---\nProduct: ["[[Khao]]", "[[Axon]]"]\nPoints: 5\n---\n');
+
+  const work = JSON.parse(await call("query_database", { database: "Work", where: { Product: "Khao" } }));
+  assert.deepEqual(work.rows.map((r) => [r.Name, r.Product]).sort(), [["Login", ["Khao", "Axon"]], ["Menu", ["Khao"]]]);
+  const products = JSON.parse(await call("query_database", { database: "Products", sort: "Name" }));
+  assert.deepEqual(products.rows.map((r) => [r.Name, r.Work.sort(), r.Points]), [["Axon", ["Login"], 5], ["Khao", ["Login", "Menu"], 8]]);
+
+  const bad = async (args) => (await client.callTool({ name: "update_note", arguments: args })).content[0].text;
+  assert.match(await bad({ note: "Work/Menu", frontmatter: { Product: ["Nope"] } }), /not a page in Products/);
+  assert.match(await bad({ note: "Areas/Products/Khao", frontmatter: { Work: ["Menu"] } }), /set "Product" on the pages/);
+
+  // Renaming the related database keeps the relation pointing at it.
+  await call("rename_note", { note: "Areas/Products", title: "Apps" });
+  assert.match(readFileSync(path.join(vault, "Work.md"), "utf8"), /"database":"\[\[Areas\/Apps\]\]"/);
+  await call("rename_note", { note: "Areas/Apps/Khao", title: "Khaoo" });
+  const after = JSON.parse(await call("query_database", { database: "Work", where: { Product: "Khaoo" } }));
+  assert.equal(after.rows.length, 2);
+});

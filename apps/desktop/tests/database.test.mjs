@@ -73,3 +73,86 @@ test("the title column keeps its own name (Notion's \"Source\")", () => {
   assert.ok(writeSchema("", named).includes('"title": "Source"'));
   assert.equal(allProperties(parseSchema("```database\n{}\n```"))[0].name, "Name");
 });
+
+// ---------- relations & rollups ----------
+
+import { linkTarget, relationTitles, toRelationValue, withComputed, removeProperty, displayValue, getValue } from "../src/database/model.ts";
+
+test("reads relation values as links or plain names", () => {
+  assert.equal(linkTarget("[[Khao|the app]]"), "Khao");
+  assert.equal(linkTarget("[[Khao#Plan]]"), "Khao");
+  assert.equal(linkTarget(" Khao "), "Khao");
+  assert.deepEqual(relationTitles(["[[A]]", "[[B|b]]"]), ["A", "B"]);
+  assert.deepEqual(relationTitles("[[A]]"), ["A"]);
+  assert.deepEqual(relationTitles(null), []);
+});
+
+test("turns old text and select values into relation links", () => {
+  assert.deepEqual(toRelationValue("Agile Coder, Khao"), ["[[Agile Coder]]", "[[Khao]]"]);
+  assert.deepEqual(toRelationValue(["Axon", "[[Khao]]", "Axon"]), ["[[Axon]]", "[[Khao]]"]);
+  assert.deepEqual(toRelationValue("A, B", "one"), ["[[A]]"]);
+  assert.equal(toRelationValue(""), null);
+});
+
+const projects = {
+  properties: [
+    { name: "Status", type: "select", options: [] },
+    { name: "Tasks", type: "relation", database: "[[Tasks]]", synced: "Project" },
+    { name: "Open estimate", type: "rollup", relation: "Tasks", target: "Estimate", calc: "sum" },
+    { name: "Task names", type: "rollup", relation: "Tasks", target: "Name", calc: "show_original" },
+  ],
+  views: [{ id: "t", name: "Table", type: "table", groupBy: "Tasks", hidden: ["Tasks"] }],
+};
+const tasks = {
+  properties: [
+    { name: "Project", type: "relation", database: "[[Projects]]", reverse: "Tasks" },
+    { name: "Estimate", type: "number" },
+    { name: "Owner", type: "rollup", relation: "Project", target: "Status", calc: "show_original" },
+  ],
+  views: [{ id: "t", name: "Table", type: "table" }],
+};
+const prow = (title, fm = "") => toRow({ path: `Projects/${title}.md`, title, content: fm ? `---\n${fm}\n---\n` : "", created: 0, modified: 0 });
+const trow = (title, fm) => toRow({ path: `Tasks/${title}.md`, title, content: `---\n${fm}\n---\n`, created: 0, modified: 0 });
+const projectRows = [prow("Khao", "Status: Active"), prow("Nomad Mesh", "Status: Paused")];
+const taskRows = [
+  trow("Design", 'Project: ["[[Khao]]"]\nEstimate: 3'),
+  trow("Build", 'Project: ["[[Khao]]", "[[Nomad Mesh]]"]\nEstimate: 5'),
+  trow("Orphan", "Estimate: 8"),
+];
+const related = new Map([
+  ["Projects.md", { path: "Projects.md", schema: projects, rows: projectRows }],
+  ["Tasks.md", { path: "Tasks.md", schema: tasks, rows: taskRows }],
+]);
+const resolve = (p) => (p.database === "[[Tasks]]" ? "Tasks.md" : p.database === "[[Projects]]" ? "Projects.md" : undefined);
+
+test("the related side of a two-way relation lists the pages that link to it", () => {
+  const [khao, nomad] = withComputed(projectRows, projects, related, resolve);
+  assert.deepEqual(relationTitles(getValue(khao, projects.properties[1])), ["Design", "Build"]);
+  assert.deepEqual(relationTitles(getValue(nomad, projects.properties[1])), ["Build"]);
+  assert.equal(displayValue(projects.properties[1], getValue(khao, projects.properties[1])), "Design, Build");
+});
+
+test("rollups calculate over related pages or list their values", () => {
+  const [khao, nomad] = withComputed(projectRows, projects, related, resolve);
+  assert.equal(getValue(khao, projects.properties[2]), "8");
+  assert.equal(getValue(nomad, projects.properties[2]), "5");
+  assert.deepEqual(getValue(khao, projects.properties[3]), ["Design", "Build"]);
+  const [design, build, orphan] = withComputed(taskRows, tasks, related, resolve);
+  assert.deepEqual(getValue(design, tasks.properties[2]), ["Active"]);
+  assert.deepEqual(getValue(build, tasks.properties[2]), ["Active", "Paused"]);
+  assert.deepEqual(getValue(orphan, tasks.properties[2]), []);
+});
+
+test("filters relations by linked page title", () => {
+  const rel = { properties: tasks.properties, views: [] };
+  const f = (filters) => titles(applyView(taskRows, rel, view({ filters }), "").map((r) => ({ title: r.title[0] })));
+  assert.equal(f([{ property: "Project", op: "contains", value: "nomad mesh" }]), "B");
+  assert.equal(f([{ property: "Project", op: "is_empty" }]), "O");
+});
+
+test("removing a property clears it from views", () => {
+  const next = removeProperty(projects, "Tasks");
+  assert.ok(!next.properties.some((p) => p.name === "Tasks"));
+  assert.equal(next.views[0].groupBy, undefined);
+  assert.deepEqual(next.views[0].hidden, []);
+});
