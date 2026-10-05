@@ -53,7 +53,7 @@ pub fn resolve(vault: &Path, rel: &str) -> Result<PathBuf, String> {
     Ok(vault.join(p))
 }
 
-fn rel_string(vault: &Path, abs: &Path) -> String {
+pub fn rel_string(vault: &Path, abs: &Path) -> String {
     abs.strip_prefix(vault)
         .unwrap_or(abs)
         .components()
@@ -62,7 +62,7 @@ fn rel_string(vault: &Path, abs: &Path) -> String {
         .join("/")
 }
 
-fn markdown_files(vault: &Path) -> impl Iterator<Item = PathBuf> {
+pub fn markdown_files(vault: &Path) -> impl Iterator<Item = PathBuf> {
     WalkDir::new(vault)
         .into_iter()
         .filter_entry(|e| {
@@ -232,7 +232,7 @@ pub fn write_note(vault: &Path, rel: &str, content: &str) -> Result<(), String> 
     fs::write(abs, content).map_err(|e| e.to_string())
 }
 
-pub(crate) fn sanitize_title(title: &str) -> String {
+pub fn sanitize_title(title: &str) -> String {
     let cleaned: String = title
         .chars()
         .map(|c| if "/\\:*?\"<>|#^[]".contains(c) || c.is_control() { ' ' } else { c })
@@ -246,11 +246,11 @@ pub(crate) fn sanitize_title(title: &str) -> String {
 }
 
 /// Directory that holds the sub-pages of `parent` (`A/B.md` -> `A/B`).
-pub(crate) fn children_dir(parent: &str) -> &str {
+pub fn children_dir(parent: &str) -> &str {
     parent.strip_suffix(".md").unwrap_or(parent)
 }
 
-pub(crate) fn unique_path(vault: &Path, dir: &str, title: &str, except: Option<&str>) -> String {
+pub fn unique_path(vault: &Path, dir: &str, title: &str, except: Option<&str>) -> String {
     let join = |name: &str| if dir.is_empty() { format!("{name}.md") } else { format!("{dir}/{name}.md") };
     let mut candidate = join(title);
     let mut n = 2;
@@ -480,7 +480,8 @@ fn rewrite_link_paths(text: &str, old: &str, new: &str) -> String {
     text.replace(&format!("[[{old}/"), &format!("[[{new}/"))
 }
 
-fn link_matches(target: &str, rel: &str) -> bool {
+/// Whether a link target (`[[Title]]` or `[[Path/To/Page]]`) names the page at `rel`.
+pub fn link_matches(target: &str, rel: &str) -> bool {
     let target = target.strip_suffix(".md").unwrap_or(target);
     target.eq_ignore_ascii_case(&title_of(rel)) || target.eq_ignore_ascii_case(children_dir(rel))
 }
@@ -614,44 +615,6 @@ pub fn ai_visible(vault: &Path, rel: &str, policy: &str) -> bool {
     policy != "shared" || shared
 }
 
-/// Embeds `seed/<path>` for each workspace path; the `seed/` folder mirrors the workspace layout.
-macro_rules! seed_pages {
-    ($($rel:literal),* $(,)?) => {
-        &[$(($rel, include_str!(concat!("../seed/", $rel)))),*]
-    };
-}
-
-/// The pages a new workspace starts with: the Welcome guide, plus a page and a database to try things on.
-const SEED: &[(&str, &str)] = seed_pages![
-    "Welcome.md",
-    "Welcome/Appearance.md",
-    "Welcome/Connect your AI agents.md",
-    "Welcome/Databases.md",
-    "Welcome/Formatting and colours.md",
-    "Welcome/Getting around.md",
-    "Welcome/History and sync.md",
-    "Welcome/Import.md",
-    "Welcome/Keyboard shortcuts.md",
-    "Welcome/Links and backlinks.md",
-    "Welcome/Pages and sub-pages.md",
-    "Welcome/Trash.md",
-    "Welcome/What AI agents can see.md",
-    "Welcome/Writing and blocks.md",
-    "Welcome/Your files on disk.md",
-    "Ideas.md",
-    "Roadmap.md",
-    "Roadmap/Design the database views.md",
-    "Roadmap/Ship the MCP server.md",
-    "Roadmap/Sync vault to GitHub.md",
-];
-
-pub fn seed(vault: &Path) -> Result<(), String> {
-    for (rel, content) in SEED {
-        write_note(vault, rel, content)?;
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -752,29 +715,6 @@ mod tests {
         assert!(fs::read_to_string(dir.join("Tasks.md")).unwrap().contains("\"[[Areas/Products]]\""));
         move_note(&dir, "Areas/Products.md", "").unwrap();
         assert!(fs::read_to_string(dir.join("Tasks.md")).unwrap().contains("\"[[Products]]\""));
-        let _ = fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn seed_writes_every_seed_file_with_working_links() {
-        let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("seed");
-        let mut on_disk: Vec<String> = markdown_files(&src).map(|p| rel_string(&src, &p)).collect();
-        let mut embedded: Vec<String> = SEED.iter().map(|(rel, _)| rel.to_string()).collect();
-        on_disk.sort();
-        embedded.sort();
-        assert_eq!(embedded, on_disk, "list every file in src-tauri/seed in SEED");
-
-        let dir = std::env::temp_dir().join(format!("bg-seed-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        seed(&dir).unwrap();
-        assert_eq!(list_notes(&dir).len(), SEED.len());
-        for (rel, content) in SEED {
-            assert_eq!(fs::read_to_string(dir.join(rel)).unwrap(), *content);
-            for target in wikilinks(content) {
-                assert!(SEED.iter().any(|(page, _)| link_matches(target, page)), "{rel} links to missing [[{target}]]");
-            }
-        }
-        assert!(!backlinks(&dir, "Welcome/Databases.md").is_empty());
         let _ = fs::remove_dir_all(&dir);
     }
 

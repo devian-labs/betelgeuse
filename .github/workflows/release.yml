@@ -77,7 +77,6 @@ jobs:
           targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/desktop/src-tauri
           key: ${{ matrix.args }}
       - name: Linux dependencies
         if: startsWith(matrix.platform, 'ubuntu')

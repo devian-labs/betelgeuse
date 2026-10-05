@@ -235,6 +235,7 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 name = "betelgeuse"
 version = "0.2.1"
 dependencies = [
+ "betelgeuse-core",
  "csv",
  "dirs 6.0.0",
  "notify",
@@ -249,6 +250,15 @@ dependencies = [
  "ureq",
  "walkdir",
  "zip",
+]
+
+[[package]]
+name = "betelgeuse-core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "walkdir",
 ]
 
 [[package]]

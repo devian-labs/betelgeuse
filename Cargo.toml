@@ -1,0 +1,5 @@
+# One Cargo workspace for every Rust crate: the shared core and each app's Tauri shell.
+# They share one Cargo.lock and one build folder (target/).
+[workspace]
+resolver = "2"
+members = ["apps/desktop/src-tauri", "crates/betelgeuse-core"]

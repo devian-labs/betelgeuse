@@ -1,6 +1,8 @@
-mod git;
 mod importer;
-mod vault;
+mod seed;
+
+// The workspace engine lives in the shared core crate; these keep `crate::vault` / `crate::git` paths working.
+pub(crate) use betelgeuse_core::{git, vault};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
@@ -113,7 +115,7 @@ fn activate(app: &AppHandle, state: &AppState, path: PathBuf, remember: bool) ->
     let fresh = !path.exists() || std::fs::read_dir(&path).map_err(|e| e.to_string())?.next().is_none();
     std::fs::create_dir_all(&path).map_err(|e| e.to_string())?;
     if fresh {
-        vault::seed(&path)?;
+        seed::seed(&path)?;
     }
     git::ensure_repo(&path)?;
 

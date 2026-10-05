@@ -22,14 +22,15 @@ To try things without touching your own notes, use a throwaway workspace: `BETEL
 | --- | --- |
 | `apps/desktop/` | The desktop app (Tauri). |
 | `apps/desktop/src/` | The app's interface (React). The editor is in `src/editor/`, databases in `src/database/`. |
-| `apps/desktop/src-tauri/` | The desktop backend (Rust): files, git, import, trash. |
+| `apps/desktop/src-tauri/` | The desktop app's Rust side: its commands, file watching, import from Notion and Obsidian. |
 | `apps/desktop/src-tauri/seed/` | The Welcome guide every new workspace starts with. |
 | `apps/desktop/tests/` | Editor and database tests. |
 | `apps/lander/` | The website ([betelgeuse.devianlabs.com](https://betelgeuse.devianlabs.com)). Run it with `npm run lander`. |
+| `crates/betelgeuse-core/` | The workspace engine every app shares (Rust): pages, frontmatter, databases, links, trash and git. |
 | `packages/mcp/` | The MCP server that AI agents connect to. The desktop app bundles it. |
 | `brand/`, `scripts/` | Logos, and the install-from-source scripts. |
 
-New clients (mobile, browser extension) go in `apps/`. Code shared between them goes in `packages/`. Run a script in one workspace with `npm run <script> -w <name>`, e.g. `npm run typecheck -w @betelgeuse/desktop`.
+New clients (mobile, browser extension) go in `apps/`. Code shared between them goes in `packages/` (TypeScript) or `crates/` (Rust). All Rust crates form one Cargo workspace at the repo root, so `cargo test --workspace` tests them all and builds land in `target/`. Run a script in one workspace with `npm run <script> -w <name>`, e.g. `npm run typecheck -w @betelgeuse/desktop`.
 
 ## A few rules
 

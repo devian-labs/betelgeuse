@@ -1,0 +1,14 @@
+[package]
+name = "betelgeuse-core"
+version = "0.1.0"
+description = "The workspace engine shared by the Betelgeuse apps: Markdown pages, frontmatter, databases, links, trash and git"
+authors = ["Devian Labs and contributors"]
+license = "MIT"
+repository = "https://github.com/devian-labs/betelgeuse"
+edition = "2021"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"
