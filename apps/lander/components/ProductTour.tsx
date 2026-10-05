@@ -30,7 +30,7 @@ export function ProductTour() {
       <div className="tour-stage">
         {slides.map((s, i) => (
           <div key={s.name} className={`tour-slide${i === active ? " active" : ""}`} aria-hidden={i !== active}>
-            <Shot name={s.name} theme="dark" eager alt={s.alt} />
+            <Shot name={s.name} theme="dark" eager priority={i === 0} alt={s.alt} />
           </div>
         ))}
       </div>

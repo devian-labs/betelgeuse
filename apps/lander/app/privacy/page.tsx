@@ -1,15 +1,26 @@
 import type { Metadata } from "next";
-import { REPO } from "@/lib/site";
+import { ORG, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Privacy · Betelgeuse",
+export const metadata: Metadata = pageMetadata({
+  title: "Privacy Policy: No Telemetry, No Cookies | Betelgeuse",
   description: "What the Betelgeuse website and app do with your data: the app collects nothing; the website keeps no cookies or analytics.",
+  path: "/privacy/",
+});
+
+const breadcrumbs = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: SITE_NAME, item: `${SITE_URL}/` },
+    { "@type": "ListItem", position: 2, name: "Privacy", item: `${SITE_URL}/privacy/` },
+  ],
 };
 
 /** What the website and the app process. Keep it in step with the code: no claim here may outrun it. */
 export default function Privacy() {
   return (
     <main className="wrap narrow doc">
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbs)} />
       <p>
         <a href="/">← Betelgeuse</a>
       </p>
@@ -56,7 +67,7 @@ export default function Privacy() {
 
       <h2>Contact</h2>
       <p>
-        Betelgeuse is made by <a href="https://devianlabs.com">Devian Labs</a>. Ask about privacy in{" "}
+        Betelgeuse is made by <a href={ORG.url}>Devian Labs</a>. Ask about privacy in{" "}
         <a href={`${REPO}/discussions`}>GitHub Discussions</a>, or privately through a{" "}
         <a href={`${REPO}/security/advisories/new`}>security advisory</a>.
       </p>
