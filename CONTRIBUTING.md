@@ -52,7 +52,7 @@ That appends `Signed-off-by: Your Name <you@example.com>` using your git name an
 
 ```bash
 npm run version:set 0.2.0          # writes the version everywhere it appears
-git commit -am "release: v0.2.0"
+git add -A && git commit -m "release: v0.2.0"
 git tag v0.2.0 && git push --follow-tags
 ```
 

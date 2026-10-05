@@ -33,9 +33,20 @@ const add = (name, version, license, dir) => {
   if (!packages.has(key)) packages.set(key, { name, version, license: license || "see text", dir });
 };
 
+/**
+ * Runs npm. Under `npm run`, npm_execpath is npm's own CLI script, which runs with this Node on every
+ * platform. Otherwise fall back to the command; on Windows that is `npm.cmd`, which Node can only
+ * start through a shell (a plain execFileSync("npm") fails there with ENOENT).
+ */
+function runNpm(args, options) {
+  const cli = process.env.npm_execpath;
+  if (cli && /\.[cm]?js$/.test(cli)) return execFileSync(process.execPath, [cli, ...args], options);
+  return execFileSync("npm", args, { ...options, shell: process.platform === "win32" });
+}
+
 // npm: the production dependency trees of the app and the MCP server, without the workspaces themselves.
 const npm = JSON.parse(
-  execFileSync("npm", ["ls", "--omit=dev", "--all", "--long", "--json", "-w", "@betelgeuse/desktop", "-w", "betelgeuse-mcp"], {
+  runNpm(["ls", "--omit=dev", "--all", "--long", "--json", "-w", "@betelgeuse/desktop", "-w", "betelgeuse-mcp"], {
     cwd: desktop,
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
@@ -43,7 +54,9 @@ const npm = JSON.parse(
 );
 const walk = (node) => {
   for (const [name, dep] of Object.entries(node.dependencies ?? {})) {
-    const workspace = dep.resolved?.startsWith("file:") || dep.path?.includes("/apps/") || dep.path?.includes("/packages/");
+    // Paths use \ on Windows, so compare with forward slashes.
+    const where = dep.path?.replace(/\\/g, "/");
+    const workspace = dep.resolved?.startsWith("file:") || where?.includes("/apps/") || where?.includes("/packages/");
     if (!workspace && dep.version) add(name, dep.version, typeof dep.license === "string" ? dep.license : dep.license?.type, dep.path);
     walk(dep);
   }

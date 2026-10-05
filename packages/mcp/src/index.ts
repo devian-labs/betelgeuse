@@ -89,7 +89,7 @@ const frontmatterSchema = z
   .describe('Frontmatter keys to set, e.g. {"icon": "🚀", "tags": ["project"], "Status": "Done", "Estimate": 3}. Set a key to null to remove it.');
 
 function buildServer(): McpServer {
-  const server = new McpServer({ name: "betelgeuse", version: "0.2.0" }, { instructions: INSTRUCTIONS });
+  const server = new McpServer({ name: "betelgeuse", version: "0.2.1" }, { instructions: INSTRUCTIONS });
   const agent = () => server.server.getClientVersion()?.name ?? "agent";
   const commit = (paths: string[], message: string) => vault.commit(paths, message, agent());
 

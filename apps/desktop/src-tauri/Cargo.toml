@@ -1,6 +1,6 @@
 [package]
 name = "betelgeuse"
-version = "0.2.0"
+version = "0.2.1"
 description = "Block-based notes on plain Markdown + git, open to AI agents over MCP"
 authors = ["Devian Labs and contributors"]
 license = "MIT"
