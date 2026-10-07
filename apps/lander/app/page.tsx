@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Bot, FileText, GitFork, Heart, MessageSquarePlus, ShieldCheck, Wrench } from "lucide-react";
 import { Command } from "@/components/Command";
 import { Compare } from "@/components/Compare";
@@ -13,7 +14,12 @@ import { Tabs } from "@/components/Tabs";
 import { TerminalDemo } from "@/components/TerminalDemo";
 import { Walkthrough } from "@/components/Walkthrough";
 import { getSnapshot } from "@/lib/github";
-import { REPO } from "@/lib/site";
+import { ORG, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
+
+const description =
+  "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git on your computer, and AI agents read only the pages you share.";
+
+export const metadata: Metadata = pageMetadata({ title: "Open-Source Markdown Notes & Docs App | Betelgeuse", description, path: "/" });
 
 type Feature = { id: string; kicker: string; title: string; body: React.ReactNode; demo: React.ReactNode };
 
@@ -79,7 +85,8 @@ const agents: Feature[] = [
   },
 ];
 
-const faqs: [string, React.ReactNode][] = [
+/** Question, answer, and the answer as plain text when it isn't a string already (for the FAQPage structured data). */
+const faqs: [string, React.ReactNode, string?][] = [
   ["Is it really free?", "Yes. It's open source under the MIT license, with no account, subscription or paid tier."],
   [
     "Where are my notes stored?",
@@ -87,6 +94,7 @@ const faqs: [string, React.ReactNode][] = [
       In a folder on your computer (<code>~/Betelgeuse</code> by default), as Markdown files in a git repository. Nothing
       leaves your machine unless you add a git remote to sync.
     </>,
+    "In a folder on your computer (~/Betelgeuse by default), as Markdown files in a git repository. Nothing leaves your machine unless you add a git remote to sync.",
   ],
   [
     "What can AI agents see?",
@@ -106,8 +114,51 @@ const faqs: [string, React.ReactNode][] = [
 
 export default async function Home() {
   const github = await getSnapshot();
+  const structured = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "@id": `${SITE_URL}/#app`,
+        name: SITE_NAME,
+        description,
+        url: `${SITE_URL}/`,
+        applicationCategory: "BusinessApplication",
+        applicationSubCategory: "Notes, documents and databases",
+        operatingSystem: "macOS, Windows, Linux",
+        ...(github.release ? { softwareVersion: github.release.version.replace(/^v/, "") } : {}),
+        downloadUrl: RELEASES,
+        installUrl: RELEASES,
+        image: `${SITE_URL}/opengraph-image.jpg`,
+        screenshot: `${SITE_URL}/assets/editor-light.jpg`,
+        license: "https://opensource.org/licenses/MIT",
+        isAccessibleForFree: true,
+        offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        publisher: { "@id": `${ORG.url}/#organization` },
+        sameAs: [REPO],
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        "@id": `${SITE_URL}/#source`,
+        name: SITE_NAME,
+        codeRepository: REPO,
+        license: "https://opensource.org/licenses/MIT",
+        targetProduct: { "@id": `${SITE_URL}/#app` },
+      },
+      {
+        "@type": "FAQPage",
+        "@id": `${SITE_URL}/#faq`,
+        mainEntity: faqs.map(([q, a, text]) => ({
+          "@type": "Question",
+          name: q,
+          acceptedAnswer: { "@type": "Answer", text: text ?? a },
+        })),
+      },
+    ],
+  };
   return (
     <GitHubProvider initial={github}>
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(structured)} />
       <RevealObserver />
       <header className="nav">
         <div className="wrap">
@@ -462,8 +513,8 @@ export default async function Home() {
           </nav>
         </div>
         <div className="wrap legal">
-          © 2026 Devian Labs and contributors. Betelgeuse™ is a trademark of{" "}
-          <a href="https://devianlabs.com">Devian Labs</a>.
+          © 2026 Devian Labs and contributors. Built by <a href={ORG.url}>Devian Labs</a>. Betelgeuse™ is a trademark of
+          Devian Labs.
         </div>
       </footer>
     </GitHubProvider>

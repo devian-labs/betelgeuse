@@ -8,12 +8,15 @@ export function Shot({
   name,
   alt,
   eager = false,
+  priority = false,
   theme,
   crop,
 }: {
   name: string;
   alt: string;
   eager?: boolean;
+  /** The largest above-the-fold image (LCP): fetched first. Implies eager. */
+  priority?: boolean;
   theme?: "light" | "dark";
   crop?: Crop;
 }) {
@@ -31,8 +34,8 @@ export function Shot({
           alt={alt}
           width={2880}
           height={1800}
-          loading={eager ? "eager" : "lazy"}
-          fetchPriority={eager ? "high" : undefined}
+          loading={eager || priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : undefined}
           decoding="async"
           style={crop ? { transform: `scale(${crop.zoom})`, transformOrigin: `${crop.x}% ${crop.y}%` } : undefined}
         />

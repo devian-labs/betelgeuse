@@ -1,0 +1,1 @@
+The Betelgeuse editor showing the Welcome page: a block-based notebook that stores everything as Markdown files in a git repository
