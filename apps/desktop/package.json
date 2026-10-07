@@ -11,7 +11,7 @@
     "tauri": "tauri",
     "app": "npm run mcp:build && tauri dev",
     "mcp:build": "npm run build -w betelgeuse-mcp",
-    "test": "node --import tsx --test tests/*.test.mjs && cargo test --manifest-path src-tauri/Cargo.toml",
+    "test": "node --import tsx --test tests/*.test.mjs && cargo test --manifest-path src-tauri/Cargo.toml --workspace",
     "build:app": "tauri build",
     "typecheck": "tsc --noEmit",
     "notices": "node scripts/notices.mjs"

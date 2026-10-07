@@ -36,7 +36,7 @@ function setJson(file, edit) {
 console.log(`Setting version ${version}:`);
 replaceOnce("apps/desktop/src-tauri/tauri.conf.json", /("version":\s*)"[^"]+"/, `$1"${version}"`);
 replaceOnce("apps/desktop/src-tauri/Cargo.toml", /^(version\s*=\s*)"[^"]+"/m, `$1"${version}"`);
-replaceOnce("apps/desktop/src-tauri/Cargo.lock", /(name = "betelgeuse"\nversion = )"[^"]+"/, `$1"${version}"`);
+replaceOnce("Cargo.lock", /(name = "betelgeuse"\nversion = )"[^"]+"/, `$1"${version}"`);
 setJson("apps/desktop/package.json", (j) => (j.version = version));
 setJson("packages/mcp/package.json", (j) => (j.version = version));
 setJson("package-lock.json", (j) => {

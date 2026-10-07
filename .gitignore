@@ -3,6 +3,7 @@
 node_modules
 dist
 packages/*/dist
+/target
 apps/desktop/src-tauri/target
 apps/desktop/src-tauri/gen
 apps/lander/.next

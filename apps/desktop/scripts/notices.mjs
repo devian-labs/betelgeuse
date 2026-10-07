@@ -81,9 +81,11 @@ while (queue.length) {
     queue.push(dep.pkg);
   }
 }
+// Our own crates (the app and the shared core, i.e. the Cargo workspace's members) aren't third-party.
+const ours = new Set(meta.workspace_members);
 for (const id of reached) {
   const p = byId.get(id);
-  if (id === meta.resolve.root || !p) continue;
+  if (id === meta.resolve.root || ours.has(id) || !p) continue;
   add(p.name, p.version, p.license ?? (p.license_file ? "see text" : null), dirname(p.manifest_path));
 }
 

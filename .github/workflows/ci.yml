@@ -47,14 +47,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      # The Cargo workspace (shared core + app shells) is at the repo root.
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/desktop/src-tauri
       # The app embeds the built frontend and bundles the MCP server, so build both first.
       # Install from the repo root: npm ci inside a workspace folder installs only that workspace.
       - run: npm ci
       - run: npm run mcp:build
       - run: npx vite build
         working-directory: apps/desktop
-      - run: cargo clippy --manifest-path apps/desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
-      - run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
