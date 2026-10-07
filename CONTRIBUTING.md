@@ -16,6 +16,22 @@ npm test         # run all tests
 
 To try things without touching your own notes, use a throwaway workspace: `BETELGEUSE_WORKSPACE=/tmp/bg-dev npm run app`.
 
+### The mobile app
+
+The mobile app keeps its workspace in the app's own storage on the phone (no sync yet). You need the [Tauri mobile prerequisites](https://v2.tauri.app/start/prerequisites/#configure-for-mobile-targets): Xcode and CocoaPods for iOS; Android Studio's SDK and NDK and JDK 17 for Android.
+
+```sh
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+
+npm run ios -w @betelgeuse/mobile        # iOS simulator (or a connected iPhone) with hot reload
+
+export ANDROID_HOME=~/Library/Android/sdk NDK_HOME=$ANDROID_HOME/ndk/<version>
+export JAVA_HOME=<a JDK 17>
+npm run android -w @betelgeuse/mobile    # Android emulator (or a connected phone) with hot reload
+```
+
+`npm run dev -w @betelgeuse/mobile` runs the mobile interface in a browser at http://localhost:1430, but pages only load inside the app. If `pod install` fails with a `gem list` error under rbenv, run the iOS commands with `RBENV_VERSION=system`.
+
 ## Where things are
 
 | Folder | What's in it |
@@ -25,6 +41,7 @@ To try things without touching your own notes, use a throwaway workspace: `BETEL
 | `apps/desktop/src-tauri/` | The desktop app's Rust side: its commands, file watching, import from Notion and Obsidian. |
 | `apps/desktop/src-tauri/seed/` | The Welcome guide every new workspace starts with. |
 | `apps/desktop/tests/` | Editor and database tests. |
+| `apps/mobile/` | The iOS and Android app (Tauri). Its interface reuses the desktop editor and databases (`@desktop/…` imports); `src-tauri/gen/` holds the Xcode and Android Studio projects. |
 | `apps/lander/` | The website ([betelgeuse.devianlabs.com](https://betelgeuse.devianlabs.com)). Run it with `npm run lander`. |
 | `crates/betelgeuse-core/` | The workspace engine every app shares (Rust): pages, frontmatter, databases, links, trash and git. |
 | `packages/mcp/` | The MCP server that AI agents connect to. The desktop app bundles it. |
