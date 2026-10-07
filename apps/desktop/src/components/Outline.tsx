@@ -2,7 +2,7 @@ import { useEffect, useState, type RefObject } from "react";
 
 type Heading = { el: HTMLElement; text: string; level: number };
 
-/** Notion's table-of-contents rail: dashes per heading that expand into a clickable outline on hover. */
+/** Table-of-contents rail: dashes per heading that expand into a clickable outline on hover. */
 export function Outline({ scroller }: { scroller: RefObject<HTMLDivElement | null> }) {
   const [headings, setHeadings] = useState<Heading[]>([]);
   const [active, setActive] = useState(0);

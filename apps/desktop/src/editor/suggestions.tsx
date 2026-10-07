@@ -345,7 +345,7 @@ export const PageLinkSuggestion = Extension.create<PageLinkOptions>({
   },
 });
 
-/** `@` mentions pages and dates, like Notion. Inserted as `[[links]]` / plain dates. */
+/** `@` mentions pages and dates. Inserted as `[[links]]` / plain dates. */
 export const MentionSuggestion = Extension.create<PageLinkOptions>({
   name: "mentionSuggestion",
   addOptions() {

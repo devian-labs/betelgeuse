@@ -1,0 +1,26 @@
+[package]
+name = "betelgeuse-mobile"
+version = "0.2.1"
+description = "Betelgeuse for iOS and Android: your notes as Markdown, on your phone"
+authors = ["Devian Labs and contributors"]
+license = "MIT"
+repository = "https://github.com/devian-labs/betelgeuse"
+edition = "2021"
+publish = false
+
+[lib]
+# staticlib for iOS, cdylib for Android, rlib for `tauri dev` on the desktop.
+name = "betelgeuse_mobile_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+betelgeuse-core = { path = "../../../crates/betelgeuse-core" }
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+
+# iOS only: one native call to let the page use the whole screen (see fill_screen in src/lib.rs).
+[target.'cfg(target_os = "ios")'.dependencies]
+objc2 = "0.6"

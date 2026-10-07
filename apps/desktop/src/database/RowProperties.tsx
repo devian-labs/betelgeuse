@@ -1,10 +1,30 @@
-import { Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical, Plus } from "lucide-react";
 import { useState } from "react";
 import { readFrontmatter } from "../lib/frontmatter";
 import { CellEditor, Checkbox, PropIcon, ValueView } from "./cells";
-import { asBool, isComputed, isReadOnly, type Property } from "./model";
+import { asBool, isComputed, isEmptyValue, isReadOnly, moveProperty, type Property } from "./model";
 import { PropertyMenu, TypeMenu } from "./PropertyMenu";
 import { useDatabase } from "./useDatabase";
+
+/** How many properties show before the rest fold away (ones holding a value always show). */
+const FOLDED = 6;
+
+const store = {
+  get: (k: string) => {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set: (k: string, v: string) => {
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+      /* convenience only */
+    }
+  },
+};
 
 /**
  * The property list at the top of a database row's page. Values are written through
@@ -27,6 +47,11 @@ export function RowProperties({
   const [editing, setEditing] = useState<{ prop: Property; el: HTMLElement } | null>(null);
   const [menu, setMenu] = useState<{ prop: Property; el: HTMLElement } | null>(null);
   const [adding, setAdding] = useState<HTMLElement | null>(null);
+  // Folding is remembered per database, like Notion's "N more properties".
+  const [expanded, setExpanded] = useState(() => store.get(`props-expanded:${dbPath}`) === "1");
+  // Dragging a property: which one, and where it would land (before `before`; null = at the end).
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [drop, setDrop] = useState<{ before: string | null } | null>(null);
   const schema = db.state?.schema;
   if (!schema) return null;
 
@@ -37,10 +62,54 @@ export function RowProperties({
     p.type === "created_time" ? times.created : p.type === "last_edited_time" ? times.modified : isComputed(p) ? row?.computed?.[p.name] : values[p.name];
   const set = (p: Property, v: unknown) => (isComputed(p) ? row && db.setValue(row, p.name, v) : onPatch({ [p.name]: v }));
 
+  const all = schema.properties;
+  // Folding a single property away isn't worth a button.
+  const foldable = all.length > FOLDED + 1 ? all.filter((p, i) => i >= FOLDED && isEmptyValue(p, valueOf(p))) : [];
+  const shown = expanded ? all : all.filter((p) => !foldable.includes(p));
+  const hiddenCount = all.length - shown.length;
+  const toggle = () => {
+    store.set(`props-expanded:${dbPath}`, expanded ? "0" : "1");
+    setExpanded(!expanded);
+  };
+  const endDrag = () => (setDragging(null), setDrop(null));
+  const onDrop = () => {
+    if (dragging && drop) db.saveSchema({ ...schema, properties: moveProperty(all, dragging, drop.before) });
+    endDrag();
+  };
+
   return (
-    <div className="mt-4 mb-2 space-y-px text-sm">
-      {schema.properties.map((p) => (
-        <div key={p.name} className="flex min-h-[34px] items-start">
+    <div className="mt-4 mb-2 space-y-px text-sm" onDragOver={(e) => dragging && e.preventDefault()} onDrop={onDrop}>
+      {shown.map((p, i) => (
+        <div
+          key={p.name}
+          onDragOver={(e) => {
+            if (!dragging) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const r = e.currentTarget.getBoundingClientRect();
+            // The lower half drops after this row, i.e. before the next shown one.
+            setDrop({ before: e.clientY < r.top + r.height / 2 ? p.name : (shown[i + 1]?.name ?? all[all.indexOf(p) + 1]?.name ?? null) });
+          }}
+          onDrop={(e) => (e.stopPropagation(), onDrop())}
+          className={`group/prop relative -ml-6 flex min-h-[34px] items-start pl-6 ${dragging === p.name ? "opacity-40" : ""}`}
+        >
+          {dragging && drop?.before === p.name && <span className="pointer-events-none absolute -top-px right-0 left-6 h-0.5 rounded-full bg-[var(--blue)]" />}
+          {dragging && drop && i === shown.length - 1 && !shown.some((x) => x.name === drop.before) && (
+            <span className="pointer-events-none absolute right-0 -bottom-px left-6 h-0.5 rounded-full bg-[var(--blue)]" />
+          )}
+          <span
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData("text/betelgeuse-property", p.name);
+              e.dataTransfer.effectAllowed = "move";
+              setDragging(p.name);
+            }}
+            onDragEnd={endDrag}
+            title="Drag to move"
+            className="absolute top-0 left-0 grid h-[34px] w-6 cursor-grab place-items-center text-faint opacity-0 group-hover/prop:opacity-100"
+          >
+            <GripVertical size={14} />
+          </span>
           <button
             onClick={(e) => setMenu({ prop: p, el: e.currentTarget })}
             className="flex h-[34px] w-40 shrink-0 items-center gap-2 rounded-md px-1.5 text-muted hover:bg-hover"
@@ -63,6 +132,12 @@ export function RowProperties({
           </div>
         </div>
       ))}
+      {foldable.length > 0 && (
+        <button onClick={toggle} className="flex h-[34px] items-center gap-2 rounded-md px-1.5 text-faint hover:bg-hover">
+          {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          {expanded ? "Hide empty properties" : `${hiddenCount} more ${hiddenCount === 1 ? "property" : "properties"}`}
+        </button>
+      )}
       <button onClick={(e) => setAdding(e.currentTarget)} className="flex h-[34px] items-center gap-2 rounded-md px-1.5 text-faint hover:bg-hover">
         <Plus size={14} /> Add a property
       </button>

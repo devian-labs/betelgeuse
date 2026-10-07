@@ -72,7 +72,7 @@ type Props = {
   onCollapse: () => void;
   /** Docked open (true), or hidden off-screen unless `peeking`. */
   open: boolean;
-  /** Floating hover preview shown while closed, like Notion. */
+  /** Floating hover preview shown while closed. */
   peeking: boolean;
   onDock: () => void;
   /** No room needs reserving for the macOS window buttons in fullscreen. */
@@ -159,7 +159,7 @@ export function Sidebar(p: Props) {
             : "top-12 bottom-12 z-40 -translate-x-[110%]"
       }`}
     >
-      {/* Top row: window controls live on the left; sidebar toggle and new page like Notion. */}
+      {/* Top row: window controls live on the left; then the sidebar toggle and new page. */}
       <div data-tauri-drag-region className={`flex h-10 shrink-0 items-center gap-0.5 pr-2 ${p.open && !p.fullscreen ? "pl-[88px]" : "pl-2"}`}>
         {p.open ? (
           <IconButton title="Close sidebar (⌘\\)" onClick={p.onCollapse}>
@@ -425,7 +425,7 @@ function TreeRow({ node, depth, parent, ...p }: RowProps) {
   const open = p.expanded.has(node.key);
   const active = node.note?.path === p.openPath;
   const isDb = node.note?.kind === "database";
-  // Database rows live in the database, not the sidebar, just like Notion.
+  // Database rows live in the database, not the sidebar.
   const children = isDb ? [] : node.children;
   const reorderable = parent !== null && !!node.note;
   const icon = rowIcon(node);
@@ -490,7 +490,7 @@ function TreeRow({ node, depth, parent, ...p }: RowProps) {
 // ---------- Drag to reorder ----------
 //
 // Pointer-driven rather than HTML5 drag and drop, so the drop line, the floating row and Escape
-// behave the same in every webview. Like Notion: drop on a row's upper or lower edge to put the
+// behave the same in every webview. Drop on a row's upper or lower edge to put the
 // page before or after it (in that row's folder, so between top-level rows moves it to the top
 // level), or on the middle of a page to make it a sub-page. A drop among its own siblings is a
 // reorder (`onReorder`, which writes `order` frontmatter); anywhere else is a move (`onMove`).

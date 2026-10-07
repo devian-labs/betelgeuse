@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Notion's palette, light and dark. */
+/* Graphite, the default palette, light and dark. */
 :root {
   --surface: #ffffff;
   --side: #f8f8f7;
@@ -25,37 +25,37 @@
   --shadow-card: rgba(15, 15, 15, 0.1) 0 0 0 1px, rgba(15, 15, 15, 0.1) 0 2px 4px;
   --shadow-peek: rgba(15, 15, 15, 0.04) 0 0 0 1px, rgba(15, 15, 15, 0.03) 0 3px 6px, rgba(15, 15, 15, 0.06) 0 9px 24px;
 
-  --c-gray-text: rgb(120, 119, 116);
-  --c-brown-text: rgb(159, 107, 83);
-  --c-orange-text: rgb(217, 115, 13);
-  --c-yellow-text: rgb(203, 145, 47);
-  --c-green-text: rgb(68, 131, 97);
-  --c-blue-text: rgb(51, 126, 169);
-  --c-purple-text: rgb(144, 101, 176);
-  --c-pink-text: rgb(193, 76, 138);
-  --c-red-text: rgb(212, 76, 71);
+  --c-gray-text: rgb(121, 119, 115);
+  --c-brown-text: rgb(154, 110, 83);
+  --c-orange-text: rgb(206, 123, 27);
+  --c-yellow-text: rgb(192, 150, 62);
+  --c-green-text: rgb(68, 130, 105);
+  --c-blue-text: rgb(69, 123, 167);
+  --c-purple-text: rgb(148, 102, 165);
+  --c-pink-text: rgb(191, 82, 126);
+  --c-red-text: rgb(204, 86, 63);
 
-  --c-gray-bg: rgb(241, 241, 239);
-  --c-brown-bg: rgb(244, 238, 238);
-  --c-orange-bg: rgb(251, 236, 221);
-  --c-yellow-bg: rgb(251, 243, 219);
-  --c-green-bg: rgb(237, 243, 236);
-  --c-blue-bg: rgb(231, 243, 248);
-  --c-purple-bg: rgba(244, 240, 247, 0.8);
-  --c-pink-bg: rgba(249, 238, 243, 0.8);
-  --c-red-bg: rgb(253, 235, 236);
+  --c-gray-bg: rgb(243, 240, 237);
+  --c-brown-bg: rgb(246, 237, 236);
+  --c-orange-bg: rgb(248, 237, 222);
+  --c-yellow-bg: rgb(248, 244, 222);
+  --c-green-bg: rgb(237, 243, 237);
+  --c-blue-bg: rgb(232, 242, 248);
+  --c-purple-bg: rgba(244, 240, 246, 0.8);
+  --c-pink-bg: rgba(249, 238, 242, 0.8);
+  --c-red-bg: rgb(252, 236, 235);
 
-  --c-gray-tag: rgba(227, 226, 224, 0.75);
-  --c-brown-tag: rgb(238, 224, 218);
-  --c-orange-tag: rgb(250, 222, 201);
-  --c-yellow-tag: rgb(253, 236, 200);
-  --c-green-tag: rgb(219, 237, 219);
-  --c-blue-tag: rgb(211, 229, 239);
-  --c-purple-tag: rgb(232, 222, 238);
-  --c-pink-tag: rgb(245, 224, 233);
-  --c-red-tag: rgb(255, 226, 221);
+  --c-gray-tag: rgba(229, 226, 222, 0.75);
+  --c-brown-tag: rgb(236, 225, 218);
+  --c-orange-tag: rgb(246, 224, 202);
+  --c-yellow-tag: rgb(248, 238, 204);
+  --c-green-tag: rgb(218, 237, 222);
+  --c-blue-tag: rgb(214, 228, 239);
+  --c-purple-tag: rgb(233, 222, 235);
+  --c-pink-tag: rgb(244, 225, 231);
+  --c-red-tag: rgb(253, 227, 220);
 
-  /* Syntax colours (Notion uses Prism's defaults). */
+  /* Syntax colours (Prism's defaults). */
   --tok-comment: slategray;
   --tok-keyword: #07a;
   --tok-string: #690;
@@ -92,35 +92,35 @@
   --shadow-card: rgba(15, 15, 15, 0.2) 0 0 0 1px, rgba(15, 15, 15, 0.2) 0 2px 4px;
   --shadow-peek: rgba(15, 15, 15, 0.4) 0 0 0 1px, rgba(15, 15, 15, 0.3) 0 9px 24px;
 
-  --c-gray-text: rgb(155, 155, 155);
-  --c-brown-text: rgb(186, 133, 111);
-  --c-orange-text: rgb(199, 125, 72);
-  --c-yellow-text: rgb(202, 152, 73);
-  --c-green-text: rgb(82, 158, 114);
-  --c-blue-text: rgb(55, 154, 211);
-  --c-purple-text: rgb(157, 104, 211);
-  --c-pink-text: rgb(209, 87, 150);
-  --c-red-text: rgb(223, 84, 82);
+  --c-gray-text: rgb(157, 155, 151);
+  --c-brown-text: rgb(181, 136, 111);
+  --c-orange-text: rgb(191, 130, 75);
+  --c-yellow-text: rgb(193, 156, 83);
+  --c-green-text: rgb(81, 157, 124);
+  --c-blue-text: rgb(81, 151, 208);
+  --c-purple-text: rgb(163, 105, 197);
+  --c-pink-text: rgb(207, 93, 137);
+  --c-red-text: rgb(215, 94, 74);
 
-  --c-gray-bg: rgb(47, 47, 47);
-  --c-brown-bg: rgb(74, 50, 40);
-  --c-orange-bg: rgb(92, 59, 35);
-  --c-yellow-bg: rgb(86, 67, 40);
-  --c-green-bg: rgb(36, 61, 48);
-  --c-blue-bg: rgb(20, 58, 78);
-  --c-purple-bg: rgb(60, 45, 73);
-  --c-pink-bg: rgb(78, 44, 60);
-  --c-red-bg: rgb(82, 46, 42);
+  --c-gray-bg: rgb(49, 47, 44);
+  --c-brown-bg: rgb(72, 51, 40);
+  --c-orange-bg: rgb(88, 61, 36);
+  --c-yellow-bg: rgb(82, 69, 43);
+  --c-green-bg: rgb(36, 61, 51);
+  --c-blue-bg: rgb(29, 57, 77);
+  --c-purple-bg: rgb(62, 45, 69);
+  --c-pink-bg: rgb(77, 45, 56);
+  --c-red-bg: rgb(80, 48, 40);
 
-  --c-gray-tag: rgb(55, 55, 55);
-  --c-brown-tag: rgb(74, 50, 40);
-  --c-orange-tag: rgb(92, 59, 35);
-  --c-yellow-tag: rgb(86, 67, 40);
-  --c-green-tag: rgb(36, 61, 48);
-  --c-blue-tag: rgb(20, 58, 78);
-  --c-purple-tag: rgb(60, 45, 73);
-  --c-pink-tag: rgb(78, 44, 60);
-  --c-red-tag: rgb(82, 46, 42);
+  --c-gray-tag: rgb(57, 55, 52);
+  --c-brown-tag: rgb(72, 51, 40);
+  --c-orange-tag: rgb(88, 61, 36);
+  --c-yellow-tag: rgb(82, 69, 43);
+  --c-green-tag: rgb(36, 61, 51);
+  --c-blue-tag: rgb(29, 57, 77);
+  --c-purple-tag: rgb(62, 45, 69);
+  --c-pink-tag: rgb(77, 45, 56);
+  --c-red-tag: rgb(80, 48, 40);
 
   --tok-comment: #7f848e;
   --tok-keyword: #c678dd;
@@ -206,8 +206,8 @@
   --search-bg: rgba(200, 215, 255, 0.03);
 }
 
-/* Black: true-black dark mode (Settings → Appearance → Theme). It overrides every palette's dark
-   surfaces, so it comes after them; palettes keep their accent. */
+/* Black: true-black dark mode (Settings → Appearance → Theme). It comes after the palettes' dark
+   surfaces and replaces them; each palette's black tint follows. */
 :root[data-theme="dark"][data-black] {
   --surface: #000000;
   --side: #0a0a0a;
@@ -230,6 +230,50 @@
   --shadow-peek: rgba(255, 255, 255, 0.12) 0 0 0 1px, rgba(0, 0, 0, 0.9) 0 12px 32px;
   --c-gray-bg: rgb(26, 26, 26);
   --c-gray-tag: rgb(38, 38, 38);
+}
+/* The page stays true black, but each palette tints the chrome, lines and text around it
+   (the neutral values above are Graphite's). */
+:root[data-palette="betelgeuse"][data-theme="dark"][data-black] {
+  --side: #0d0a08;
+  --raised: #16110e;
+  --hover: rgba(255, 228, 210, 0.075);
+  --row-hover: rgba(255, 228, 210, 0.035);
+  --card-hover: #1c1612;
+  --line: rgba(255, 228, 210, 0.11);
+  --line-strong: rgba(255, 228, 210, 0.22);
+  --ink: rgba(255, 246, 238, 0.9);
+  --muted: rgba(255, 240, 228, 0.6);
+  --faint: rgba(255, 240, 228, 0.4);
+  --placeholder: rgba(255, 240, 228, 0.22);
+  --code-bg: rgba(255, 228, 210, 0.08);
+  --codeblock-bg: #0f0b09;
+  --search-bg: rgba(255, 228, 210, 0.045);
+  --shadow-pop: rgba(255, 228, 210, 0.13) 0 0 0 1px, rgba(0, 0, 0, 0.9) 0 12px 32px;
+  --shadow-card: rgba(255, 228, 210, 0.11) 0 0 0 1px;
+  --shadow-peek: rgba(255, 228, 210, 0.13) 0 0 0 1px, rgba(0, 0, 0, 0.9) 0 12px 32px;
+  --c-gray-bg: rgb(29, 24, 21);
+  --c-gray-tag: rgb(43, 37, 33);
+}
+:root[data-palette="midnight"][data-theme="dark"][data-black] {
+  --side: #080a10;
+  --raised: #10131b;
+  --hover: rgba(200, 215, 255, 0.075);
+  --row-hover: rgba(200, 215, 255, 0.035);
+  --card-hover: #161a25;
+  --line: rgba(200, 215, 255, 0.11);
+  --line-strong: rgba(200, 215, 255, 0.22);
+  --ink: rgba(236, 241, 255, 0.9);
+  --muted: rgba(220, 228, 250, 0.6);
+  --faint: rgba(220, 228, 250, 0.4);
+  --placeholder: rgba(220, 228, 250, 0.22);
+  --code-bg: rgba(200, 215, 255, 0.08);
+  --codeblock-bg: #0a0c12;
+  --search-bg: rgba(200, 215, 255, 0.045);
+  --shadow-pop: rgba(200, 215, 255, 0.13) 0 0 0 1px, rgba(0, 0, 0, 0.9) 0 12px 32px;
+  --shadow-card: rgba(200, 215, 255, 0.11) 0 0 0 1px;
+  --shadow-peek: rgba(200, 215, 255, 0.13) 0 0 0 1px, rgba(0, 0, 0, 0.9) 0 12px 32px;
+  --c-gray-bg: rgb(22, 25, 33);
+  --c-gray-tag: rgb(35, 39, 50);
 }
 
 @theme inline {
@@ -275,7 +319,7 @@ pre {
   user-select: text;
 }
 
-/* Hand cursor on everything clickable, like Notion. In the base layer so utilities such as
+/* Hand cursor on everything clickable. In the base layer so utilities such as
    cursor-grab (drag handles) and cursor-text (editable cells) still win. */
 @layer base {
   button,
@@ -350,7 +394,7 @@ pre {
   padding-bottom: 2rem;
 }
 
-/* Notion blocks are separated by ~2px; paragraphs have 3px vertical padding. */
+/* Blocks are separated by ~2px; paragraphs have 3px vertical padding. */
 .betelgeuse-prose > *,
 .betelgeuse-prose .column > *,
 .betelgeuse-prose .callout-content > *,
@@ -417,7 +461,7 @@ pre {
   -webkit-box-decoration-break: clone;
 }
 
-/* Code blocks: Notion's grey card with language picker and copy on hover. */
+/* Code blocks: a grey card with a language picker and copy on hover. */
 .betelgeuse-prose .code-block {
   position: relative;
   margin: 4px 0;
@@ -723,7 +767,7 @@ pre {
   text-decoration-style: dashed;
 }
 
-/* A line that is just a page link reads as a block (Notion's "link to page"): one row, icon centred on the
+/* A line that is just a page link reads as a block (a "link to page"): one row, icon centred on the
    first line, wrapped title aligned under itself, and the whole row highlights on hover. */
 /* A flex row, so ProseMirror's zero-size cursor helpers around the link (forced inline) can't add empty lines. */
 .betelgeuse-prose p.page-link-line {
@@ -742,7 +786,7 @@ pre {
   padding: 1px 6px;
   border-radius: 6px;
 }
-/* Like Notion, a page-link row stays on one line; long titles end in "…" (the full title is the tooltip). */
+/* A page-link row stays on one line; long titles end in "…" (the full title is the tooltip). */
 .betelgeuse-prose p.page-link-line .wikilink-title {
   min-width: 0;
   overflow: hidden;

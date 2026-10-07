@@ -18,7 +18,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run typecheck -w @betelgeuse/desktop -w betelgeuse-mcp
+      - run: npm run typecheck -w @betelgeuse/desktop -w @betelgeuse/mobile -w betelgeuse-mcp
       - run: node --import tsx --test tests/*.test.mjs
         working-directory: apps/desktop
       - run: npm test -w betelgeuse-mcp
@@ -55,5 +55,8 @@ jobs:
       - run: npm run mcp:build
       - run: npx vite build
         working-directory: apps/desktop
+      # The mobile app's crate is in the workspace too, and embeds its own built interface.
+      - run: npx vite build
+        working-directory: apps/mobile
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace

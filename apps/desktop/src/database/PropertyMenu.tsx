@@ -33,7 +33,7 @@ const FORMATS: [NumberFormat, string][] = [
   ["yen", "Yen"],
 ];
 
-/** Notion's column header menu. */
+/** The column header menu. */
 export function PropertyMenu({
   db,
   prop,

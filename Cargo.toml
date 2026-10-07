@@ -2,4 +2,4 @@
 # They share one Cargo.lock and one build folder (target/).
 [workspace]
 resolver = "2"
-members = ["apps/desktop/src-tauri", "crates/betelgeuse-core"]
+members = ["apps/desktop/src-tauri", "apps/mobile/src-tauri", "crates/betelgeuse-core"]

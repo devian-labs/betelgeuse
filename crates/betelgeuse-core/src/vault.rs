@@ -1,5 +1,5 @@
 //! The vault is a plain folder of Markdown files. A note `A/B.md` is the
-//! sub-page of `A.md`, so a Notion-style page tree maps 1:1 onto folders that
+//! sub-page of `A.md`, so a nested page tree maps 1:1 onto folders that
 //! Obsidian, git and any agent can read without Betelgeuse running.
 
 use serde::Serialize;

@@ -6,7 +6,7 @@ import { textColor } from "../lib/colors";
 /**
  * Page icons, stored as a frontmatter string:
  *   "🚀"                    an emoji
- *   "lucide:Rocket:blue"    a flat icon in one of Notion's colours
+ *   "lucide:Rocket:blue"    a flat icon in one of the palette colours
  *   ".assets/logo-123.png"  a custom image uploaded into the vault
  *   "https://…/icon.png"    an image link
  */

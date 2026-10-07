@@ -262,6 +262,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "betelgeuse-mobile"
+version = "0.2.1"
+dependencies = [
+ "betelgeuse-core",
+ "objc2",
+ "serde",
+ "tauri",
+ "tauri-build",
+]
+
+[[package]]
 name = "bit-set"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

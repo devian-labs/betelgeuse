@@ -28,7 +28,7 @@ const GROUP_GLYPH: Record<string, string> = {
 /** Splits PascalCase icon names into searchable words: "CalendarCheck2" -> "calendar check 2". */
 const ICON_NAMES = Object.keys(icons).map((name) => ({ name, words: name.replace(/([a-z])([A-Z0-9])/g, "$1 $2").toLowerCase() }));
 
-/** Everyday icons shown first, like Notion's default icon set. */
+/** Everyday icons, shown first. */
 const SUGGESTED = [
   "FileText", "Book", "BookOpen", "Bookmark", "Notebook", "Briefcase", "Calendar", "SquareCheckBig", "ClipboardList", "ListTodo",
   "Code", "Terminal", "Bot", "Database", "Rocket", "Lightbulb", "Target", "Flag", "Trophy", "Star",
@@ -47,7 +47,7 @@ const readRecents = (): string[] => {
   }
 };
 
-/** Notion-style icon picker: emoji, coloured flat icons, or a custom image. */
+/** Icon picker: emoji, coloured flat icons, or a custom image. */
 export function IconPicker({ onPick, onClose, current }: { onPick: (icon: string | null) => void; onClose: () => void; current?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<Tab>(() => (current?.startsWith("lucide:") ? "icons" : current?.startsWith(".assets/") ? "upload" : "emoji"));

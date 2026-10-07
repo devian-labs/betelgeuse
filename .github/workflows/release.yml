@@ -8,6 +8,16 @@
 #
 # The builds are NOT signed with an Apple Developer ID or a Windows certificate. macOS builds are
 # ad-hoc signed, so they run, but Gatekeeper warns on first launch: see the release notes below.
+#
+# Mobile: the Android app is built as an APK and attached to the same release. Sign it with your own
+# key by adding these repository secrets (otherwise each release is signed with a new throwaway key,
+# and people must uninstall the previous version before installing the next):
+#   ANDROID_KEYSTORE           base64 of the .jks / .keystore file
+#   ANDROID_KEYSTORE_PASSWORD  the keystore's password
+#   ANDROID_KEY_ALIAS          the key's alias
+#   ANDROID_KEY_PASSWORD       the key's password (often the same as the keystore's)
+# The iOS app is only built for the simulator, to check it compiles: installing on iPhones needs an
+# Apple Developer account (TestFlight / App Store).
 name: Release
 
 on:
@@ -111,4 +121,96 @@ jobs:
             - **Windows**: run the `.exe` installer. If SmartScreen appears, click **More info → Run anyway**.
             - **Linux** (`amd64` or `arm64`): `.AppImage` (make it executable and run it), `.deb` (`sudo apt install ./betelgeuse_*.deb`) or `.rpm`.
 
+            - **Android** (preview): install `Betelgeuse_*_android.apk`. Your phone may ask you to allow installs from your browser or files app.
+              Pages live on the phone for now; syncing with your desktop workspace is coming.
+
             The MCP server for AI agents needs **Node.js 20+**.
+
+  android:
+    name: Build (Android)
+    # After the desktop builds, so their draft release already exists to attach the APK to.
+    needs: [checks, version, build]
+    if: ${{ !cancelled() && needs.checks.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.version.result) }}
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    env:
+      NDK_VERSION: 28.2.13676358
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android
+      - name: Android NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+      - run: npm ci
+      - name: Build the APK
+        run: npm run tauri -w @betelgeuse/mobile -- android build --apk
+      - name: Sign the APK
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          version=$(node -p "require('./apps/mobile/src-tauri/tauri.conf.json').version")
+          unsigned=apps/mobile/src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk
+          if [ -n "$ANDROID_KEYSTORE" ]; then
+            echo "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            alias="$ANDROID_KEY_ALIAS"; store_pass="$ANDROID_KEYSTORE_PASSWORD"; key_pass="${ANDROID_KEY_PASSWORD:-$ANDROID_KEYSTORE_PASSWORD}"
+          else
+            echo "::warning::No ANDROID_KEYSTORE secret: signing with a throwaway key. People will have to uninstall the previous version before installing this one."
+            alias=betelgeuse; store_pass=$(openssl rand -hex 16); key_pass=$store_pass
+            keytool -genkeypair -keystore "$RUNNER_TEMP/release.keystore" -alias "$alias" -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass "$store_pass" -keypass "$key_pass" -dname "CN=Betelgeuse, O=Devian Labs" > /dev/null
+          fi
+          "$tools/zipalign" -f 4 "$unsigned" "$RUNNER_TEMP/aligned.apk"
+          mkdir -p dist-mobile
+          "$tools/apksigner" sign --ks "$RUNNER_TEMP/release.keystore" --ks-key-alias "$alias" \
+            --ks-pass "pass:$store_pass" --key-pass "pass:$key_pass" \
+            --out "dist-mobile/Betelgeuse_${version}_android.apk" "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" verify "dist-mobile/Betelgeuse_${version}_android.apk"
+          rm -f "$RUNNER_TEMP/release.keystore"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: android-apk
+          path: dist-mobile/*.apk
+      - name: Attach to the draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" dist-mobile/*.apk --clobber
+
+  ios:
+    name: Build (iOS, simulator)
+    needs: [checks]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ios
+      - run: npm ci
+      # Proves the iOS app builds. Distributing it needs an Apple Developer account, so nothing is attached.
+      - run: npm run tauri -w @betelgeuse/mobile -- ios build --target aarch64-sim --debug

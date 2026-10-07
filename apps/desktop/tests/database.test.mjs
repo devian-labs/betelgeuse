@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { allProperties, applyView, calculate, parseSchema, toRow, writeSchema, defaultSchema, visibleProperties } from "../src/database/model.ts";
+import { allProperties, applyView, filterDefaults, moveProperty, calculate, parseSchema, toRow, writeSchema, defaultSchema, visibleProperties } from "../src/database/model.ts";
 import { patchFrontmatter } from "../src/lib/frontmatter.ts";
 
 const schema = {
@@ -198,4 +198,31 @@ test("cards group properties into lines, tags and counts; relation and rollup co
   assert.deepEqual([names(bare.lines), names(bare.tags), names(bare.stats)], ["", "", "Projects,Project count,Budget"]);
   const none = cardSections(props, row("Status: Active", {}));
   assert.equal(names(none.stats), "Projects,Project count", "an empty number is still left out");
+});
+
+test("an option filter with several values matches any of them", () => {
+  const f = (op, value) => titles(applyView(rows, schema, view({ filters: [{ property: "Status", op, value }] }), ""));
+  assert.equal(f("is", ["Done", "Todo"]), "AB");
+  assert.equal(f("is_not", ["Done", "Todo"]), "C");
+  assert.equal(f("is", "Doing"), "C");
+  assert.equal(f("is", []), "ABC");
+});
+
+test("new pages start with the values the view filters on", () => {
+  const filters = [
+    { property: "Status", op: "is", value: ["Doing", "Done"] },
+    { property: "Tags", op: "contains", value: "app" },
+    { property: "Shipped", op: "checked" },
+    { property: "Estimate", op: "gt", value: "3" },
+  ];
+  assert.deepEqual(filterDefaults(schema, view({ filters })), { Status: "Doing", Tags: ["app"], Shipped: true });
+  const rel = { properties: [{ name: "Area", type: "relation", database: "[[Areas]]" }], views: [] };
+  assert.deepEqual(filterDefaults(rel, view({ filters: [{ property: "Area", op: "contains", value: "Content" }] })), { Area: ["[[Content]]"] });
+});
+
+test("moves a property before another or to the end", () => {
+  const names = (ps) => ps.map((p) => p.name).join(",");
+  assert.equal(names(moveProperty(schema.properties, "Shipped", "Status")), "Shipped,Status,Estimate,Due,Tags");
+  assert.equal(names(moveProperty(schema.properties, "Status", "Tags")), "Estimate,Due,Status,Tags,Shipped");
+  assert.equal(names(moveProperty(schema.properties, "Status", null)), "Estimate,Due,Tags,Shipped,Status");
 });

@@ -23,7 +23,7 @@ import {
 } from "./model";
 import { EditableValue, RowMenu, RowTitle, TitleInput, type ViewProps } from "./shared";
 
-/** Non-empty, visible, non-title properties of a row: what Notion shows on cards. */
+/** Non-empty, visible, non-title properties of a row: what cards show. */
 function cardProps(props: Property[], row: Row, exclude?: string) {
   return props.filter((p) => p.type !== "title" && p.name !== exclude && !isEmptyValue(p, getValue(row, p)));
 }

@@ -37,10 +37,14 @@ console.log(`Setting version ${version}:`);
 replaceOnce("apps/desktop/src-tauri/tauri.conf.json", /("version":\s*)"[^"]+"/, `$1"${version}"`);
 replaceOnce("apps/desktop/src-tauri/Cargo.toml", /^(version\s*=\s*)"[^"]+"/m, `$1"${version}"`);
 replaceOnce("Cargo.lock", /(name = "betelgeuse"\nversion = )"[^"]+"/, `$1"${version}"`);
+replaceOnce("Cargo.lock", /(name = "betelgeuse-mobile"\nversion = )"[^"]+"/, `$1"${version}"`);
+replaceOnce("apps/mobile/src-tauri/tauri.conf.json", /("version":\s*)"[^"]+"/, `$1"${version}"`);
+replaceOnce("apps/mobile/src-tauri/Cargo.toml", /^(version\s*=\s*)"[^"]+"/m, `$1"${version}"`);
 setJson("apps/desktop/package.json", (j) => (j.version = version));
+setJson("apps/mobile/package.json", (j) => (j.version = version));
 setJson("packages/mcp/package.json", (j) => (j.version = version));
 setJson("package-lock.json", (j) => {
-  for (const ws of ["apps/desktop", "packages/mcp"]) if (j.packages?.[ws]) j.packages[ws].version = version;
+  for (const ws of ["apps/desktop", "apps/mobile", "packages/mcp"]) if (j.packages?.[ws]) j.packages[ws].version = version;
 });
 replaceOnce("packages/mcp/src/index.ts", /(new McpServer\(\{ name: "betelgeuse", version: )"[^"]+"/, `$1"${version}"`);
 console.log(`\nNext: git add -A && git commit -m "release: v${version}" && git tag v${version} && git push --follow-tags`);

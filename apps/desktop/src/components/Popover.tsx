@@ -63,7 +63,7 @@ export function Popover({ anchor, onClose, children, placement = "bottom-start",
   );
 }
 
-/** A Notion-style menu row. */
+/** A menu row. */
 export function MenuItem({
   icon,
   label,

@@ -67,7 +67,13 @@ export type FilterOp =
   | "after"
   | "checked"
   | "unchecked";
-export type Filter = { property: string; op: FilterOp; value?: string };
+/** `value` holds several option names when a filter matches any of them. */
+export type Filter = { property: string; op: FilterOp; value?: string | string[] };
+
+/** A filter's values, empty while it's unfinished. */
+export function filterValues(f: Filter): string[] {
+  return (Array.isArray(f.value) ? f.value : [f.value ?? ""]).filter(Boolean);
+}
 
 export type ViewType = "table" | "board" | "list" | "gallery" | "calendar";
 export type Calc =
@@ -151,6 +157,16 @@ export function moveView(views: View[], id: string, index: number): View[] {
   if (!view) return views;
   const rest = views.filter((v) => v.id !== id);
   rest.splice(Math.max(0, Math.min(index, rest.length)), 0, view);
+  return rest;
+}
+
+/** Moves property `name` to just before `before`, or to the end when `before` is null. */
+export function moveProperty(props: Property[], name: string, before: string | null): Property[] {
+  const prop = props.find((p) => p.name === name);
+  if (!prop || name === before) return props;
+  const rest = props.filter((p) => p.name !== name);
+  const at = before === null ? rest.length : rest.findIndex((p) => p.name === before);
+  rest.splice(at < 0 ? rest.length : at, 0, prop);
   return rest;
 }
 
@@ -414,7 +430,6 @@ export function filterOpsFor(type: PropType) {
 
 function matches(row: Row, prop: Property, f: Filter): boolean {
   const v = getValue(row, prop);
-  const want = (f.value ?? "").toLowerCase();
   switch (f.op) {
     case "is_empty":
       return isEmptyValue(prop, v);
@@ -425,10 +440,11 @@ function matches(row: Row, prop: Property, f: Filter): boolean {
     case "unchecked":
       return !asBool(v);
   }
-  if (!f.value) return true; // an unfinished filter doesn't hide anything
+  const wants = filterValues(f);
+  if (!wants.length) return true; // an unfinished filter doesn't hide anything
   if (prop.type === "number") {
     const n = asNumber(v);
-    const w = Number(f.value);
+    const w = Number(wants[0]);
     if (n === null) return f.op === "neq";
     return { eq: n === w, neq: n !== w, gt: n > w, lt: n < w, gte: n >= w, lte: n <= w }[f.op as "eq"] ?? true;
   }
@@ -436,20 +452,22 @@ function matches(row: Row, prop: Property, f: Filter): boolean {
     const d = asDate(v);
     if (!d) return false;
     const day = isoDay(d);
-    return f.op === "is" ? day === f.value : f.op === "before" ? day < f.value : f.op === "after" ? day > f.value : true;
+    return f.op === "is" ? day === wants[0] : f.op === "before" ? day < wants[0] : f.op === "after" ? day > wants[0] : true;
   }
   const list = (prop.type === "relation" ? relationTitles(v) : asList(v)).map((s) => s.toLowerCase());
   const text = list.join(", ");
   const exact = prop.type === "multi_select" || prop.type === "relation";
+  // Several values match a row holding any of them.
+  const any = (test: (want: string) => boolean) => wants.some((w) => test(w.toLowerCase()));
   switch (f.op) {
     case "contains":
-      return exact ? list.includes(want) : text.includes(want);
+      return any((w) => (exact ? list.includes(w) : text.includes(w)));
     case "not_contains":
-      return exact ? !list.includes(want) : !text.includes(want);
+      return !any((w) => (exact ? list.includes(w) : text.includes(w)));
     case "is":
-      return text === want;
+      return any((w) => text === w);
     case "is_not":
-      return text !== want;
+      return !any((w) => text === w);
   }
   return true;
 }
@@ -486,6 +504,45 @@ export function findProperty(schema: Schema, name: string): Property | undefined
   return allProperties(schema).find((p) => p.name === name);
 }
 
+/**
+ * Values a page created in `view` starts with, so it satisfies the view's filters
+ * (and doesn't vanish the moment it's made).
+ */
+export function filterDefaults(schema: Schema, view: View): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const f of view.filters ?? []) {
+    const prop = schema.properties.find((p) => p.name === f.property);
+    const [first] = filterValues(f);
+    if (!prop || isComputed(prop)) continue;
+    if (f.op === "checked") out[prop.name] = true;
+    if (!first) continue;
+    switch (prop.type) {
+      case "select":
+      case "status":
+        if (f.op === "is" || f.op === "contains") out[prop.name] = first;
+        break;
+      case "multi_select":
+        if (f.op === "contains") out[prop.name] = [first];
+        break;
+      case "relation":
+        if (f.op === "contains") out[prop.name] = toRelationValue(first, prop.limit);
+        break;
+      case "number":
+        if (f.op === "eq") out[prop.name] = Number(first);
+        break;
+      case "date":
+        if (f.op === "is") out[prop.name] = first;
+        break;
+      case "text":
+      case "url":
+      case "email":
+        if (f.op === "is" || f.op === "contains") out[prop.name] = first;
+        break;
+    }
+  }
+  return out;
+}
+
 export function applyView(rows: Row[], schema: Schema, view: View, search: string): Row[] {
   const props = allProperties(schema);
   let out = rows;
@@ -503,7 +560,7 @@ export function applyView(rows: Row[], schema: Schema, view: View, search: strin
         const [va, vb] = [getValue(a, prop), getValue(b, prop)];
         const [ea, eb] = [sortsAsEmpty(prop, va), sortsAsEmpty(prop, vb)];
         if (ea || eb) {
-          if (ea !== eb) return ea ? 1 : -1; // empties last in either direction, like Notion
+          if (ea !== eb) return ea ? 1 : -1; // empties last in either direction
           continue;
         }
         const c = compare(prop, va, vb);
@@ -551,7 +608,7 @@ export const CALC_LABELS: Record<Calc, string> = {
   date_range: "Date range",
 };
 
-/** Short label shown before the result in the footer, as Notion does. */
+/** Short label shown before the result in the footer. */
 export const CALC_SHORT: Partial<Record<Calc, string>> = {
   count_all: "Count",
   count_values: "Values",

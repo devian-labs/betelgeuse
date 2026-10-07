@@ -7,7 +7,7 @@ import { useVault } from "../lib/vault";
 import { PageIcon } from "./PageIcon";
 import { Popover } from "./Popover";
 
-/** Notion-style Trash: deleted pages with restore and delete-forever. */
+/** Trash: deleted pages with restore and delete-forever. */
 export function TrashPanel({ anchor, onClose }: { anchor: HTMLElement; onClose: () => void }) {
   const { refreshKey, refresh, openPage } = useVault();
   const [items, setItems] = useState<TrashItem[] | null>(null);

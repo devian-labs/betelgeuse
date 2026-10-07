@@ -165,7 +165,7 @@ export default function App() {
     setExpanded((prev) => new Set([...prev, ...ancestorKeys(path)]));
   }, []);
 
-  // Opens a page in the current tab (browser-style back/forward, like Notion's arrows), or a new
+  // Opens a page in the current tab (browser-style back/forward), or a new
   // tab next to it. With no tab open yet, the page gets the first one.
   const openPage = useCallback(
     (path: string, opts?: OpenOptions) => {
@@ -214,7 +214,7 @@ export default function App() {
     [refresh],
   );
 
-  // Deleting moves to the Trash right away, with an Undo toast, like Notion.
+  // Deleting moves to the Trash right away, with an Undo toast.
   const deletePage = useCallback(
     async (path: string) => {
       const title = path.split("/").pop()!.replace(/\.md$/, "");
@@ -393,7 +393,7 @@ export default function App() {
   return (
     <VaultContext.Provider value={ctx}>
       <div className="flex h-full bg-surface text-ink">
-        {/* Closed sidebar: hovering the window's left edge peeks it, like Notion. */}
+        {/* Closed sidebar: hovering the window's left edge peeks it. */}
         {!sidebar && !sidebarPeek && <div onMouseEnter={() => setSidebarPeek(true)} className="fixed top-12 bottom-0 left-0 z-30 w-2" />}
         {
           <Sidebar

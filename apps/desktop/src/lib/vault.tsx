@@ -9,7 +9,7 @@ export type VaultContextValue = {
   refreshKey: number;
   /** Opens a page in the current tab, or a new one with `{ newTab: true }`. */
   openPage: (path: string, opts?: OpenOptions) => void;
-  /** Opens a page in the side peek panel, like clicking a Notion database row. */
+  /** Opens a page in the side peek panel, as clicking a database row does. */
   peek: (path: string) => void;
   createPage: (parent: string | null, title?: string) => Promise<string>;
   refresh: () => Promise<NoteMeta[]>;

@@ -46,7 +46,7 @@ export const WikiLink = Node.create({
   },
 
   addProseMirrorPlugins() {
-    // A paragraph that is nothing but one page link reads as a page-link block (Notion's "link to page"):
+    // A paragraph that is nothing but one page link reads as a page-link block:
     // the arrow hangs in the margin and long titles wrap under the title. Display only; Markdown is unchanged.
     const lineOnly = (doc: import("@tiptap/pm/model").Node) => {
       const decos: Decoration[] = [];

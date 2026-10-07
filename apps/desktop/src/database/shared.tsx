@@ -132,7 +132,7 @@ export function RowMenu({ db, row, anchor, onClose, onRename }: { db: Database; 
   );
 }
 
-/** Notion's "OPEN" pill that appears on hover in the title cell. */
+/** The "OPEN" pill that appears on hover in the title cell. */
 export function OpenButton({ row }: { row: Row }) {
   const openRow = useOpenRow();
   return (

@@ -74,9 +74,9 @@ export const TURN_INTO: TurnInto[] = [
   { id: "callout", label: "Callout", icon: <Lightbulb size={16} />, active: (e) => e.isActive("callout"), run: (e) => e.chain().focus().clearNodes().wrapIn("callout").run() },
 ];
 
-/** Notion's block shortcuts: ⌘⌥0–8 turn into, ⌘D duplicates the current block, ⌘⇧H highlights. */
-const NotionKeys = Extension.create({
-  name: "notionKeys",
+/** Block shortcuts: ⌘⌥0–8 turn into, ⌘D duplicates the current block, ⌘⇧H highlights. */
+const BlockKeys = Extension.create({
+  name: "blockKeys",
   addKeyboardShortcuts() {
     const by = (id: string) => () => (TURN_INTO.find((t) => t.id === id)!.run(this.editor), true);
     return {
@@ -138,7 +138,7 @@ export function Editor({ initial, onChange, onOpenLink, getNotes, createPage, pa
           return e.isEmpty ? "Write something, or press '/' for commands…" : "Press '/' for commands";
         },
       }),
-      NotionKeys,
+      BlockKeys,
       SlashCommand.configure({ page }),
       PageLinkSuggestion.configure({ getNotes, createPage }),
       MentionSuggestion.configure({ getNotes, createPage }),

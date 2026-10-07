@@ -28,7 +28,9 @@ import {
   VIEW_LABELS,
   allProperties,
   applyView,
+  filterDefaults,
   filterOpsFor,
+  filterValues,
   findProperty,
   type Filter,
   type Schema,
@@ -92,6 +94,15 @@ export function DatabaseView({ path, inline }: { path: string; inline?: boolean 
     () => (schema && view && db.state ? applyView(db.state.rows, schema, view, search ?? "") : []),
     [db.state, schema, view, search],
   );
+  // Pages made from a view start with its filters' values, on top of what the view sets itself (a board column's group).
+  const viewDb = useMemo(
+    () => ({
+      ...db,
+      createRow: (values: Record<string, unknown> = {}, openAfter = false) =>
+        db.createRow({ ...(schema && view ? filterDefaults(schema, view) : {}), ...values }, openAfter),
+    }),
+    [db, schema, view],
+  );
 
   if (db.missing) return <div className="py-2 text-sm text-faint">Database not found: {path}</div>;
   if (!db.state || !schema || !view) return <div className="h-24" />;
@@ -113,11 +124,11 @@ export function DatabaseView({ path, inline }: { path: string; inline?: boolean 
         </button>
       )}
 
-      <Toolbar db={db} schema={schema} view={view} select={select} search={search} setSearch={setSearch} onNew={async () => setEditTitleOf(await db.createRow())} />
+      <Toolbar db={db} schema={schema} view={view} select={select} search={search} setSearch={setSearch} onNew={async () => setEditTitleOf(await viewDb.createRow())} />
       <Chips db={db} schema={schema} view={view} />
 
       <div className="mt-1">
-        <Active db={db} schema={schema} view={view} rows={rows} editTitleOf={editTitleOf} onTitleEdited={onTitleEdited} />
+        <Active db={viewDb} schema={schema} view={view} rows={rows} editTitleOf={editTitleOf} onTitleEdited={onTitleEdited} />
       </div>
     </div>
   );
@@ -149,7 +160,6 @@ function Toolbar({
   const [dragging, setDragging] = useState<string | null>(null);
   const [gap, setGap] = useState<number | null>(null);
   const endDrag = () => (setDragging(null), setGap(null));
-  const props = allProperties(schema);
 
   return (
     <div className="flex h-10 items-center gap-1 border-b border-line">
@@ -250,22 +260,7 @@ function Toolbar({
         </Popover>
       )}
       {tabMenu && <ViewTabMenu db={db} view={tabMenu.view} anchor={tabMenu.el} canDelete={schema.views.length > 1} select={select} onClose={() => setTabMenu(null)} />}
-      {filterMenu && (
-        <Popover anchor={filterMenu} placement="bottom-end" onClose={() => setFilterMenu(null)} className="max-h-[60vh] w-56 overflow-y-auto p-1">
-          <MenuSection label="Filter by" />
-          {props.map((p) => (
-            <MenuItem
-              key={p.name}
-              icon={<PropIcon type={p.type} />}
-              label={p.name}
-              onClick={() => {
-                db.updateView(view.id, { filters: [...(view.filters ?? []), { property: p.name, op: filterOpsFor(p.type)[0].op }] });
-                setFilterMenu(null);
-              }}
-            />
-          ))}
-        </Popover>
-      )}
+      {filterMenu && <AddFilterMenu db={db} schema={schema} view={view} anchor={filterMenu} placement="bottom-end" onClose={() => setFilterMenu(null)} />}
       {sortMenu && <SortMenu db={db} schema={schema} view={view} anchor={sortMenu} onClose={() => setSortMenu(null)} />}
       {settings && <ViewSettings db={db} schema={schema} view={view} anchor={settings} onClose={() => setSettings(null)} />}
     </div>
@@ -457,9 +452,29 @@ function ViewSettings({ db, schema, view, anchor, onClose }: { db: Database; sch
   );
 }
 
-/** Notion's filter / sort pills under the toolbar. */
+function AddFilterMenu({ db, schema, view, anchor, placement, onClose }: { db: Database; schema: Schema; view: View; anchor: HTMLElement; placement?: "bottom-end"; onClose: () => void }) {
+  return (
+    <Popover anchor={anchor} placement={placement} onClose={onClose} className="max-h-[60vh] w-56 overflow-y-auto p-1">
+      <MenuSection label="Filter by" />
+      {allProperties(schema).map((p) => (
+        <MenuItem
+          key={p.name}
+          icon={<PropIcon type={p.type} />}
+          label={p.name}
+          onClick={() => {
+            db.updateView(view.id, { filters: [...(view.filters ?? []), { property: p.name, op: filterOpsFor(p.type)[0].op }] });
+            onClose();
+          }}
+        />
+      ))}
+    </Popover>
+  );
+}
+
+/** Filter / sort pills under the toolbar. */
 function Chips({ db, schema, view }: { db: Database; schema: Schema; view: View }) {
   const [editing, setEditing] = useState<{ index: number; el: HTMLElement } | null>(null);
+  const [adding, setAdding] = useState<HTMLElement | null>(null);
   const filters = view.filters ?? [];
   const sorts = view.sorts ?? [];
   if (!filters.length && !sorts.length) return null;
@@ -487,11 +502,17 @@ function Chips({ db, schema, view }: { db: Database; schema: Schema; view: View 
           >
             {prop && <PropIcon type={prop.type} size={12} />}
             <span className="font-medium">{f.property}</span>
-            {op && (op.needsValue ? <span>{`${op.label.toLowerCase()} ${f.value ?? "…"}`}</span> : <span>{op.label.toLowerCase()}</span>)}
+            {op && (op.needsValue ? <span>{`${op.label.toLowerCase()} ${filterValues(f).join(", ") || "…"}`}</span> : <span>{op.label.toLowerCase()}</span>)}
             <ChevronDown size={12} />
           </button>
         );
       })}
+      {filters.length > 0 && (
+        <button onClick={(e) => setAdding(e.currentTarget)} className="flex h-6 items-center gap-1 rounded-full px-2 text-xs text-faint hover:bg-hover hover:text-muted">
+          <Plus size={12} /> Add filter
+        </button>
+      )}
+      {adding && <AddFilterMenu db={db} schema={schema} view={view} anchor={adding} onClose={() => setAdding(null)} />}
       {editing && filters[editing.index] && (
         <FilterEditor
           schema={schema}
@@ -511,11 +532,18 @@ function Chips({ db, schema, view }: { db: Database; schema: Schema; view: View 
 
 function FilterEditor({ schema, filter, anchor, onChange, onDelete, onClose }: { schema: Schema; filter: Filter; anchor: HTMLElement; onChange: (f: Filter) => void; onDelete: () => void; onClose: () => void }) {
   const prop = findProperty(schema, filter.property);
-  const [value, setValue] = useState(filter.value ?? "");
+  const [value, setValue] = useState(filterValues(filter)[0] ?? "");
   if (!prop) return null;
   const ops = filterOpsFor(prop.type);
   const op = ops.find((o) => o.op === filter.op) ?? ops[0];
-  const commit = () => value !== (filter.value ?? "") && onChange({ ...filter, value });
+  // Only the typed value is a draft; options apply as they're clicked, so closing must not overwrite them.
+  const commit = () => !prop.options && value !== (filterValues(filter)[0] ?? "") && onChange({ ...filter, value });
+  const chosen = filterValues(filter);
+  // Option filters take several values (matching any of them); a single one stays a plain string.
+  const toggle = (name: string) => {
+    const next = chosen.includes(name) ? chosen.filter((c) => c !== name) : [...chosen, name];
+    onChange({ ...filter, value: next.length > 1 ? next : next[0] });
+  };
 
   return (
     <Popover anchor={anchor} onClose={() => (commit(), onClose())} className="w-72 p-2">
@@ -543,8 +571,8 @@ function FilterEditor({ schema, filter, anchor, onChange, onDelete, onClose }: {
               <MenuItem
                 key={o.name}
                 label={<span className="rounded-[3px] px-1.5 py-0.5 text-[13px]" style={{ background: `var(--c-${o.color}-tag)` }}>{o.name}</span>}
-                right={filter.value === o.name ? <span className="text-muted">✓</span> : null}
-                onClick={() => onChange({ ...filter, value: o.name })}
+                right={chosen.includes(o.name) ? <span className="text-muted">✓</span> : null}
+                onClick={() => toggle(o.name)}
               />
             ))}
           </div>

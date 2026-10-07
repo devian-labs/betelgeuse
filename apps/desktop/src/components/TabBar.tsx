@@ -19,7 +19,7 @@ type Props = {
 };
 
 /**
- * Notion's tab strip, always shown above the page: back / forward, one tab per open page, and +.
+ * The tab strip, always shown above the page: back / forward, one tab per open page, and +.
  * The active tab takes the page's colour so it reads as part of the page below it.
  */
 export function TabBar({ tabs, active, notes, inset, onSelect, onClose, onNew, onBack, onForward, onShowSidebar, onPeekSidebar }: Props) {

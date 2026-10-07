@@ -1,5 +1,5 @@
 /**
- * Notion-style blocks, each with a Markdown form that other tools can still read:
+ * Rich blocks, each with a Markdown form that other tools can still read:
  *   colours    <span data-color="red" data-bg="yellow">text</span>
  *   callout    > [!yellow] 💡            (Obsidian callout syntax)
  *   toggle     <details><summary>…</summary> … </details>

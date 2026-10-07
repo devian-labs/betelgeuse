@@ -383,7 +383,7 @@ export function useDatabase(path: string) {
   };
 }
 
-/** Creates a new database page (optionally nested) with Notion's default columns. */
+/** Creates a new database page (optionally nested) with the default columns. */
 export async function createDatabase(parent: string | null, title = "Untitled database"): Promise<string> {
   const path = await api.createNote(parent, title);
   await api.writeNote(path, joinNote("type: database", writeSchema("", defaultSchema())));

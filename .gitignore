@@ -19,3 +19,6 @@ apps/desktop/public/third-party-notices.txt
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# Rebuilt on every build
+apps/mobile/src-tauri/gen/schemas
