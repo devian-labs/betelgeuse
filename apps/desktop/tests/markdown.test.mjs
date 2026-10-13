@@ -97,6 +97,10 @@ test("text and background colours", () =>
   same('Some <span data-color="red">red **bold**</span> and <span data-bg="yellow">highlighted</span> and <span data-color="blue" data-bg="gray">both</span>.'));
 
 test("callouts", () => same("> [!yellow] 💡\n> A tip with **bold**.\n>\n> - and a list"));
+test("callout titles (Obsidian's `> [!type] Title`) open the callout instead of crowding the icon", () => {
+  assert.equal(roundTrip("> [!blue] 🎬 Studio\n> Everything lives here.\n"), "> [!blue] 🎬\n> **Studio**\n>\n> Everything lives here.\n");
+  assert.equal(roundTrip("> [!note] Read me\n> Body.\n"), "> [!gray] 💡\n> **Read me**\n>\n> Body.\n");
+});
 
 test("toggles, including nested ones", () =>
   same("<details>\n<summary>Click to expand</summary>\n\nHidden **content**.\n\n<details open>\n<summary>Inner</summary>\n\nDeep.\n\n</details>\n\n</details>"));
@@ -118,6 +122,12 @@ test("colour spanning bold text stays one well-formed span", () =>
 const exact = (md) => assert.equal(roundTrip(md), md);
 
 test("a page may start with a table", () => exact("| a   | b   |\n| --- | --- |\n| 1   | 2   |\n\nAfter\n"));
+
+test("dragged column widths ride along in a comment above the table", () => {
+  exact("Before\n\n<!-- table widths: 160, 0 -->\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n\nAfter\n");
+  // Tables nobody resized stay plain Markdown.
+  exact("Before\n\n| a   | b   |\n| --- | --- |\n| 1   | 2   |\n\nAfter\n");
+});
 
 test("imported tables: multi-line cells use <br>, paragraph breaks <br><br>", () => {
   exact(

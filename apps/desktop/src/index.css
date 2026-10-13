@@ -418,6 +418,11 @@ pre {
   color: var(--faint);
   opacity: 0.7;
 }
+/* One hint at a time: on the block with the cursor (the placeholder plugin could leave one on a
+   neighbouring empty line), or on a page with nothing in it yet. */
+.betelgeuse-prose .is-empty:not(.has-focus):not(.is-editor-empty)::before {
+  content: none;
+}
 
 .betelgeuse-prose h1,
 .betelgeuse-prose h2,
@@ -620,8 +625,35 @@ pre {
 
 /* Simple tables */
 .betelgeuse-prose .tableWrapper {
+  /* Scrolls sideways only when the table is wider than the page; never vertically. */
   overflow-x: auto;
+  overflow-y: hidden;
   margin: 6px 0;
+  padding-bottom: 2px;
+}
+/* No "Press '/' for commands" hint in empty cells: it spilled out of narrow cells. */
+.betelgeuse-prose td p.is-empty::before,
+.betelgeuse-prose th p.is-empty::before {
+  content: none;
+}
+/* Drag a column's right border to resize it. */
+.betelgeuse-prose th,
+.betelgeuse-prose td {
+  position: relative;
+}
+.betelgeuse-prose .column-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -2px;
+  bottom: 0;
+  width: 4px;
+  z-index: 2;
+  background: var(--blue);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.betelgeuse-prose.resize-cursor {
+  cursor: col-resize;
 }
 .betelgeuse-prose table {
   border-collapse: collapse;
@@ -633,7 +665,6 @@ pre {
   padding: 7px 9px;
   text-align: left;
   vertical-align: top;
-  min-width: 120px;
 }
 .betelgeuse-prose th {
   background: var(--codeblock-bg);
@@ -718,12 +749,29 @@ pre {
 /* Columns */
 .betelgeuse-prose .columns {
   display: flex;
-  gap: 46px;
   margin: 4px 0;
 }
+/* The space between columns is the right-hand column's padding rather than a flex gap, so the
+   mouse stays over that column on its way to the block handle sitting there. Content-box sizing
+   keeps the columns' content equally wide (or in their `data-width` ratio). */
 .betelgeuse-prose .column {
   flex: 1 1 0;
   min-width: 0;
+  box-sizing: content-box;
+}
+.betelgeuse-prose .column + .column {
+  padding-left: 46px;
+}
+/* Shown while hovering or dragging the border between two columns. */
+.column-resize-line {
+  position: fixed;
+  z-index: 40;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--blue);
+  opacity: 0.6;
+  pointer-events: none;
+  display: none;
 }
 .betelgeuse-prose .column > :first-child {
   margin-top: 0;
@@ -805,6 +853,10 @@ pre {
 
 .betelgeuse-prose img {
   max-width: 100%;
+  /* No macOS Live Text: clicking a photo selects the image block, not words WebKit found in it. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .betelgeuse-prose .ProseMirror-selectednode:not(.wikilink):not(hr) {

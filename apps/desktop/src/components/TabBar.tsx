@@ -1,6 +1,8 @@
 import { ChevronLeft, ChevronRight, ChevronsRight, FileText, PanelLeft, Plus, Table2, X } from "lucide-react";
+import { useState } from "react";
 import type { NoteMeta } from "../lib/api";
 import { PageIcon } from "./PageIcon";
+import { MenuDivider, MenuItem, Popover } from "./Popover";
 
 type Props = {
   tabs: { id: number; path: string }[];
@@ -10,6 +12,8 @@ type Props = {
   inset: boolean;
   onSelect: (i: number) => void;
   onClose: (i: number) => void;
+  onCloseOthers: (i: number) => void;
+  onCloseRight: (i: number) => void;
   onNew: () => void;
   onBack?: () => void;
   onForward?: () => void;
@@ -22,7 +26,11 @@ type Props = {
  * The tab strip, always shown above the page: back / forward, one tab per open page, and +.
  * The active tab takes the page's colour so it reads as part of the page below it.
  */
-export function TabBar({ tabs, active, notes, inset, onSelect, onClose, onNew, onBack, onForward, onShowSidebar, onPeekSidebar }: Props) {
+export function TabBar(props: Props) {
+  const { tabs, active, notes, inset, onSelect, onClose, onNew, onBack, onForward, onShowSidebar, onPeekSidebar } = props;
+  // Right-clicking a tab: which one, and where.
+  const [menu, setMenu] = useState<{ i: number; at: DOMRect } | null>(null);
+  const run = (f: (i: number) => void) => () => (menu && f(menu.i), setMenu(null));
   return (
     <div
       data-tauri-drag-region
@@ -62,6 +70,7 @@ export function TabBar({ tabs, active, notes, inset, onSelect, onClose, onNew, o
               onMouseDown={(e) => e.button === 0 && onSelect(i)}
               // Middle-click closes, like a browser tab.
               onAuxClick={(e) => e.button === 1 && (e.preventDefault(), onClose(i))}
+              onContextMenu={(e) => (e.preventDefault(), setMenu({ i, at: new DOMRect(e.clientX, e.clientY, 0, 0) }))}
               className={`group/tab relative flex w-60 min-w-28 shrink cursor-default items-center gap-2 border-r border-line pr-1.5 pl-3.5 text-[13px] ${
                 // The active tab covers the strip's bottom border, joining the page below.
                 on ? "-mb-px bg-surface text-ink" : "text-muted hover:bg-hover hover:text-ink"
@@ -90,6 +99,20 @@ export function TabBar({ tabs, active, notes, inset, onSelect, onClose, onNew, o
         </button>
         <div data-tauri-drag-region className="min-w-4 flex-1" />
       </div>
+
+      {menu && (
+        <Popover anchor={menu.at} onClose={() => setMenu(null)} className="w-52 p-1">
+          <MenuItem icon={<Plus size={15} />} label="New tab" hint="⌘T" onClick={run(onNew)} />
+          {tabs.length > 1 && (
+            <>
+              <MenuDivider />
+              <MenuItem icon={<X size={15} />} label="Close tab" onClick={run(onClose)} />
+              <MenuItem icon={<span />} label="Close other tabs" onClick={run(props.onCloseOthers)} />
+              {menu.i < tabs.length - 1 && <MenuItem icon={<span />} label="Close tabs to the right" onClick={run(props.onCloseRight)} />}
+            </>
+          )}
+        </Popover>
+      )}
     </div>
   );
 }

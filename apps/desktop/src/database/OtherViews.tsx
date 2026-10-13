@@ -80,7 +80,7 @@ function Card({
         e.dataTransfer.effectAllowed = "move";
       }}
       onClick={(e) => editing !== row.path && openRow(row.path, e)}
-      className="group/card relative cursor-pointer overflow-hidden rounded-lg border border-line bg-raised transition-[background-color,border-color,box-shadow] hover:border-[var(--line-strong)] hover:bg-[var(--card-hover)] hover:shadow-card"
+      className="group/card relative shrink-0 cursor-pointer overflow-hidden rounded-lg border border-line bg-raised transition-[background-color,border-color,box-shadow] hover:border-[var(--line-strong)] hover:bg-[var(--card-hover)] hover:shadow-card"
     >
       {shown === "cover" && <CoverBox cover={String(row.values.cover)} className="h-32 w-full border-b border-line" />}
       {shown === "content" && (
@@ -212,10 +212,15 @@ export function BoardView(vp: ViewProps) {
               const path = e.dataTransfer.getData("text/betelgeuse-row");
               if (path) move(path, g);
             }}
-            // Columns stay neutral; the status colour lives in the header pill, and tints the column
-            // only while a card is dragged over it, as a drop hint.
-            style={{ background: over === g ? `color-mix(in srgb, var(--c-${option?.color ?? "gray"}-bg) 70%, transparent)` : undefined }}
-            className={`group/col flex w-72 shrink-0 flex-col gap-2 self-start rounded-xl p-2 transition-colors ${over === g ? "" : "bg-[var(--row-hover)]"}`}
+            // Tinted with the group's colour, as in Notion; stronger while a card is dragged over it.
+            style={{
+              background:
+                g === NONE
+                  ? undefined
+                  : `color-mix(in srgb, var(--c-${option?.color && option.color !== "default" ? option.color : "gray"}-bg) ${over === g ? 90 : 45}%, transparent)`,
+            }}
+            // Capped in height: a long column scrolls its cards instead of stretching the page.
+            className={`group/col flex max-h-[70vh] w-72 shrink-0 flex-col gap-2 self-start rounded-xl p-2 transition-colors ${g === NONE ? "bg-[var(--row-hover)]" : ""}`}
           >
             <div className="flex h-7 items-center gap-2 px-1.5">
               {g === NONE ? (
@@ -240,14 +245,16 @@ export function BoardView(vp: ViewProps) {
                 <Plus size={14} />
               </button>
             </div>
-            {items.map((row) => (
-              <Card key={row.path} row={row} props={props} vp={vp} exclude={group.name} editing={editing} setEditing={setEditing} draggable />
-            ))}
-            {/* An empty column is a drop target, so it keeps some height and says so. */}
-            {!items.length && (
-              <div className="grid h-16 place-items-center rounded-lg border border-dashed border-line text-xs text-faint">Drop pages here</div>
-            )}
-            <button onClick={add} className="flex h-7 items-center gap-1.5 rounded-md px-1.5 text-[13px] text-faint hover:bg-hover hover:text-muted">
+            <div className="-mx-1 flex min-h-0 flex-col gap-2 overflow-y-auto px-1 [scrollbar-gutter:stable]">
+              {items.map((row) => (
+                <Card key={row.path} row={row} props={props} vp={vp} exclude={group.name} editing={editing} setEditing={setEditing} draggable />
+              ))}
+              {/* An empty column is a drop target, so it keeps some height and says so. */}
+              {!items.length && (
+                <div className="grid h-16 shrink-0 place-items-center rounded-lg border border-dashed border-line text-xs text-faint">Drop pages here</div>
+              )}
+            </div>
+            <button onClick={add} className="flex h-7 shrink-0 items-center gap-1.5 rounded-md px-1.5 text-[13px] text-faint hover:bg-hover hover:text-muted">
               <Plus size={14} /> New page
             </button>
           </div>

@@ -10,19 +10,22 @@ import {
   KanbanSquare,
   LayoutGrid,
   List as ListIcon,
+  Maximize2,
   MoreHorizontal,
+  PanelRight,
   Pencil,
   Plus,
   Search,
   Table2,
   Trash2,
+  Type,
   X,
 } from "lucide-react";
 import { PageIcon } from "../components/PageIcon";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { MenuDivider, MenuItem, MenuSection, Popover } from "../components/Popover";
 import { wantsNewTab } from "../lib/nav";
-import { useVault } from "../lib/vault";
+import { OpenRowsIn, useVault } from "../lib/vault";
 import { PropIcon } from "./cells";
 import {
   VIEW_LABELS,
@@ -80,16 +83,19 @@ const store = {
  * A database: either the whole body of a database page, or embedded inline in
  * another page via `![[Database]]` (in which case `title` shows a link header).
  */
-export function DatabaseView({ path, inline }: { path: string; inline?: boolean }) {
-  const db = useDatabase(path);
+/** `scope`: shown as a linked copy on another page, whose view edits stay on that page. */
+export function DatabaseView({ path, inline, scope }: { path: string; inline?: boolean; scope?: string }) {
+  const db = useDatabase(path, scope);
   const { openPage, notes } = useVault();
-  const [activeId, setActiveId] = useState(() => store.get(`view:${path}`));
+  const viewKey = `view:${path}${scope ? `@${scope}` : ""}`;
+  const [activeId, setActiveId] = useState(() => store.get(viewKey));
   const [search, setSearch] = useState<string | null>(null);
   const [editTitleOf, setEditTitleOf] = useState<string | null>(null);
   const onTitleEdited = useCallback(() => setEditTitleOf(null), []);
 
   const schema = db.state?.schema;
-  const view = schema?.views.find((v) => v.id === activeId) ?? schema?.views[0];
+  const views = db.views;
+  const view = views.find((v) => v.id === activeId) ?? views[0];
   const rows = useMemo(
     () => (schema && view && db.state ? applyView(db.state.rows, schema, view, search ?? "") : []),
     [db.state, schema, view, search],
@@ -109,14 +115,14 @@ export function DatabaseView({ path, inline }: { path: string; inline?: boolean 
 
   const select = (id: string) => {
     setActiveId(id);
-    store.set(`view:${path}`, id);
+    store.set(viewKey, id);
   };
   const meta = notes.find((n) => n.path === path);
   const Active = VIEWS[view.type] ?? TableView;
 
   return (
     <div className="database-view" onKeyDown={(e) => e.stopPropagation()}>
-      {inline && (
+      {inline && !view.hideTitle && (
         <button onClick={(e) => openPage(path, { newTab: wantsNewTab(e) })} className="group mb-1 flex items-center gap-2 text-left">
           <PageIcon icon={meta?.icon ?? "🗃️"} size={22} />
           <span className="text-xl font-bold text-ink">{meta?.title ?? path.replace(/\.md$/, "")}</span>
@@ -124,11 +130,13 @@ export function DatabaseView({ path, inline }: { path: string; inline?: boolean 
         </button>
       )}
 
-      <Toolbar db={db} schema={schema} view={view} select={select} search={search} setSearch={setSearch} onNew={async () => setEditTitleOf(await viewDb.createRow())} />
+      <Toolbar db={db} schema={schema} view={view} inline={inline} select={select} search={search} setSearch={setSearch} onNew={async () => setEditTitleOf(await viewDb.createRow())} />
       <Chips db={db} schema={schema} view={view} />
 
       <div className="mt-1">
-        <Active db={viewDb} schema={schema} view={view} rows={rows} editTitleOf={editTitleOf} onTitleEdited={onTitleEdited} />
+        <OpenRowsIn.Provider value={view.openIn ?? "peek"}>
+          <Active db={viewDb} schema={schema} view={view} rows={rows} editTitleOf={editTitleOf} onTitleEdited={onTitleEdited} />
+        </OpenRowsIn.Provider>
       </div>
     </div>
   );
@@ -138,6 +146,7 @@ function Toolbar({
   db,
   schema,
   view,
+  inline,
   select,
   search,
   setSearch,
@@ -146,11 +155,13 @@ function Toolbar({
   db: Database;
   schema: Schema;
   view: View;
+  inline?: boolean;
   select: (id: string) => void;
   search: string | null;
   setSearch: (s: string | null) => void;
   onNew: () => void;
 }) {
+  const views = db.views;
   const [addView, setAddView] = useState<HTMLElement | null>(null);
   const [tabMenu, setTabMenu] = useState<{ view: View; el: HTMLElement } | null>(null);
   const [filterMenu, setFilterMenu] = useState<HTMLElement | null>(null);
@@ -164,7 +175,7 @@ function Toolbar({
   return (
     <div className="flex h-10 items-center gap-1 border-b border-line">
       <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-        {schema.views.map((v, i) => (
+        {views.map((v, i) => (
           <button
             key={v.id}
             draggable
@@ -181,7 +192,7 @@ function Toolbar({
             }}
             onDrop={(e) => {
               e.preventDefault();
-              const from = schema.views.findIndex((x) => x.id === dragging);
+              const from = views.findIndex((x) => x.id === dragging);
               // The gap counts the dragged tab itself; its new index is among the other tabs.
               if (dragging && gap !== null && gap !== from && gap !== from + 1) db.reorderView(dragging, gap > from ? gap - 1 : gap);
               endDrag();
@@ -191,7 +202,7 @@ function Toolbar({
             className={`relative flex h-10 shrink-0 items-center gap-1.5 px-2 text-sm ${v.id === view.id ? "text-ink" : "text-muted hover:text-ink"} ${dragging === v.id ? "opacity-40" : ""}`}
           >
             {dragging && gap === i && <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-[var(--blue)]" />}
-            {dragging && gap === i + 1 && i === schema.views.length - 1 && <span className="absolute inset-y-2 right-0 w-0.5 rounded-full bg-[var(--blue)]" />}
+            {dragging && gap === i + 1 && i === views.length - 1 && <span className="absolute inset-y-2 right-0 w-0.5 rounded-full bg-[var(--blue)]" />}
             <span className="flex h-7 items-center gap-1.5 rounded-md px-1 hover:bg-hover">
               {VIEW_ICONS[v.type](15)}
               {v.name}
@@ -259,10 +270,10 @@ function Toolbar({
           ))}
         </Popover>
       )}
-      {tabMenu && <ViewTabMenu db={db} view={tabMenu.view} anchor={tabMenu.el} canDelete={schema.views.length > 1} select={select} onClose={() => setTabMenu(null)} />}
+      {tabMenu && <ViewTabMenu db={db} view={tabMenu.view} anchor={tabMenu.el} canDelete={views.length > 1} select={select} onClose={() => setTabMenu(null)} />}
       {filterMenu && <AddFilterMenu db={db} schema={schema} view={view} anchor={filterMenu} placement="bottom-end" onClose={() => setFilterMenu(null)} />}
       {sortMenu && <SortMenu db={db} schema={schema} view={view} anchor={sortMenu} onClose={() => setSortMenu(null)} />}
-      {settings && <ViewSettings db={db} schema={schema} view={view} anchor={settings} onClose={() => setSettings(null)} />}
+      {settings && <ViewSettings db={db} schema={schema} view={view} inline={inline} anchor={settings} onClose={() => setSettings(null)} />}
     </div>
   );
 }
@@ -367,7 +378,7 @@ function SortMenu({ db, schema, view, anchor, onClose }: { db: Database; schema:
   );
 }
 
-function ViewSettings({ db, schema, view, anchor, onClose }: { db: Database; schema: Schema; view: View; anchor: HTMLElement; onClose: () => void }) {
+function ViewSettings({ db, schema, view, inline, anchor, onClose }: { db: Database; schema: Schema; view: View; inline?: boolean; anchor: HTMLElement; onClose: () => void }) {
   const hidden = new Set(view.hidden ?? []);
   const groupable = schema.properties.filter((p) => ["select", "status", "multi_select"].includes(p.type));
   const dates = allProperties(schema).filter((p) => ["date", "created_time", "last_edited_time"].includes(p.type));
@@ -433,6 +444,26 @@ function ViewSettings({ db, schema, view, anchor, onClose }: { db: Database; sch
           ))}
         </>
       )}
+      <MenuSection label="Open pages in" />
+      <div className="grid grid-cols-2 gap-1 px-1 pb-1">
+        {(
+          [
+            ["peek", "Side peek", <PanelRight key="i" size={15} />],
+            ["full", "Full page", <Maximize2 key="i" size={15} />],
+          ] as const
+        ).map(([mode, label, icon]) => (
+          <button
+            key={mode}
+            onClick={() => db.updateView(view.id, { openIn: mode === "peek" ? undefined : mode })}
+            className={`flex h-9 items-center justify-center gap-1.5 rounded-md border text-[13px] ${
+              (view.openIn ?? "peek") === mode ? "border-[var(--blue)] text-[var(--blue)]" : "border-line text-muted hover:bg-hover"
+            }`}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
+      </div>
       <MenuDivider />
       <MenuSection label="Properties" />
       {schema.properties.map((p) => (
@@ -448,6 +479,14 @@ function ViewSettings({ db, schema, view, anchor, onClose }: { db: Database; sch
       ))}
       <MenuDivider />
       <MenuItem icon={<Pencil size={14} />} label="Wrap content" right={<Toggle on={!!view.wrap} />} onClick={() => db.updateView(view.id, { wrap: !view.wrap })} />
+      {inline && (
+        <MenuItem
+          icon={<Type size={14} />}
+          label="Show database title"
+          right={<Toggle on={!view.hideTitle} />}
+          onClick={() => db.updateView(view.id, { hideTitle: !view.hideTitle || undefined })}
+        />
+      )}
     </Popover>
   );
 }

@@ -1,4 +1,5 @@
 import {
+  ChevronRight,
   ArrowUpRight,
   Bot,
   EyeOff,
@@ -20,15 +21,18 @@ import {
   X,
 } from "lucide-react";
 import { PageIcon } from "./PageIcon";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { DatabaseView } from "../database/DatabaseView";
 import { defaultSchema, writeSchema } from "../database/model";
 import { Toggle } from "../database/PropertyMenu";
 import { RowProperties } from "../database/RowProperties";
 import { createDatabase } from "../database/useDatabase";
+import type { Editor as TiptapEditor } from "@tiptap/react";
 import { Editor } from "../editor/Editor";
+import { PageContext } from "../editor/blocks";
 import { api, type NoteMeta } from "../lib/api";
 import { frontmatterTags, joinNote, patchFrontmatter, readFrontmatter, splitNote } from "../lib/frontmatter";
+import { labelColor, tagColor } from "../lib/colors";
 import { timeAgo } from "../lib/time";
 import { ancestorKeys, resolveWikiLink } from "../lib/tree";
 import { aiAccess, type AiAccess } from "../lib/ai";
@@ -62,7 +66,33 @@ export function PageView(p: Props) {
   const { notes, refreshKey, openPage, peek, createPage, aiPolicy } = useVault();
   const [doc, setDoc] = useState<Doc | "missing" | null>(null);
   const [editorKey, setEditorKey] = useState(0);
-  const [title, setTitle] = useState(titleOf(p.path));
+  const [title, setTitleState] = useState(titleOf(p.path));
+  // Read on commit, so a title changed in the same tick (Enter splitting it) is the one saved.
+  const titleRef = useRef(title);
+  const setTitle = (v: string) => {
+    titleRef.current = v;
+    setTitleState(v);
+  };
+  const editorRef = useRef<TiptapEditor | null>(null);
+
+  // ⌘A outside any text field selects the whole page, as in Notion (the window itself selects
+  // nothing). With the side peek open, it's the peeked page.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "a" || e.defaultPrevented) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (active.isContentEditable || active.matches("input, textarea, select"))) return;
+      if (document.querySelector("[data-popover], .fixed.inset-0")) return;
+      const peekOpen = !!document.querySelector(".peek-panel");
+      if (peekOpen !== (p.mode === "peek")) return;
+      const editor = editorRef.current;
+      if (!editor) return;
+      e.preventDefault();
+      editor.chain().focus().selectAll().run();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [p.mode]);
   // The page currently on screen. It only changes once the next page has loaded, so switching
   // pages swaps content in one frame instead of flashing an empty page.
   const [shownPath, setShownPath] = useState(p.path);
@@ -70,6 +100,13 @@ export function PageView(p: Props) {
   const [picker, setPicker] = useState<"icon" | "cover" | null>(null);
   const [addingTag, setAddingTag] = useState(false);
   const [backlinks, setBacklinks] = useState<NoteMeta[]>([]);
+  // Collapsed unless last left open (on any page): long lists would otherwise trail every page.
+  const [showBacklinks, setShowBacklinks] = useState(() => localStorage.getItem("backlinks") === "open");
+  const toggleBacklinks = () =>
+    setShowBacklinks((v) => {
+      localStorage.setItem("backlinks", v ? "closed" : "open");
+      return !v;
+    });
   const [menu, setMenu] = useState<HTMLElement | null>(null);
 
   const scroller = useRef<HTMLDivElement>(null);
@@ -123,6 +160,7 @@ export function PageView(p: Props) {
         if (cancelled) return;
         pathRef.current = path; // saves go to this page from now on
         setShownPath(path);
+        scroller.current?.scrollTo({ top: 0 }); // a new page starts at its top
         setTitle(titleOf(path));
         setBacklinks(links);
         load(content);
@@ -142,6 +180,8 @@ export function PageView(p: Props) {
   // Pick up edits made outside the editor (agents over MCP, git, database views…).
   useEffect(() => {
     if (refreshKey === 0) return;
+    // Mid-switch (e.g. the page was just renamed): the load for the new path brings fresh content.
+    if (shownPath !== p.path) return;
     if (!pending.current) {
       api
         .readNote(shownPath)
@@ -170,7 +210,7 @@ export function PageView(p: Props) {
   const path = shownPath;
 
   const commitTitle = async () => {
-    const next = title.trim();
+    const next = titleRef.current.trim();
     if (!next || next === titleOf(path)) return setTitle(titleOf(path));
     await flush();
     const oldPath = path;
@@ -263,12 +303,29 @@ export function PageView(p: Props) {
             )}
           </div>
 
-          <input
+          <TitleField
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
-            placeholder="Untitled"
+            onChange={setTitle}
+            onCommit={commitTitle}
+            onEnter={(before, after) => {
+              const editor = editorRef.current;
+              if (!editor) return false;
+              // As in Notion: Enter starts a new first block, taking any title text after the cursor.
+              if (after) setTitle(before);
+              editor
+                .chain()
+                .insertContentAt(0, { type: "paragraph", content: after ? [{ type: "text", text: after }] : [] })
+                .setTextSelection(1)
+                .focus()
+                .run();
+              return true;
+            }}
+            onArrowDown={() => {
+              const editor = editorRef.current;
+              if (!editor) return false;
+              editor.commands.focus("start");
+              return true;
+            }}
             className={`page-title w-full bg-transparent leading-[1.2] font-bold text-ink outline-none placeholder:text-[var(--placeholder)] ${peekMode ? "text-[32px]" : "text-[40px]"}`}
           />
 
@@ -276,7 +333,7 @@ export function PageView(p: Props) {
             <div className="mt-3 flex flex-wrap items-center gap-1.5">
               <Tag size={14} className="mr-1 text-faint" />
               {tags.map((t) => (
-                <span key={t} className="group/tag flex items-center gap-0.5 rounded-[3px] bg-[var(--c-gray-tag)] py-0.5 pr-1 pl-1.5 text-[13px] text-ink">
+                <span key={t} style={{ background: tagColor(labelColor(t)) }} className="group/tag flex items-center gap-0.5 rounded-[3px] py-0.5 pr-1 pl-1.5 text-[13px] text-ink">
                   {t}
                   <button onClick={() => patch({ tags: tags.filter((x) => x !== t) })} className="opacity-0 group-hover/tag:opacity-60">
                     <X size={11} />
@@ -299,8 +356,10 @@ export function PageView(p: Props) {
             <div className="relative mt-2">
               {/* relative: the block handle positions against this box, so it scrolls with the text */}
               {doc && (
+                <PageContext.Provider value={path}>
                 <Editor
                   key={`${path}:${editorKey}`}
+                  editorRef={editorRef}
                   initial={doc.body}
                   onChange={(md) => {
                     body.current = md;
@@ -314,10 +373,15 @@ export function PageView(p: Props) {
                   getNotes={() => notesRef.current}
                   createPage={async (t) => titleOf(await createPage(null, t))}
                   page={{
-                    createSubpage: () => createPage(path, "Untitled"),
+                    createSubpage: (title) => createPage(path, title),
+                    findSubpage: (title) => {
+                      const want = `${path.replace(/\.md$/, "")}/${title}.md`.toLowerCase();
+                      return notesRef.current.find((n) => n.path.toLowerCase() === want)?.path;
+                    },
                     createDatabase: () => createDatabase(path),
                   }}
                 />
+                </PageContext.Provider>
               )}
               {emptyBody && (
                 <EmptyPageStarters
@@ -342,10 +406,15 @@ export function PageView(p: Props) {
 
           {backlinks.length > 0 && !isDb && (
             <section className="mt-16 border-t border-line pt-4">
-              <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium text-faint">
+              <button
+                onClick={toggleBacklinks}
+                aria-expanded={showBacklinks}
+                className="mb-2 flex items-center gap-1.5 rounded-md px-1 py-0.5 text-xs font-medium text-faint hover:bg-hover hover:text-muted"
+              >
                 <Link2 size={13} /> {backlinks.length} backlink{backlinks.length > 1 ? "s" : ""}
-              </h3>
-              {backlinks.map((b) => (
+                <ChevronRight size={13} className={`transition-transform ${showBacklinks ? "rotate-90" : ""}`} />
+              </button>
+              {showBacklinks && backlinks.map((b) => (
                 <button
                   key={b.path}
                   onClick={(e) => (wantsNewTab(e) ? openPage(b.path, { newTab: true }) : peekMode ? peek(b.path) : openPage(b.path))}
@@ -598,6 +667,65 @@ function TagInput({ autoFocus, onAdd, onDone }: { autoFocus: boolean; onAdd: (t:
       }}
       placeholder="Add tag…"
       className="w-20 bg-transparent text-xs text-ink outline-none placeholder:text-faint"
+    />
+  );
+}
+
+/** The page title: wraps onto more lines as needed (a one-line input would cut long titles off). */
+function TitleField({
+  value,
+  onChange,
+  onCommit,
+  onEnter,
+  onArrowDown,
+  className,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onCommit: () => void;
+  /** Enter, with the title split at the cursor; returns false when there's no page text to go to. */
+  onEnter: (before: string, after: string) => boolean;
+  onArrowDown: () => boolean;
+  className: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    };
+    fit();
+    // Rewrap when the page gets narrower or wider (sidebar, peek, window size); height changes are ours.
+    let width = el.clientWidth;
+    const ro = new ResizeObserver(() => el.clientWidth !== width && ((width = el.clientWidth), fit()));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [value]);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      // A title is one line: pasted line breaks become spaces, Enter saves.
+      onChange={(e) => onChange(e.target.value.replace(/\s*\n\s*/g, " "))}
+      onBlur={onCommit}
+      onKeyDown={(e) => {
+        if (e.nativeEvent.isComposing) return;
+        const el = e.currentTarget;
+        if (e.key === "Enter") {
+          e.preventDefault();
+          const before = value.slice(0, el.selectionStart).trimEnd();
+          const after = value.slice(el.selectionEnd).trim();
+          // Leaving the title (blur) saves it.
+          if (!onEnter(before || value, before ? after : "")) el.blur();
+        }
+        // ↓ goes to the start of the page.
+        if (e.key === "ArrowDown" && !e.shiftKey && el.selectionStart === el.selectionEnd && onArrowDown()) e.preventDefault();
+      }}
+      placeholder="Untitled"
+      className={`block resize-none overflow-hidden ${className}`}
     />
   );
 }

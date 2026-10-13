@@ -52,6 +52,8 @@ type Props = {
   onToggle: (key: string) => void;
   onOpen: (path: string, opts?: OpenOptions) => void;
   onCreate: (parentPath: string | null) => void;
+  /** A new page beside the open one. */
+  onCreateHere: () => void;
   onDelete: (path: string) => void;
   onDuplicate: (path: string) => void;
   onToggleFavorite: (path: string) => void;
@@ -91,7 +93,7 @@ const readWidth = () => {
 export function Sidebar(p: Props) {
   const [width, setWidth] = useState(readWidth);
   const [resizing, setResizing] = useState(false);
-  const [menu, setMenu] = useState<{ note: NoteMeta; el: HTMLElement } | null>(null);
+  const [menu, setMenu] = useState<{ note: NoteMeta; el: HTMLElement | DOMRect } | null>(null);
   const [trash, setTrash] = useState<HTMLElement | null>(null);
   const changes = p.status?.changes.length ?? 0;
   const byPath = new Map(p.notes.map((n) => [n.path, n]));
@@ -134,7 +136,7 @@ export function Sidebar(p: Props) {
 
   const scroller = useRef<HTMLDivElement>(null);
   const drag = useTreeDrag(scroller, p.tree, p.onReorder, p.onMove);
-  const rowProps = { ...p, drag, onMenu: (note: NoteMeta, el: HTMLElement) => setMenu({ note, el }) };
+  const rowProps = { ...p, drag, onMenu: (note: NoteMeta, el: HTMLElement | DOMRect) => setMenu({ note, el }) };
 
   return (
     // The outer box animates its width (pushing the page), while the panel slides in from the
@@ -171,7 +173,7 @@ export function Sidebar(p: Props) {
           </IconButton>
         )}
         <span data-tauri-drag-region className="flex-1 self-stretch" />
-        <IconButton title="New page (⌘N)" onClick={() => p.onCreate(null)}>
+        <IconButton title="New page (⌘N)" onClick={p.onCreateHere}>
           <SquarePen size={15} />
         </IconButton>
       </div>
@@ -416,7 +418,8 @@ type RowProps = Props & {
   /** Key of the folder the row sits in ("" at the top level), or null where rows can't be reordered (Favorites). */
   parent: string | null;
   drag: TreeDrag;
-  onMenu: (n: NoteMeta, el: HTMLElement) => void;
+  /** Opens the page menu under a button, or at the cursor (a right-click). */
+  onMenu: (n: NoteMeta, el: HTMLElement | DOMRect) => void;
 };
 
 function TreeRow({ node, depth, parent, ...p }: RowProps) {
@@ -425,8 +428,8 @@ function TreeRow({ node, depth, parent, ...p }: RowProps) {
   const open = p.expanded.has(node.key);
   const active = node.note?.path === p.openPath;
   const isDb = node.note?.kind === "database";
-  // Database rows live in the database, not the sidebar.
-  const children = isDb ? [] : node.children;
+  // Database rows nest like any sub-page, so the tree reaches pages kept inside a database.
+  const children = node.children;
   const reorderable = parent !== null && !!node.note;
   const icon = rowIcon(node);
 
@@ -436,28 +439,38 @@ function TreeRow({ node, depth, parent, ...p }: RowProps) {
         // Drop targets for dragged pages (the page tree only, not Favorites or Recents).
         data-tree-row={parent !== null ? node.key : undefined}
         data-parent={parent ?? undefined}
-        data-can-nest={parent !== null && !isDb ? "" : undefined}
+        data-can-nest={parent !== null ? "" : undefined}
         data-open={open && children.length ? "" : undefined}
         onClick={(e) => (node.note ? p.onOpen(node.note.path, { newTab: wantsNewTab(e) }) : p.onToggle(node.key))}
         onAuxClick={(e) => node.note && e.button === 1 && p.onOpen(node.note.path, { newTab: true })}
+        onContextMenu={(e) => {
+          if (!node.note) return;
+          e.preventDefault();
+          p.onMenu(node.note, new DOMRect(e.clientX, e.clientY, 0, 0));
+        }}
         onMouseDown={reorderable ? (e) => p.drag.start(e, node, parent) : undefined}
-        style={{ paddingLeft: 4 + depth * 12 }}
+        style={{ paddingLeft: (parent !== null ? 0 : 4) + depth * 14 }}
         className={`group/row my-px flex h-[30px] cursor-pointer items-center gap-1 rounded-md pr-1 text-sm ${active ? "bg-hover font-medium text-ink" : "text-muted hover:bg-hover"} ${p.drag.state?.node.key === node.key && reorderable ? "opacity-40" : ""}`}
       >
-        <span className="relative grid size-6 shrink-0 place-items-center text-faint">
-          <span className={children.length || !node.note ? "group-hover/row:opacity-0" : ""}>{icon}</span>
-          {(children.length > 0 || !node.note) && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                p.onToggle(node.key);
-              }}
-              className="absolute inset-0 grid place-items-center rounded opacity-0 group-hover/row:opacity-100 hover:bg-hover"
-            >
-              <ChevronRight size={14} className={`transition-transform ${open ? "rotate-90" : ""}`} />
-            </button>
-          )}
-        </span>
+        {/* In the page tree, an always-visible arrow marks pages that have sub-pages (the slot
+            stays empty for those without, so titles line up). */}
+        {parent !== null && (
+          <span className="grid w-4 shrink-0 place-items-center">
+            {(children.length > 0 || !node.note) && (
+              <button
+                title={open ? "Collapse" : "Expand"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  p.onToggle(node.key);
+                }}
+                className="grid size-4 place-items-center rounded text-faint hover:bg-hover hover:text-muted"
+              >
+                <ChevronRight size={13} className={`transition-transform ${open ? "rotate-90" : ""}`} />
+              </button>
+            )}
+          </span>
+        )}
+        <span className="relative grid size-6 shrink-0 place-items-center text-faint">{icon}</span>
         <span className="min-w-0 flex-1 truncate">{node.title}</span>
         {aiBadges && node.note && !aiAccess(node.note.path, p.notes, aiPolicy).visible && (
           <span title="Hidden from AI agents" className="shrink-0 text-faint group-hover/row:hidden">
@@ -478,9 +491,9 @@ function TreeRow({ node, depth, parent, ...p }: RowProps) {
         )}
       </div>
       {open && children.map((c) => <TreeRow key={c.key} {...p} node={c} depth={depth + 1} parent={node.key} />)}
-      {open && !children.length && node.note && !isDb && (
-        <div style={{ paddingLeft: 30 + depth * 12 }} className="py-1 text-xs text-faint">
-          No pages inside
+      {open && !children.length && node.note && (
+        <div style={{ paddingLeft: 46 + depth * 14 }} className="py-1 text-xs text-faint">
+          {isDb ? "No rows" : "No pages inside"}
         </div>
       )}
     </div>
@@ -541,6 +554,13 @@ function useTreeDrag(scroller: RefObject<HTMLDivElement | null>, tree: TreeNode[
 
   const start = (e: React.MouseEvent, node: TreeNode, parent: string) => {
     if (e.button !== 0 || e.metaKey || e.ctrlKey || (e.target as HTMLElement).closest("button")) return;
+    // No text selection from this press: otherwise WebKit starts one and, as the pointer crosses
+    // the page, it runs over the page's text while the row is dragged.
+    e.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    const noSelect = (ev: Event) => ev.preventDefault();
+    document.addEventListener("selectstart", noSelect);
+    window.addEventListener("mouseup", () => document.removeEventListener("selectstart", noSelect), { once: true });
     const origin = { x: e.clientX, y: e.clientY };
     pointer.current = { ...origin };
     let dragging = false;
@@ -564,7 +584,7 @@ function useTreeDrag(scroller: RefObject<HTMLDivElement | null>, tree: TreeNode[
       const rows = [...el.querySelectorAll<HTMLElement>("[data-tree-row]")];
       if (!rows.length) return null;
       const at = (top: number) => top - box.top + el.scrollTop;
-      const indent = (depth: number) => 8 + 4 + depth * 12;
+      const indent = (depth: number) => 8 + 16 + depth * 14; // past the arrow slot, as rows are laid out
       // Gap `before` (or after) the row `key` among its folder's pages.
       const between = (key: string, parentKey: string, after: boolean, edge: number): DropTarget => {
         const { all } = folder(parentKey);

@@ -1,7 +1,7 @@
 {
   "name": "@betelgeuse/desktop",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "The Betelgeuse desktop app (Tauri + React)",
   "license": "MIT",
   "type": "module",
@@ -31,6 +31,7 @@
     "@tiptap/extension-node-range": "^3.31.4",
     "@tiptap/extension-placeholder": "^3.31.4",
     "@tiptap/extension-table": "^3.31.4",
+    "@tiptap/extensions": "^3.31.4",
     "@tiptap/markdown": "^3.31.4",
     "@tiptap/pm": "^3.31.4",
     "@tiptap/react": "^3.31.4",

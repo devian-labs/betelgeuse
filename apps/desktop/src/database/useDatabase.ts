@@ -7,6 +7,8 @@ import {
   databaseLink,
   defaultSchema,
   findProperty,
+  forkViews,
+  inScope,
   linksTo,
   linkTarget,
   mapProperty,
@@ -20,6 +22,7 @@ import {
   toRelationValue,
   toRow,
   uniquePropertyName,
+  viewsFor,
   withComputed,
   writeSchema,
   TYPE_LABELS,
@@ -52,8 +55,12 @@ async function readDatabase(path: string): Promise<RelatedDatabase> {
 
 export type Database = ReturnType<typeof useDatabase>;
 
-export function useDatabase(path: string) {
-  const { refreshKey, peek, notes } = useVault();
+/**
+ * `scope` is set for a linked copy shown on another page (see `View.scope`): its view edits stay
+ * on that page.
+ */
+export function useDatabase(path: string, scope?: string) {
+  const { refreshKey, peek, notes, renamed } = useVault();
   const [state, setState] = useState<State | null>(null);
   const [missing, setMissing] = useState(false);
   const latest = useRef<State | null>(null);
@@ -287,9 +294,11 @@ export function useDatabase(path: string) {
   const updateView = useCallback(
     (id: string, patch: Partial<View>) => {
       const s = latest.current;
-      if (s) saveSchema({ ...s.schema, views: s.schema.views.map((v) => (v.id === id ? { ...v, ...patch } : v)) });
+      if (!s) return;
+      const views = forkViews(s.schema.views, scope).map((v) => (v.id === id && inScope(v, scope) ? { ...v, ...patch } : v));
+      saveSchema({ ...s.schema, views });
     },
-    [saveSchema],
+    [saveSchema, scope],
   );
 
   const addView = useCallback(
@@ -297,31 +306,36 @@ export function useDatabase(path: string) {
       const s = latest.current;
       if (!s) return "";
       const view: View = from
-        ? { ...from, id: newId(), name: `${from.name} copy` }
-        : { id: newId(), name: VIEW_LABELS[type], type };
+        ? { ...from, id: newId(), name: `${from.name} copy`, scope }
+        : { id: newId(), name: VIEW_LABELS[type], type, scope };
       if (type === "board" && !view.groupBy) view.groupBy = s.schema.properties.find((p) => p.type === "status" || p.type === "select")?.name;
       if (type === "calendar" && !view.dateProperty) view.dateProperty = s.schema.properties.find((p) => p.type === "date")?.name;
-      await saveSchema({ ...s.schema, views: [...s.schema.views, view] });
+      await saveSchema({ ...s.schema, views: [...forkViews(s.schema.views, scope), view] });
       return view.id;
     },
-    [saveSchema],
+    [saveSchema, scope],
   );
 
   /** Moves a view's tab to position `index`. */
   const reorderView = useCallback(
     (id: string, index: number) => {
       const s = latest.current;
-      if (s) saveSchema({ ...s.schema, views: moveView(s.schema.views, id, index) });
+      if (!s) return;
+      const all = forkViews(s.schema.views, scope);
+      const own = all.filter((v) => inScope(v, scope));
+      saveSchema({ ...s.schema, views: [...all.filter((v) => !inScope(v, scope)), ...moveView(own, id, index)] });
     },
-    [saveSchema],
+    [saveSchema, scope],
   );
 
   const deleteView = useCallback(
     (id: string) => {
       const s = latest.current;
-      if (s && s.schema.views.length > 1) saveSchema({ ...s.schema, views: s.schema.views.filter((v) => v.id !== id) });
+      if (!s) return;
+      const all = forkViews(s.schema.views, scope);
+      if (all.filter((v) => inScope(v, scope)).length > 1) saveSchema({ ...s.schema, views: all.filter((v) => !(v.id === id && inScope(v, scope))) });
     },
-    [saveSchema],
+    [saveSchema, scope],
   );
 
   const createRow = useCallback(
@@ -339,10 +353,11 @@ export function useDatabase(path: string) {
   const renameRow = useCallback(
     async (row: Row, title: string) => {
       if (!title.trim() || title.trim() === row.title) return;
-      await api.renameNote(row.path, title.trim());
-      await load();
+      const next = await api.renameNote(row.path, title.trim());
+      // Reloads this database too, along with any page or database that links to the row.
+      await renamed(row.path, next);
     },
-    [load],
+    [renamed],
   );
 
   const deleteRow = useCallback(
@@ -363,6 +378,8 @@ export function useDatabase(path: string) {
 
   return {
     state,
+    /** The views shown here (see `scope`). */
+    views: state ? viewsFor(state.schema.views, scope) : [],
     missing,
     reload: load,
     saveSchema,

@@ -468,16 +468,45 @@ pub fn wikilinks(text: &str) -> impl Iterator<Item = &str> {
     })
 }
 
+/// Rewrites the target of every `[[target]]`, `[[target|alias]]` and `[[target#heading]]` that
+/// `f` maps to a new one; aliases, headings and everything else stay as they are.
+fn rewrite_targets(text: &str, f: impl Fn(&str) -> Option<String>) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find("[[") {
+        out.push_str(&rest[..i + 2]);
+        rest = &rest[i + 2..];
+        let end = rest.find([']', '|', '#', '\n', '[']).unwrap_or(rest.len());
+        let closed = rest[end..].starts_with("]]") || rest[end..].starts_with('|') || rest[end..].starts_with('#');
+        if let Some(new) = closed.then(|| f(&rest[..end])).flatten() {
+            out.push_str(&new);
+            rest = &rest[end..];
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
+/// Case-insensitive, as links resolve (`[[ideas]]` opens `Ideas`).
+fn same(a: &str, b: &str) -> bool {
+    a.to_lowercase() == b.to_lowercase()
+}
+
+/// Rewrites links that name a page by title.
 fn rewrite_links(text: &str, old: &str, new: &str) -> String {
-    ["]]", "|", "#"].iter().fold(text.to_string(), |acc, end| {
-        acc.replace(&format!("[[{old}{end}"), &format!("[[{new}{end}"))
-    })
+    rewrite_targets(text, |t| same(t.trim(), old).then(|| new.to_string()))
 }
 
 /// Rewrites links that name a page by path, `[[A/B]]`, or a page under it, `[[A/B/C]]`.
 fn rewrite_link_paths(text: &str, old: &str, new: &str) -> String {
-    let text = rewrite_links(text, old, new);
-    text.replace(&format!("[[{old}/"), &format!("[[{new}/"))
+    rewrite_targets(text, |t| {
+        let t = t.trim();
+        if same(t, old) {
+            return Some(new.to_string());
+        }
+        let head = t.get(..old.len())?;
+        (same(head, old) && t[old.len()..].starts_with('/')).then(|| format!("{new}{}", &t[old.len()..]))
+    })
 }
 
 /// Whether a link target (`[[Title]]` or `[[Path/To/Page]]`) names the page at `rel`.
@@ -692,6 +721,12 @@ mod tests {
         let t = "see [[Ideas]] and [[Ideas|my ideas]] and [[Other#h]]";
         assert_eq!(wikilinks(t).collect::<Vec<_>>(), vec!["Ideas", "Ideas", "Other"]);
         assert_eq!(rewrite_links(t, "Ideas", "Plans"), "see [[Plans]] and [[Plans|my ideas]] and [[Other#h]]");
+        // Links match the way they resolve: case-insensitively. Lookalikes stay.
+        assert_eq!(rewrite_links("[[ideas#a]] [[Ideas 2]] [[My Ideas]]", "Ideas", "Plans"), "[[Plans#a]] [[Ideas 2]] [[My Ideas]]");
+        assert_eq!(
+            rewrite_link_paths("[[areas/studio]] [[Areas/Studio/Notes|n]] [[Areas/Studios]] ![[Areas/Studio/DB]]", "Areas/Studio", "Areas/Lab"),
+            "[[Areas/Lab]] [[Areas/Lab/Notes|n]] [[Areas/Studios]] ![[Areas/Lab/DB]]"
+        );
         assert!(link_matches("ideas", "Ideas.md"));
         assert!(link_matches("Welcome/Ideas", "Welcome/Ideas.md"));
     }

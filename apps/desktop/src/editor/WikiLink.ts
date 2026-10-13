@@ -41,7 +41,7 @@ export const WikiLink = Node.create({
         "data-alias": node.attrs.alias,
         class: "wikilink",
       }),
-      node.attrs.alias || node.attrs.target,
+      node.attrs.alias || node.attrs.target.split("/").pop(),
     ];
   },
 

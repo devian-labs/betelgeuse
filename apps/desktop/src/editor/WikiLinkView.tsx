@@ -8,7 +8,8 @@ import { resolveWikiLink } from "../lib/tree";
 export function WikiLinkView({ node }: NodeViewProps) {
   const { notes } = useVault();
   const target = resolveWikiLink(node.attrs.target, notes);
-  const title = node.attrs.alias || node.attrs.target;
+  // Path links (`[[Areas/Studio/Notes]]`) read as the page's title.
+  const title = node.attrs.alias || target?.title || node.attrs.target.split("/").pop();
   return (
     <NodeViewWrapper
       as="span"

@@ -266,9 +266,11 @@ export class Vault {
     for (const f of await this.allFiles()) {
       const text = await readFile(this.resolve(f), "utf8");
       const updated = text.replace(/\[\[([^\]\n|#]+)([|#][^\]\n]*)?\]\]/g, (m, target: string, rest = "") => {
+        // Case-insensitive, as links resolve (`[[ideas]]` opens `Ideas`).
         const t = target.trim();
-        if (t === from || t === fromDir) return `[[${t === from ? to : toDir}${rest}]]`;
-        return t.startsWith(`${fromDir}/`) ? `[[${toDir}${t.slice(fromDir.length)}${rest}]]` : m;
+        const lower = t.toLowerCase();
+        if (lower === from.toLowerCase() || lower === fromDir.toLowerCase()) return `[[${lower === fromDir.toLowerCase() ? toDir : to}${rest}]]`;
+        return lower.startsWith(`${fromDir.toLowerCase()}/`) ? `[[${toDir}${t.slice(fromDir.length)}${rest}]]` : m;
       });
       if (updated !== text) {
         await writeFile(this.resolve(f), updated);

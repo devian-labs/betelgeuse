@@ -41,6 +41,26 @@ export function buildTree(notes: NoteMeta[]): TreeNode[] {
   return root.children;
 }
 
+/** The pages directly inside folder `key` ("" for the top level), in sidebar order. */
+export function childrenOf(tree: TreeNode[], key: string): NoteMeta[] {
+  let level = tree;
+  if (key) {
+    const parts = key.split("/");
+    for (let i = 0; i < parts.length; i++) {
+      const node = level.find((n) => n.key === parts.slice(0, i + 1).join("/"));
+      if (!node) return [];
+      level = node.children;
+    }
+  }
+  return level.flatMap((n) => (n.note ? [n.note] : []));
+}
+
+/** The page whose sub-page folder holds `path` (`A/B.md` for `A/B/C.md`), or null at the top level. */
+export function parentPath(path: string): string | null {
+  const slash = path.lastIndexOf("/");
+  return slash < 0 ? null : `${path.slice(0, slash)}.md`;
+}
+
 /** Ancestors of a note path, for breadcrumbs: `A/B/C.md` -> [`A`, `A/B`]. */
 export function ancestorKeys(path: string): string[] {
   const parts = path.replace(/\.md$/, "").split("/");

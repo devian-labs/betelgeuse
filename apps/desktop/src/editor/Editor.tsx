@@ -5,19 +5,27 @@ import { DetailsContent, DetailsSummary } from "@tiptap/extension-details";
 import { NodeRangeSelection } from "@tiptap/extension-node-range";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Focus } from "@tiptap/extensions";
 import { TableKit } from "@tiptap/extension-table";
 import { Markdown } from "@tiptap/markdown";
 import type { Node as PMNode } from "@tiptap/pm/model";
 import { NodeSelection } from "@tiptap/pm/state";
+import { CellSelection } from "@tiptap/pm/tables";
 import { EditorContent, useEditor, useEditorState, type Editor as TiptapEditor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
+  ArrowUpRight,
   Bold,
   ChevronDown,
   ChevronRight,
   Code,
   Copy,
+  ExternalLink,
   GripVertical,
   Highlighter,
   Heading1,
@@ -25,6 +33,10 @@ import {
   Heading3,
   Italic,
   Lightbulb,
+  Merge,
+  MoveHorizontal,
+  PanelLeft,
+  PanelTop,
   Link2,
   List,
   ListOrdered,
@@ -33,18 +45,21 @@ import {
   Plus,
   Quote,
   RefreshCw,
+  Split,
   SquareCode,
   Strikethrough,
+  Table2,
   Trash2,
   Type,
 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { PageIcon } from "../components/PageIcon";
 import { MenuDivider, MenuItem, MenuSection, Popover } from "../components/Popover";
 import { COLORS, bgColor, colorLabel, textColor } from "../lib/colors";
 import { wantsNewTab } from "../lib/nav";
-import { Callout, CodeBlock, ColorMark, Column, ColumnList, DatabaseEmbed, ImageBlock, Toggle } from "./blocks";
+import { Callout, CodeBlock, ColorMark, Column, ColumnList, DatabaseEmbed, ImageBlock, Toggle, WidthTable } from "./blocks";
 import { normalizeMarkdown } from "./markdown";
-import { MentionSuggestion, PageLinkSuggestion, SlashCommand, type PageActions, type PageLinkOptions } from "./suggestions";
+import { LINK_DATABASE, MentionSuggestion, NEW_SUBPAGE, PageLinkSuggestion, SlashCommand, type PageActions, type PageLinkOptions } from "./suggestions";
 import { WikiLink } from "./WikiLink";
 
 type Props = PageLinkOptions & {
@@ -53,6 +68,8 @@ type Props = PageLinkOptions & {
   onChange: (markdown: string) => void;
   /** A page link was clicked; `newTab` for ⌘/Ctrl-click. */
   onOpenLink: (target: string, newTab: boolean) => void;
+  /** Filled with the editor once it exists (the page title moves the cursor into it). */
+  editorRef?: { current: TiptapEditor | null };
 };
 
 type TurnInto = { id: string; label: string; icon: ReactNode; active: (e: CoreEditor) => boolean; run: (e: CoreEditor) => void };
@@ -110,7 +127,9 @@ export function contentExtensions() {
     }),
     TaskList,
     TaskItem.configure({ nested: true }),
-    TableKit.configure({ table: { resizable: false } }),
+    // Columns resize by dragging their right border; widths are kept in the Markdown (WidthTable).
+    TableKit.configure({ table: false }),
+    WidthTable.configure({ resizable: true, cellMinWidth: 80, lastColumnResizable: true }),
     ImageBlock,
     CodeBlock,
     ColorMark,
@@ -126,7 +145,7 @@ export function contentExtensions() {
   ];
 }
 
-export function Editor({ initial, onChange, onOpenLink, getNotes, createPage, page }: Props) {
+export function Editor({ initial, onChange, onOpenLink, getNotes, createPage, page, editorRef }: Props) {
   const editor = useEditor({
     extensions: [
       ...contentExtensions(),
@@ -138,6 +157,8 @@ export function Editor({ initial, onChange, onOpenLink, getNotes, createPage, pa
           return e.isEmpty ? "Write something, or press '/' for commands…" : "Press '/' for commands";
         },
       }),
+      // Marks the block holding the cursor; only that one shows its placeholder (index.css).
+      Focus.configure({ className: "has-focus", mode: "deepest" }),
       BlockKeys,
       SlashCommand.configure({ page }),
       PageLinkSuggestion.configure({ getNotes, createPage }),
@@ -157,22 +178,188 @@ export function Editor({ initial, onChange, onOpenLink, getNotes, createPage, pa
     },
   });
 
+  useEffect(() => {
+    if (!editorRef) return;
+    editorRef.current = editor;
+    return () => {
+      if (editorRef.current === editor) editorRef.current = null;
+    };
+  }, [editor, editorRef]);
+
   if (!editor) return null;
 
   return (
     <>
-      <BlockHandle editor={editor} />
+      <BlockHandle editor={editor} onOpenLink={onOpenLink} />
       <FormatMenu editor={editor} />
       <EditorContent editor={editor} />
+      <SubpagePrompt editor={editor} page={page} />
+      <DatabasePicker editor={editor} getNotes={getNotes} />
     </>
+  );
+}
+
+// ---------- "/linked database" ----------
+
+/** Picks an existing database to embed where "/linked database" was typed. */
+function DatabasePicker({ editor, getNotes }: { editor: TiptapEditor; getNotes: PageLinkOptions["getNotes"] }) {
+  const [at, setAt] = useState<{ pos: number; rect: DOMRect } | null>(null);
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
+
+  useEffect(() => {
+    const dom = editor.view.dom;
+    const open = () => {
+      const pos = editor.state.selection.from;
+      const c = editor.view.coordsAtPos(pos);
+      setQuery("");
+      setActive(0);
+      setAt({ pos, rect: new DOMRect(c.left, c.top, 0, c.bottom - c.top) });
+    };
+    dom.addEventListener(LINK_DATABASE, open);
+    return () => dom.removeEventListener(LINK_DATABASE, open);
+  }, [editor]);
+
+  if (!at) return null;
+  const q = query.trim().toLowerCase();
+  const databases = getNotes()
+    .filter((n) => n.kind === "database" && (!q || n.title.toLowerCase().includes(q) || n.path.toLowerCase().includes(q)))
+    .slice(0, 50);
+  const close = () => (setAt(null), editor.commands.focus());
+  const pick = (path: string) => {
+    setAt(null);
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(Math.min(at.pos, editor.state.doc.content.size), [{ type: "databaseEmbed", attrs: { target: path.replace(/\.md$/, "") } }, { type: "paragraph" }])
+      .run();
+  };
+  return (
+    <Popover anchor={at.rect} onClose={close} className="flex max-h-96 w-80 flex-col p-1">
+      <input
+        autoFocus
+        value={query}
+        onChange={(e) => (setQuery(e.target.value), setActive(0))}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowDown") (e.preventDefault(), setActive((i) => Math.min(i + 1, databases.length - 1)));
+          if (e.key === "ArrowUp") (e.preventDefault(), setActive((i) => Math.max(i - 1, 0)));
+          if (e.key === "Enter" && databases[active]) (e.preventDefault(), pick(databases[active].path));
+        }}
+        placeholder="Search for a database…"
+        className="mb-1 h-8 w-full shrink-0 rounded-md border border-line bg-side px-2 text-sm text-ink outline-none focus:border-[var(--blue)]"
+      />
+      <div className="min-h-0 overflow-y-auto">
+        {databases.length ? (
+          databases.map((n, i) => (
+            <MenuItem
+              key={n.path}
+              active={i === active}
+              icon={n.icon ? <PageIcon icon={n.icon} size={15} /> : <Table2 size={15} />}
+              label={n.title}
+              hint={n.path.includes("/") ? n.path.slice(0, n.path.lastIndexOf("/")).split("/").pop() : undefined}
+              onClick={() => pick(n.path)}
+            />
+          ))
+        ) : (
+          <p className="px-2 py-1.5 text-sm text-faint">No databases found</p>
+        )}
+      </div>
+    </Popover>
+  );
+}
+
+// ---------- "/page" ----------
+
+/** Names the sub-page "/page" is about to create, then links it where the command was typed. */
+function SubpagePrompt({ editor, page }: { editor: TiptapEditor; page: PageActions }) {
+  const [at, setAt] = useState<{ pos: number; rect: DOMRect } | null>(null);
+  const [title, setTitle] = useState("");
+
+  useEffect(() => {
+    const dom = editor.view.dom;
+    const open = () => {
+      const pos = editor.state.selection.from;
+      const c = editor.view.coordsAtPos(pos);
+      setTitle("");
+      setAt({ pos, rect: new DOMRect(c.left, c.top, 0, c.bottom - c.top) });
+    };
+    dom.addEventListener(NEW_SUBPAGE, open);
+    return () => dom.removeEventListener(NEW_SUBPAGE, open);
+  }, [editor]);
+
+  if (!at) return null;
+  const name = title.trim();
+  // Pages are files, so a sub-page can't share its name with a sibling: that name links the one there.
+  const existing = name ? page.findSubpage(name) : undefined;
+  const close = () => (setAt(null), editor.commands.focus());
+  const create = async () => {
+    setAt(null);
+    const path = existing ?? (await page.createSubpage(name || "Untitled"));
+    // By path, not title: another page elsewhere may share the title.
+    const target = path.replace(/\.md$/, "");
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(Math.min(at.pos, editor.state.doc.content.size), [{ type: "wikiLink", attrs: { target } }, { type: "text", text: " " }])
+      .run();
+  };
+  return (
+    <Popover anchor={at.rect} onClose={close} className="w-72 p-1.5">
+      <form onSubmit={(e) => (e.preventDefault(), create())}>
+        <input
+          autoFocus
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Page name"
+          className="h-8 w-full rounded-md border border-line bg-raised px-2 text-sm text-ink outline-none focus:border-[var(--blue)]"
+        />
+      </form>
+      <p className="px-1 pt-1.5 text-[11px] text-faint">
+        {existing ? <>“{name}” is already a page here · ↵ to link it</> : <>↵ to create the page · Esc to cancel</>}
+      </p>
+    </Popover>
   );
 }
 
 // ---------- block handle ----------
 
-function BlockHandle({ editor }: { editor: TiptapEditor }) {
+type MenuAt = { el: HTMLElement | DOMRect; node: PMNode; pos: number; link?: string };
+
+function BlockHandle({ editor, onOpenLink }: { editor: TiptapEditor; onOpenLink: Props["onOpenLink"] }) {
   const target = useRef<{ node: PMNode; pos: number } | null>(null);
-  const [menu, setMenu] = useState<{ el: HTMLElement; node: PMNode; pos: number } | null>(null);
+  const [menu, setMenu] = useState<MenuAt | null>(null);
+  const [tableMenu, setTableMenu] = useState<DOMRect | null>(null);
+
+  // Right-clicking a block opens its menu (the one behind the grip) at the cursor. Selected text
+  // keeps the system menu, for Copy / Look Up / spelling.
+  useEffect(() => {
+    const dom = editor.view.dom;
+    const onContextMenu = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (t.closest("input, textarea")) return;
+      // In a table: rows, columns and the table itself. The clicked cell gets the cursor, unless it's
+      // part of cells already selected (so a multi-cell selection can be merged or cleared).
+      const cell = t.closest("td, th");
+      if (cell && editor.view.dom.contains(cell)) {
+        e.preventDefault();
+        const at = editor.view.posAtCoords({ left: e.clientX, top: e.clientY });
+        const sel = editor.state.selection;
+        const inSelection = sel instanceof CellSelection && at && at.pos >= sel.from && at.pos <= sel.to;
+        if (at && !inSelection) editor.chain().focus().setTextSelection(at.pos).run();
+        setTableMenu(new DOMRect(e.clientX, e.clientY, 0, 0));
+        return;
+      }
+      if (!target.current) return;
+      const sel = editor.state.selection;
+      const at = editor.view.posAtCoords({ left: e.clientX, top: e.clientY });
+      if (!sel.empty && !(sel instanceof NodeSelection) && at && at.pos >= sel.from && at.pos <= sel.to) return;
+      e.preventDefault();
+      const link = t.closest<HTMLElement>("[data-wikilink]")?.dataset.target;
+      setMenu({ el: new DOMRect(e.clientX, e.clientY, 0, 0), ...target.current, link });
+    };
+    dom.addEventListener("contextmenu", onContextMenu);
+    return () => dom.removeEventListener("contextmenu", onContextMenu);
+  }, [editor]);
   // Nudges the handle beside the block's first line (and left of list markers). Applied straight to
   // the element in the same tick the handle moves; a React state update would land a frame later
   // and make the handle visibly jump twice when moving between blocks.
@@ -216,7 +403,8 @@ function BlockHandle({ editor }: { editor: TiptapEditor }) {
           </div>
         </div>
       </DragHandle>
-      {menu && <BlockMenu editor={editor} {...menu} onClose={() => setMenu(null)} />}
+      {menu && <BlockMenu editor={editor} {...menu} onOpenLink={onOpenLink} onClose={() => setMenu(null)} />}
+      {tableMenu && <TableMenu editor={editor} at={tableMenu} onClose={() => setTableMenu(null)} />}
     </>
   );
 }
@@ -224,8 +412,21 @@ function BlockHandle({ editor }: { editor: TiptapEditor }) {
 const HANDLE_HEIGHT = 24;
 
 const NESTED: NestedOptions = {
+  // No edge detection: by default, nearing a block's left edge hands the handle to its parent, so
+  // reaching for the handle of a block inside columns jumped it to the whole column row.
+  edgeDetection: "none",
   // A column on its own isn't a block you'd move; its contents are.
-  rules: [{ id: "noBareColumns", evaluate: ({ node }) => (node.type.name === "column" ? 1000 : 0) }],
+  rules: [
+    { id: "noBareColumns", evaluate: ({ node }) => (node.type.name === "column" ? 1000 : 0) },
+    // A table moves as a whole; its rows, cells and the text in them get no handles of their own.
+    {
+      id: "noTableInsides",
+      evaluate: ({ $pos }) => {
+        for (let d = $pos.depth; d > 0; d--) if ($pos.node(d).type.name === "table") return 1000;
+        return 0;
+      },
+    },
+  ],
 };
 
 /** Blocks with a left bar, icon or arrow: handles for blocks inside them sit outside the decoration. */
@@ -252,6 +453,51 @@ function handleOffset(dom: HTMLElement, type: string): { x: number; y: number } 
   return { x, y: Math.max(0, Math.round(top + lineHeight / 2 - HANDLE_HEIGHT / 2)) };
 }
 
+/** Right-click menu inside a table: rows, columns, headers, merging and the table itself. */
+function TableMenu({ editor, at, onClose }: { editor: TiptapEditor; at: DOMRect; onClose: () => void }) {
+  const run = (fn: (c: ReturnType<TiptapEditor["chain"]>) => ReturnType<TiptapEditor["chain"]>) => () => {
+    fn(editor.chain().focus()).run();
+    onClose();
+  };
+  const multi = editor.state.selection instanceof CellSelection;
+  return (
+    <Popover anchor={at} onClose={onClose} className="w-56 p-1">
+      <MenuSection label="Row" />
+      <MenuItem icon={<ArrowUp size={15} />} label="Insert row above" onClick={run((c) => c.addRowBefore())} />
+      <MenuItem icon={<ArrowDown size={15} />} label="Insert row below" onClick={run((c) => c.addRowAfter())} />
+      <MenuItem icon={<Trash2 size={15} />} label="Delete row" danger onClick={run((c) => c.deleteRow())} />
+      <MenuDivider />
+      <MenuSection label="Column" />
+      <MenuItem icon={<ArrowLeft size={15} />} label="Insert column left" onClick={run((c) => c.addColumnBefore())} />
+      <MenuItem icon={<ArrowRight size={15} />} label="Insert column right" onClick={run((c) => c.addColumnAfter())} />
+      <MenuItem icon={<Trash2 size={15} />} label="Delete column" danger onClick={run((c) => c.deleteColumn())} />
+      <MenuDivider />
+      <MenuItem icon={<PanelTop size={15} />} label="Header row" onClick={run((c) => c.toggleHeaderRow())} />
+      <MenuItem icon={<PanelLeft size={15} />} label="Header column" onClick={run((c) => c.toggleHeaderColumn())} />
+      {multi && <MenuItem icon={<Merge size={15} />} label="Merge cells" onClick={run((c) => c.mergeCells())} />}
+      {!multi && <MenuItem icon={<Split size={15} />} label="Split cell" onClick={run((c) => c.splitCell())} />}
+      <MenuItem icon={<MoveHorizontal size={15} />} label="Reset column widths" onClick={() => (resetWidths(editor), onClose())} />
+      <MenuDivider />
+      <MenuItem icon={<Trash2 size={15} />} label="Delete table" danger onClick={run((c) => c.deleteTable())} />
+    </Popover>
+  );
+}
+
+/** Drops the dragged widths of the table holding the cursor, so its columns fit their text again. */
+function resetWidths(editor: TiptapEditor) {
+  const { $from } = editor.state.selection;
+  for (let d = $from.depth; d > 0; d--) {
+    if ($from.node(d).type.name !== "table") continue;
+    const start = $from.before(d);
+    const tr = editor.state.tr;
+    $from.node(d).descendants((n, pos) => {
+      if (n.attrs.colwidth) tr.setNodeMarkup(start + 1 + pos, undefined, { ...n.attrs, colwidth: null });
+    });
+    editor.view.dispatch(tr);
+    return;
+  }
+}
+
 const NODE_LABELS: Record<string, string> = {
   paragraph: "Text",
   bulletList: "Bulleted list",
@@ -268,7 +514,7 @@ const NODE_LABELS: Record<string, string> = {
   horizontalRule: "Divider",
 };
 
-function BlockMenu({ editor, el, node, pos, onClose }: { editor: TiptapEditor; el: HTMLElement; node: PMNode; pos: number; onClose: () => void }) {
+function BlockMenu({ editor, el, node, pos, link, onOpenLink, onClose }: MenuAt & { editor: TiptapEditor; onOpenLink: Props["onOpenLink"]; onClose: () => void }) {
   const [sub, setSub] = useState<{ kind: "turn" | "color"; el: HTMLElement } | null>(null);
   const [query, setQuery] = useState("");
   const selectBlock = () => {
@@ -293,6 +539,14 @@ function BlockMenu({ editor, el, node, pos, onClose }: { editor: TiptapEditor; e
         placeholder="Search actions…"
         className="mb-1 h-7 w-full rounded-md border border-line bg-side px-2 text-sm text-ink outline-none focus:border-[var(--blue)]"
       />
+      {link && (
+        <>
+          <MenuSection label="Page link" />
+          {show("Open page") && <MenuItem icon={<ArrowUpRight size={15} />} label="Open page" onClick={() => finish(() => onOpenLink(link, false))} />}
+          {show("Open in new tab") && <MenuItem icon={<ExternalLink size={15} />} label="Open in new tab" hint="⌘ click" onClick={() => finish(() => onOpenLink(link, true))} />}
+          <MenuDivider />
+        </>
+      )}
       <MenuSection label={label} />
       {show("Turn into") && (
         <MenuItem icon={<RefreshCw size={15} />} label="Turn into" right={<ChevronRight size={14} className="text-faint" />} onClick={(e) => setSub({ kind: "turn", el: e.currentTarget })} />

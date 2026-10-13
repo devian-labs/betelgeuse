@@ -4,7 +4,7 @@
  * (`Tasks/<Row>.md`) whose property values live in its YAML frontmatter.
  */
 import type { NoteMeta, RawRow } from "../lib/api";
-import { nextColor, type Color } from "../lib/colors";
+import { nextColor, statusColor, type Color } from "../lib/colors";
 import { readFrontmatter, splitNote } from "../lib/frontmatter";
 import { resolveWikiLink } from "../lib/tree";
 
@@ -117,7 +117,38 @@ export type View = {
   /** Gallery: what the top of each card shows. "auto" is the cover, else the page's text, else nothing. */
   cardPreview?: CardPreview;
   cardSize?: "small" | "medium" | "large";
+  /** Where clicking a row opens it: the side peek (default) or the full page. */
+  openIn?: "peek" | "full";
+  /** Inline on a page: leave out the database's name above this view (other views keep theirs). */
+  hideTitle?: boolean;
+  /**
+   * The page a linked copy of this database sits on, as a link (`[[Areas/Studio]]`, so it follows
+   * renames and moves). Such views show only there; views without one are the database's own.
+   */
+  scope?: string;
 };
+
+/** Whether `view` belongs to the place `scope` names (no scope: the database itself). */
+export const inScope = (view: View, scope?: string) =>
+  scope ? view.scope?.toLowerCase() === scope.toLowerCase() : !view.scope;
+
+/**
+ * The views shown where `scope` names: its own, or until it has any (a linked copy nobody has
+ * changed yet), the database's.
+ */
+export function viewsFor(views: View[], scope?: string): View[] {
+  const own = views.filter((v) => inScope(v, scope));
+  return own.length || !scope ? own : views.filter((v) => !v.scope);
+}
+
+/**
+ * Before a linked copy's first view edit: gives it its own copies of the database's views (same
+ * ids, tagged with `scope`), so the edit stays there.
+ */
+export function forkViews(views: View[], scope?: string): View[] {
+  if (!scope || views.some((v) => inScope(v, scope))) return views;
+  return [...views, ...views.filter((v) => !v.scope).map((v) => ({ ...v, scope }))];
+}
 
 export type CardPreview = "auto" | "cover" | "content" | "none";
 
@@ -734,7 +765,8 @@ export const mapProperty = (schema: Schema, name: string, fn: (p: Property) => P
 export function withOption(prop: Property, name: string): { prop: Property; option: SelectOption } {
   const existing = prop.options?.find((o) => o.name === name);
   if (existing) return { prop, option: existing };
-  const option = { name, color: nextColor(prop.options?.length ?? 0) };
+  const used = (prop.options ?? []).map((o) => o.color);
+  const option = { name, color: (prop.type === "status" && statusColor(name)) || nextColor(used) };
   return { prop: { ...prop, options: [...(prop.options ?? []), option] }, option };
 }
 

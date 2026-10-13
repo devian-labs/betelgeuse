@@ -7,18 +7,23 @@
  *   database   ![[Tasks]]               (Obsidian embed syntax)
  */
 import { PageIcon, assetUrl } from "../components/PageIcon";
-import { Mark, Node, mergeAttributes, type JSONContent } from "@tiptap/core";
+import { Mark, Node, mergeAttributes, type JSONContent, type NodeViewRendererProps } from "@tiptap/core";
 import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
 import { Details } from "@tiptap/extension-details";
 import Image from "@tiptap/extension-image";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Table } from "@tiptap/extension-table";
+import type { Node as PMNode } from "@tiptap/pm/model";
+import { Plugin, PluginKey, Selection, TextSelection } from "@tiptap/pm/state";
+import type { EditorView, NodeView } from "@tiptap/pm/view";
 import { NodeViewContent, NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
-import { Check, ChevronDown, Copy, FileText, Image as ImageIcon, WrapText } from "lucide-react";
+import { Check, ChevronDown, Copy, FileText, Image as ImageIcon, Maximize2, Trash2, WrapText, X } from "lucide-react";
+import { createPortal } from "react-dom";
 import { common, createLowlight } from "lowlight";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { IconPicker } from "../components/IconPicker";
 import { MenuItem, Popover } from "../components/Popover";
 import { DatabaseView } from "../database/DatabaseView";
+import { api } from "../lib/api";
 import { COLORS, bgColor, textColor } from "../lib/colors";
 import { resolveWikiLink } from "../lib/tree";
 import { useVault } from "../lib/vault";
@@ -112,6 +117,16 @@ export const ColorMark = Mark.create({
 
 const CALLOUT = /^> ?\[!([a-z]+)\][ \t]*([^\n]*)(?:\n|$)((?:>[^\n]*(?:\n|$))*)/;
 
+/**
+ * Splits a callout's first line into its icon and a title, as in Obsidian's `> [!note] Title`:
+ * `🎬 Studio` is the icon 🎬 and the title "Studio"; a line without a leading icon is all title.
+ */
+function calloutHead(line: string): { icon: string; title: string } {
+  const [first = "", ...rest] = line.trim().split(/\s+/);
+  const isIcon = /^(lucide:|\.assets\/|https?:\/\/)/.test(first) || /^\p{Extended_Pictographic}/u.test(first);
+  return isIcon ? { icon: first, title: rest.join(" ") } : { icon: "", title: line.trim() };
+}
+
 /** Prefixes every line with `> `, using a bare `>` for blank lines. */
 const quote = (text: string) => text.split("\n").map((l) => (l ? `> ${l}` : ">")).join("\n");
 
@@ -142,8 +157,12 @@ export const Callout = Node.create({
     tokenize(src, _tokens, lexer) {
       const m = CALLOUT.exec(src);
       if (!m) return undefined;
-      const inner = m[3].replace(/\n$/, "").split("\n").map((l) => l.replace(/^> ?/, "")).join("\n");
-      return { type: "callout", raw: m[0], color: m[1], icon: m[2].trim(), tokens: lexer.blockTokens(inner) };
+      const { icon, title } = calloutHead(m[2]);
+      const body = m[3].replace(/\n$/, "").split("\n").map((l) => l.replace(/^> ?/, "")).join("\n");
+      // A title on the first line opens the callout as a bold line, so it reads as one rather than
+      // crowding the icon.
+      const inner = title ? `**${title}**${body ? `\n\n${body}` : ""}` : body;
+      return { type: "callout", raw: m[0], color: m[1], icon, tokens: lexer.blockTokens(inner) };
     },
   },
   parseMarkdown: (token, h) => {
@@ -203,6 +222,55 @@ function takeDetails(src: string) {
 }
 
 export const Toggle = Details.extend({
+  // The stock view flips its open/closed look on events and can fall out of step with the saved
+  // `open` (e.g. when a page opens with the cursor in a toggle): each click then flips it twice
+  // and seems to do nothing. Here the look always follows `open`.
+  addNodeView() {
+    const make = this.parent!() as (props: NodeViewRendererProps) => NodeView;
+    return (props) => {
+      const view = make(props);
+      const dom = view.dom as HTMLElement;
+      const sync = (node: PMNode) => {
+        const open = !!node.attrs.open;
+        dom.classList.toggle("is-open", open);
+        dom.querySelector(':scope > div > [data-type="detailsContent"]')?.toggleAttribute("hidden", !open);
+      };
+      setTimeout(() => sync(props.node)); // after the stock view's own first toggle
+      const update = view.update?.bind(view);
+      return {
+        ...view,
+        update: (node, decorations, inner) => {
+          const ok = update ? update(node, decorations, inner) : false;
+          if (ok) sync(node);
+          return ok;
+        },
+      };
+    };
+  },
+  addKeyboardShortcuts() {
+    const base = this.parent?.() ?? {};
+    return {
+      ...base,
+      // Backspace at the start of a toggle's title turns it back into text, its contents following.
+      Backspace: (props) => {
+        const { state, view } = this.editor;
+        const { $from, empty } = state.selection;
+        if (empty && $from.parent.type.name === "detailsSummary" && $from.parentOffset === 0) {
+          const depth = $from.depth - 1;
+          const details = $from.node(depth);
+          const pos = $from.before(depth);
+          const blocks: PMNode[] = [state.schema.nodes.paragraph.create(null, details.child(0).content)];
+          details.child(1).forEach((n) => {
+            if (!(n.type.name === "paragraph" && n.content.size === 0 && details.child(1).childCount === 1)) blocks.push(n);
+          });
+          const tr = state.tr.replaceWith(pos, pos + details.nodeSize, blocks);
+          view.dispatch(tr.setSelection(TextSelection.create(tr.doc, pos + 1)).scrollIntoView());
+          return true;
+        }
+        return base.Backspace?.(props) ?? false;
+      },
+    };
+  },
   markdownTokenizer: {
     name: "details",
     level: "block",
@@ -230,6 +298,58 @@ export const Toggle = Details.extend({
     return `<details${node.attrs?.open ? " open" : ""}>\n<summary>${summary ? h.renderChildren(summary) : ""}</summary>\n\n${inner}\n\n</details>`;
   },
 }).configure({ persist: true });
+
+// ---------- tables ----------
+
+/**
+ * Column widths dragged in the editor are kept in a comment just above the table, which other
+ * Markdown apps ignore: `<!-- table widths: 160, 0, 240 -->` (0 for a column left to fit its text).
+ */
+const WIDTHS = /^<!-- table widths: ([\d, ]+) -->[ \t]*\n/;
+const base = Table.config;
+
+export const WidthTable = Table.extend({
+  markdownTokenizer: {
+    name: "table",
+    level: "block",
+    start: (src: string) => {
+      const comment = src.search(/^<!-- table widths:/m);
+      const table = (base.markdownTokenizer!.start as (src: string) => number)(src);
+      return comment >= 0 && (table < 0 || comment < table) ? comment : table;
+    },
+    tokenize(src, tokens, helper) {
+      const m = WIDTHS.exec(src);
+      const rest = m ? src.slice(m[0].length) : src;
+      if (!m) return base.markdownTokenizer!.tokenize(src, tokens, helper);
+      // The stock tokenizer only takes tables needing pipe escapes and leaves the rest to marked's.
+      const token = base.markdownTokenizer!.tokenize(rest, tokens, helper) ?? helper.blockTokens(rest)[0];
+      if (token?.type !== "table") return undefined;
+      return { ...token, raw: m[0] + token.raw, widths: m[1].split(",").map((w) => Number(w.trim()) || 0) };
+    },
+  },
+  parseMarkdown(token, h) {
+    const table = this.parent!(token, h) as JSONContent;
+    const widths = token.widths as number[] | undefined;
+    if (widths?.some((w) => w > 0)) {
+      for (const row of table.content ?? []) {
+        row.content?.forEach((cell, i) => {
+          if (widths[i] > 0) cell.attrs = { ...cell.attrs, colwidth: [widths[i]] };
+        });
+      }
+    }
+    return table;
+  },
+  renderMarkdown(node, h, ctx) {
+    const md = this.parent!(node, h, ctx) as string;
+    const first = ((node.content ?? []) as JSONContent[])[0]?.content ?? [];
+    const widths = first.map((c) => (c.attrs?.colwidth as number[] | null)?.[0] ?? 0);
+    // Straight above the table, after the blank lines the serializer puts before it (and only once,
+    // should this run on output that already has it).
+    const lead = /^\n*/.exec(md)![0];
+    if (!widths.some((w) => w > 0) || md.startsWith("<!-- table widths", lead.length)) return md;
+    return `${lead}<!-- table widths: ${widths.join(", ")} -->\n${md.slice(lead.length)}`;
+  },
+});
 
 // ---------- columns ----------
 
@@ -284,11 +404,152 @@ export const Column = Node.create({
   },
 });
 
+/** How close (px) to the border between two columns the pointer must be to resize them. */
+const GRAB = 6;
+/** Narrowest a column can be dragged (px). */
+const MIN_COLUMN = 80;
+
+/**
+ * Drag the border between two columns to share their width differently. The grab strip is just
+ * left of the gap (the gap itself holds the block handle of the right-hand column); the new
+ * shares are saved as each column's `width`.
+ */
+function columnResizing() {
+  let line: HTMLDivElement | null = null;
+  // The column whose left border is under the pointer.
+  const borderAt = (view: EditorView, e: MouseEvent): HTMLElement | null => {
+    for (const list of view.dom.querySelectorAll<HTMLElement>(".columns")) {
+      const r = list.getBoundingClientRect();
+      if (e.clientY < r.top || e.clientY > r.bottom) continue;
+      const cols = [...list.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.classList.contains("column"));
+      for (const col of cols.slice(1)) {
+        const x = col.getBoundingClientRect().left;
+        if (e.clientX >= x - GRAB && e.clientX <= x + 2) return col;
+      }
+    }
+    return null;
+  };
+  const show = (view: EditorView, col: HTMLElement | null) => {
+    view.dom.style.cursor = col ? "col-resize" : "";
+    if (!line) return;
+    if (!col) return void (line.style.display = "none");
+    const list = col.parentElement!.getBoundingClientRect();
+    // On the grab strip itself, so the line sits under the pointer.
+    const x = col.getBoundingClientRect().left - GRAB / 2 + 1;
+    Object.assign(line.style, { display: "block", left: `${x - 1}px`, top: `${list.top}px`, height: `${list.height}px` });
+  };
+
+  return new Plugin({
+    key: new PluginKey("columnResizing"),
+    view() {
+      line = document.createElement("div");
+      line.className = "column-resize-line";
+      document.body.appendChild(line);
+      return { destroy: () => (line?.remove(), (line = null)) };
+    },
+    props: {
+      handleDOMEvents: {
+        mousemove(view, e) {
+          if (e.buttons === 0) show(view, borderAt(view, e));
+          return false;
+        },
+        mouseleave(view) {
+          show(view, null);
+          return false;
+        },
+        mousedown(view, e) {
+          const right = e.button === 0 ? borderAt(view, e) : null;
+          if (!right) return false;
+          e.preventDefault();
+          const list = right.parentElement!;
+          const cols = [...list.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.classList.contains("column"));
+          const at = cols.indexOf(right);
+          // The row's columns in the document, and their content widths now.
+          const $in = view.state.doc.resolve(view.posAtDOM(cols[0], 0));
+          let depth = $in.depth;
+          while (depth > 0 && $in.node(depth).type.name !== "columnList") depth--;
+          if (!depth) return false;
+          const listPos = $in.before(depth);
+          const start = cols.map((c) => c.clientWidth - (parseFloat(getComputedStyle(c).paddingLeft) || 0));
+          const startX = e.clientX;
+          const original = view.state.doc.nodeAt(listPos)!;
+
+          const apply = (widths: number[], history: boolean) => {
+            const total = widths.reduce((a, b) => a + b, 0);
+            const tr = view.state.tr;
+            let pos = listPos + 1;
+            view.state.doc.nodeAt(listPos)!.forEach((col, _o, i) => {
+              tr.setNodeMarkup(pos, undefined, { ...col.attrs, width: Number((widths[i] / total).toFixed(3)) });
+              pos += col.nodeSize;
+            });
+            if (!history) tr.setMeta("addToHistory", false);
+            view.dispatch(tr);
+          };
+          const widthsFor = (x: number) => {
+            const pair = start[at - 1] + start[at];
+            const left = Math.min(pair - MIN_COLUMN, Math.max(MIN_COLUMN, start[at - 1] + x - startX));
+            return start.map((w, i) => (i === at - 1 ? left : i === at ? pair - left : w));
+          };
+          // Resizing redraws the columns, so the line follows the column as it is now.
+          const current = () => {
+            const el = view.nodeDOM(listPos);
+            return el instanceof HTMLElement ? (el.querySelectorAll<HTMLElement>(":scope > .column")[at] ?? null) : null;
+          };
+          let last = start;
+          const move = (ev: MouseEvent) => {
+            last = widthsFor(ev.clientX);
+            apply(last, false);
+            show(view, current());
+          };
+          const up = () => {
+            window.removeEventListener("mousemove", move);
+            window.removeEventListener("mouseup", up);
+            document.body.style.removeProperty("cursor");
+            document.body.style.removeProperty("user-select");
+            // One undo step for the whole drag: back to where it started, then the result.
+            const tr = view.state.tr.replaceWith(listPos, listPos + view.state.doc.nodeAt(listPos)!.nodeSize, original);
+            view.dispatch(tr.setMeta("addToHistory", false));
+            if (last !== start) apply(last, true);
+            show(view, null);
+          };
+          document.body.style.cursor = "col-resize";
+          document.body.style.userSelect = "none";
+          window.addEventListener("mousemove", move);
+          window.addEventListener("mouseup", up);
+          return true;
+        },
+      },
+    },
+  });
+}
+
 export const ColumnList = Node.create({
   name: "columnList",
+  addKeyboardShortcuts() {
+    return {
+      // Backspace at the start of a block right below columns would join it into the row as a new
+      // column. Instead: an empty block goes, a block with text stays; the cursor moves to the end
+      // of the last column.
+      Backspace: () => {
+        const { state, view } = this.editor;
+        const { $from, empty } = state.selection;
+        if (!empty || $from.parentOffset !== 0 || !$from.parent.isTextblock) return false;
+        const blockPos = $from.before($from.depth);
+        if (state.doc.resolve(blockPos).nodeBefore?.type.name !== this.name) return false;
+        const tr = state.tr;
+        if ($from.parent.content.size === 0) tr.delete(blockPos, blockPos + $from.parent.nodeSize);
+        // blockPos - 2: inside the last column, at its end.
+        view.dispatch(tr.setSelection(Selection.near(tr.doc.resolve(blockPos - 2), -1)).scrollIntoView());
+        return true;
+      },
+    };
+  },
   group: "block",
   content: "column{2,}",
   defining: true,
+  addProseMirrorPlugins() {
+    return [columnResizing()];
+  },
   parseHTML() {
     return [{ tag: "div[data-columns]" }];
   },
@@ -352,13 +613,22 @@ export const DatabaseEmbed = Node.create({
   renderMarkdown: (node) => `![[${node.attrs?.target}]]`,
 });
 
+/** The vault path of the page an editor shows, for blocks that behave differently by page. */
+export const PageContext = createContext<string | null>(null);
+
 function EmbedView({ node }: NodeViewProps) {
   const { notes, openPage } = useVault();
+  const page = useContext(PageContext);
   const target = resolveWikiLink(node.attrs.target, notes);
+  // A database shown away from home (not on its own page or the page it sits under) is a linked
+  // copy: its views and filters belong to this page.
+  const parent = target?.path.includes("/") ? `${target.path.slice(0, target.path.lastIndexOf("/"))}.md` : null;
+  const home = !page || !target || target.path === page || parent === page;
+  const scope = home ? undefined : `[[${page!.replace(/\.md$/, "")}]]`;
   return (
     <NodeViewWrapper className="my-2" contentEditable={false}>
       {target?.kind === "database" ? (
-        <DatabaseView path={target.path} inline />
+        <DatabaseView path={target.path} inline scope={scope} />
       ) : (
         <button onClick={() => target && openPage(target.path)} className="flex w-full items-center gap-2 rounded-md border border-line px-3 py-2 text-left text-sm hover:bg-hover">
           {target?.icon ? <PageIcon icon={target.icon} size={18} /> : <FileText size={16} className="text-faint" />}
@@ -482,7 +752,55 @@ export const ImageBlock = Image.extend({
   addNodeView() {
     return ReactNodeViewRenderer(ImageView);
   },
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey("imageFiles"),
+        props: {
+          // Image files dropped (e.g. from Finder) or pasted are copied into `.assets/` and embedded.
+          handleDrop: (view, event, _slice, moved) => {
+            const files = imageFiles(event.dataTransfer);
+            if (moved || !files.length) return false;
+            event.preventDefault();
+            const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+            insertImages(view, files, at ? at.pos : view.state.selection.from);
+            return true;
+          },
+          handlePaste: (view, event) => {
+            const files = imageFiles(event.clipboardData);
+            if (!files.length) return false;
+            event.preventDefault();
+            insertImages(view, files, view.state.selection.from);
+            return true;
+          },
+        },
+      }),
+    ];
+  },
 });
+
+function imageFiles(data: DataTransfer | null) {
+  return Array.from(data?.files ?? []).filter((f) => f.type.startsWith("image/"));
+}
+
+async function insertImages(view: EditorView, files: File[], pos: number) {
+  for (const file of files) {
+    let src: string;
+    try {
+      src = await api.saveAsset(file.name || "image.png", [...new Uint8Array(await file.arrayBuffer())]);
+    } catch (e) {
+      console.error("Couldn't save the image", e);
+      continue;
+    }
+    if (view.isDestroyed) return;
+    const { state } = view;
+    const at = Math.min(pos, state.doc.content.size);
+    const tr = state.tr.replaceRangeWith(at, at, state.schema.nodes.image.create({ src, alt: file.name.replace(/\.\w+$/, "") }));
+    view.dispatch(tr);
+    // The next image goes right after this one.
+    pos = tr.mapping.map(at);
+  }
+}
 
 function ImageView({ node, updateAttributes, deleteNode, selected }: NodeViewProps) {
   const [link, setLink] = useState("");
@@ -514,17 +832,112 @@ function ImageView({ node, updateAttributes, deleteNode, selected }: NodeViewPro
       </NodeViewWrapper>
     );
   }
+  return <ImageBlockView src={node.attrs.src} alt={node.attrs.alt ?? ""} selected={selected} onDelete={deleteNode} />;
+}
+
+/** An image block: a hover toolbar (view full size, copy, delete); double-click views it too. */
+function ImageBlockView({ src, alt, selected, onDelete }: { src: string; alt: string; selected: boolean; onDelete: () => void }) {
+  const url = useAssetUrl(src);
+  const [viewing, setViewing] = useState(false);
+  const [copied, setCopied] = useState(false);
+  // Toolbar buttons act on mouse down and keep the editor from treating the press as its own.
+  const act = (fn: () => void) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+  };
   return (
-    <NodeViewWrapper className={`my-1 ${selected ? "rounded ring-2 ring-[var(--blue)]/50" : ""}`}>
-      <AssetImg src={node.attrs.src} alt={node.attrs.alt ?? ""} />
+    <NodeViewWrapper className={`group/img relative my-1 w-fit max-w-full ${selected ? "rounded ring-2 ring-[var(--blue)]/50" : ""}`}>
+      {url ? (
+        <>
+          <img src={url} alt={alt} className="block max-w-full rounded-sm" draggable={false} />
+          {/* Covers the photo so WebKit's Live Text can't pick out words in it: a click selects the
+              image block, a double-click views it full size. */}
+          <div className="absolute inset-0" onDoubleClick={() => setViewing(true)} />
+        </>
+      ) : (
+        <div className="h-24 w-64 animate-pulse rounded-sm bg-hover" />
+      )}
+      {url && (
+        <div
+          contentEditable={false}
+          className="absolute top-2 right-2 flex items-center gap-0.5 rounded-md border border-line bg-raised/95 p-0.5 opacity-0 shadow-pop transition-opacity group-hover/img:opacity-100"
+        >
+          <ImgButton title="View full size" onMouseDown={act(() => setViewing(true))}>
+            <Maximize2 size={14} />
+          </ImgButton>
+          <ImgButton
+            title={copied ? "Copied" : "Copy image"}
+            onMouseDown={act(() =>
+              copyImage(url).then(
+                () => (setCopied(true), setTimeout(() => setCopied(false), 1200)),
+                () => {},
+              ),
+            )}
+          >
+            {copied ? <Check size={14} /> : <Copy size={14} />}
+          </ImgButton>
+          <ImgButton title="Delete image" onMouseDown={act(onDelete)}>
+            <Trash2 size={14} />
+          </ImgButton>
+        </div>
+      )}
+      {viewing && url && <Lightbox url={url} alt={alt} onClose={() => setViewing(false)} />}
     </NodeViewWrapper>
   );
 }
 
+const ImgButton = ({ title, onMouseDown, children }: { title: string; onMouseDown: (e: React.MouseEvent) => void; children: React.ReactNode }) => (
+  <button title={title} onMouseDown={onMouseDown} className="grid size-7 place-items-center rounded text-muted hover:bg-hover hover:text-ink">
+    {children}
+  </button>
+);
+
+/** The image filling the window over a dimmed page; a click anywhere or Escape closes it. */
+function Lightbox({ url, alt, onClose }: { url: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && (e.stopPropagation(), onClose());
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, [onClose]);
+  return createPortal(
+    <div onMouseDown={onClose} className="fixed inset-0 z-[80] flex flex-col items-center justify-center gap-3 bg-black/85 p-8">
+      <img src={url} alt={alt} className="max-h-[88vh] max-w-[92vw] object-contain shadow-2xl select-none" draggable={false} />
+      {alt && <div className="max-w-[80vw] truncate text-sm text-white/70">{alt}</div>}
+      <button title="Close (Esc)" className="absolute top-4 right-4 grid size-9 place-items-center rounded-full text-white/80 hover:bg-white/10">
+        <X size={18} />
+      </button>
+    </div>,
+    document.body,
+  );
+}
+
+/** Copies an image as PNG (the type the clipboard takes everywhere). */
+async function copyImage(url: string) {
+  const blob = await (await fetch(url)).blob();
+  const png =
+    blob.type === "image/png"
+      ? blob
+      : await new Promise<Blob>((resolve, reject) => {
+          const img = new window.Image(); // (Image here is the editor extension)
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext("2d")!.drawImage(img, 0, 0);
+            canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("no image"))), "image/png");
+          };
+          img.onerror = reject;
+          img.src = url;
+        });
+  await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+}
+
 /** Images can point into the workspace's `.assets/` folder, which the webview can't load directly. */
-function AssetImg({ src, alt }: { src: string; alt: string }) {
+function useAssetUrl(src: string) {
   const local = src.startsWith(".assets/");
-  const [url, setUrl] = useState(local ? null : src);
+  const [url, setUrl] = useState<string | null>(local ? null : src);
   useEffect(() => {
     if (!local) return setUrl(src);
     let alive = true;
@@ -533,5 +946,5 @@ function AssetImg({ src, alt }: { src: string; alt: string }) {
       alive = false;
     };
   }, [src, local]);
-  return url ? <img src={url} alt={alt} className="max-w-full rounded-sm" draggable={false} /> : <div className="h-24 animate-pulse rounded-sm bg-hover" />;
+  return url;
 }

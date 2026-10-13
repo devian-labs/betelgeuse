@@ -26,6 +26,7 @@ import {
   Table2,
   Type,
   Database,
+  Link2,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { NoteMeta } from "../lib/api";
@@ -105,10 +106,17 @@ const columns = (n: number) => ({
 
 export type PageActions = {
   /** Creates a sub-page of the current page and returns its vault path. */
-  createSubpage: () => Promise<string>;
+  createSubpage: (title: string) => Promise<string>;
+  /** The vault path of the current page's sub-page with this title, if there is one. */
+  findSubpage: (title: string) => string | undefined;
   /** Creates a database under the current page and returns its vault path. */
   createDatabase: () => Promise<string>;
 };
+
+/** Dispatched on the editor's DOM by "/page"; the editor answers with a page-name prompt. */
+export const NEW_SUBPAGE = "betelgeuse:new-subpage";
+/** Dispatched by "/linked database"; the editor answers with a picker of existing databases. */
+export const LINK_DATABASE = "betelgeuse:link-database";
 
 const section = (name: string, items: Action[]): Action[] => items.map((a) => ({ ...a, section: name }));
 
@@ -123,11 +131,10 @@ function blocks(page: PageActions): Action[] {
       hint: "Embed a sub-page inside this page",
       icon: <FileText size={18} />,
       keywords: "subpage",
+      // Asks for the page's name first (the editor shows the prompt), so it isn't left "Untitled".
       action: (e, r) => {
         run(e, r).run();
-        void page.createSubpage().then((path) =>
-          e.chain().focus().insertContent([{ type: "wikiLink", attrs: { target: stem(path).split("/").pop() } }, { type: "text", text: " " }]).run(),
-        );
+        e.view.dom.dispatchEvent(new CustomEvent(NEW_SUBPAGE));
       },
     },
     { id: "todo", title: "To-do list", icon: <ListTodo size={18} />, keywords: "task checkbox", shortcut: "[]", action: (e, r) => run(e, r).toggleTaskList().run() },
@@ -171,6 +178,17 @@ function blocks(page: PageActions): Action[] {
       },
     },
     {
+      id: "db-linked",
+      title: "Linked database",
+      hint: "Show an existing database inside this page",
+      icon: <Link2 size={18} />,
+      keywords: "view existing embed reference",
+      action: (e, r) => {
+        run(e, r).run();
+        e.view.dom.dispatchEvent(new CustomEvent(LINK_DATABASE));
+      },
+    },
+    {
       id: "db-page",
       title: "Database – Full page",
       hint: "Create a database as a sub-page",
@@ -179,7 +197,7 @@ function blocks(page: PageActions): Action[] {
       action: (e, r) => {
         run(e, r).run();
         void page.createDatabase().then((path) =>
-          e.chain().focus().insertContent([{ type: "wikiLink", attrs: { target: stem(path).split("/").pop() } }, { type: "text", text: " " }]).run(),
+          e.chain().focus().insertContent([{ type: "wikiLink", attrs: { target: stem(path) } }, { type: "text", text: " " }]).run(),
         );
       },
     },
@@ -234,7 +252,7 @@ function blocks(page: PageActions): Action[] {
 export const SlashCommand = Extension.create<{ page: PageActions }>({
   name: "slashCommand",
   addOptions() {
-    return { page: { createSubpage: async () => "", createDatabase: async () => "" } };
+    return { page: { createSubpage: async () => "", findSubpage: () => undefined, createDatabase: async () => "" } };
   },
   addProseMirrorPlugins() {
     const all = blocks(this.options.page);
@@ -308,7 +326,9 @@ function pageItems(query: string, { getNotes, createPage }: PageLinkOptions, wit
         hint: n.path.includes("/") ? n.path.slice(0, n.path.lastIndexOf("/")) : undefined,
         icon: n.icon ? <PageIcon icon={n.icon} size={16} /> : <FileText size={18} />,
         section: "Link to page",
-        action: (e: Editor, r: Range) => insertLink(e, r, n.title),
+        // A title shared with another page links by path, so it opens this one.
+        action: (e: Editor, r: Range) =>
+          insertLink(e, r, notes.filter((o) => o.title.toLowerCase() === n.title.toLowerCase()).length > 1 ? stem(n.path) : n.title),
       })),
   );
   if (q && !notes.some((n) => n.title.toLowerCase() === q.toLowerCase())) {

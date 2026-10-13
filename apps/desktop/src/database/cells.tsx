@@ -149,9 +149,11 @@ export function ValueView({ prop, value, wrap, limit }: { prop: Property; value:
 function RelationChips({ prop, value, wrap, limit }: { prop: Property; value: unknown; wrap?: boolean; limit?: number }) {
   const { notes } = useVault();
   const openRow = useOpenRow();
+  // Where values wrap (a page's properties), "+N more" expands the list in place.
+  const [showAll, setShowAll] = useState(false);
   const all = relationTitles(value);
   if (!all.length) return null;
-  const titles = limit ? all.slice(0, limit) : all;
+  const titles = limit && !showAll ? all.slice(0, limit) : all;
   const dbPath = relationDatabase(prop, notes);
   return (
     <span className={`flex gap-1.5 ${wrap ? "flex-wrap" : "overflow-hidden"}`}>
@@ -175,7 +177,16 @@ function RelationChips({ prop, value, wrap, limit }: { prop: Property; value: un
           </span>
         );
       })}
-      {titles.length < all.length && <span className="shrink-0 text-[13px] whitespace-nowrap text-faint">+{all.length - titles.length} more</span>}
+      {wrap && limit && all.length > limit ? (
+        <button
+          onClick={(e) => (e.stopPropagation(), setShowAll((v) => !v))}
+          className="shrink-0 rounded px-1 text-[13px] whitespace-nowrap text-faint hover:bg-hover hover:text-muted"
+        >
+          {showAll ? "Show less" : `+${all.length - titles.length} more`}
+        </button>
+      ) : (
+        titles.length < all.length && <span className="shrink-0 text-[13px] whitespace-nowrap text-faint">+{all.length - titles.length} more</span>
+      )}
     </span>
   );
 }

@@ -15,7 +15,7 @@ import { aiAccess } from "./lib/ai";
 import type { OpenOptions } from "./lib/nav";
 import { joinNote, patchFrontmatter, splitNote } from "./lib/frontmatter";
 import { planReorder } from "./lib/order";
-import { ancestorKeys, buildTree } from "./lib/tree";
+import { ancestorKeys, buildTree, childrenOf, parentPath } from "./lib/tree";
 import { VaultContext, type VaultContextValue } from "./lib/vault";
 import { useFullscreen } from "./lib/window";
 import { useApplySettings } from "./lib/settings";
@@ -66,7 +66,9 @@ export default function App() {
   const [peekPath, setPeekPath] = useState<string | null>(null);
   const [status, setStatus] = useState<RepoStatus | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(readList("expanded")));
+  // The sidebar opens fully collapsed; only the arrows (and adding or dragging a page into
+  // another) expand it.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [favorites, setFavorites] = useState<string[]>([]);
   const [toast, setToast] = useState<ToastData | null>(null);
   const [aiPolicy, setAiPolicyState] = useState<AiPolicy>("all");
@@ -154,16 +156,13 @@ export default function App() {
   useEffect(() => {
     if (openPath) setRecents((r) => [openPath, ...r.filter((x) => x !== openPath)].slice(0, RECENTS));
   }, [openPath]);
-  useEffect(() => store.set("expanded", JSON.stringify([...expanded])), [expanded]);
   useEffect(() => store.set("sidebar", sidebar ? "shown" : "hidden"), [sidebar]);
   useEffect(() => {
     if (vault) store.set(`favorites:${vault.path}`, JSON.stringify(favorites));
   }, [vault, favorites]);
 
-  const reveal = useCallback((path: string) => {
-    setPeekPath(null);
-    setExpanded((prev) => new Set([...prev, ...ancestorKeys(path)]));
-  }, []);
+  // Opening a page closes the peek panel; the sidebar stays as the user left it.
+  const reveal = useCallback((_path: string) => setPeekPath(null), []);
 
   // Opens a page in the current tab (browser-style back/forward), or a new
   // tab next to it. With no tab open yet, the page gets the first one.
@@ -204,14 +203,47 @@ export default function App() {
       return { list, active: Math.max(0, Math.min(active, list.length - 1)) };
     });
 
+  /** Keeps only the tabs `keep` accepts (by index), making tab `i` the active one. */
+  const keepTabs = (i: number, keep: (k: number) => boolean) =>
+    setTabs((t) => {
+      const list = t.list.filter((_, k) => keep(k));
+      return { list, active: list.indexOf(t.list[i]) };
+    });
+
+  /** Writes `order` values into pages' frontmatter (null removes it). */
+  const writeOrders = async (writes: Record<string, number | null>) => {
+    for (const [page, order] of Object.entries(writes)) {
+      const { frontmatter, body } = splitNote(await api.readNote(page));
+      await api.writeNote(page, joinNote(patchFrontmatter(frontmatter, { order }), body));
+    }
+  };
+
+  // A new page goes last among its siblings, or right below `after`, instead of wherever its
+  // title happens to sort.
   const createPage = useCallback(
-    async (parent: string | null, title = "Untitled") => {
+    async (parent: string | null, title = "Untitled", after?: string) => {
       const path = await api.createNote(parent, title);
-      await refresh();
+      const siblings = childrenOf(buildTree(await refresh()), parent?.replace(/\.md$/, "") ?? "");
+      const at = after ? siblings.findIndex((s) => s.path === after) : -1;
+      const writes = planReorder(
+        siblings.map((s) => ({ path: s.path, order: s.order ?? null })),
+        path,
+        at >= 0 ? at + 1 : siblings.length,
+      );
+      if (Object.keys(writes).length) {
+        await writeOrders(writes).catch(() => {});
+        await refresh();
+        setRefreshKey((k) => k + 1);
+      }
       if (parent) setExpanded((prev) => new Set([...prev, parent.replace(/\.md$/, "")]));
       return path;
     },
     [refresh],
+  );
+  /** A new page next to the open one (same parent, right below it), or at the top level. */
+  const createHere = useCallback(
+    (title?: string) => createPage(openPath ? parentPath(openPath) : null, title, openPath ?? undefined),
+    [createPage, openPath],
   );
 
   // Deleting moves to the Trash right away, with an Undo toast.
@@ -267,13 +299,34 @@ export default function App() {
     }
   };
 
+  // A click outside the peek panel closes it (menus and dialogs it opened don't count). It waits
+  // for the click to finish: a click on another row peeks that row instead, and closing first
+  // would make the panel slide out and back in.
+  const peekRef = useRef(peekPath);
+  peekRef.current = peekPath;
+  useEffect(() => {
+    if (!peekPath) return;
+    const down = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (e.button !== 0 || t.closest?.(".peek-panel, [data-popover], .fixed")) return;
+      const shown = peekRef.current;
+      window.addEventListener(
+        "mouseup",
+        () => setTimeout(() => peekRef.current === shown && setPeekPath(null)),
+        { once: true },
+      );
+    };
+    document.addEventListener("mousedown", down);
+    return () => document.removeEventListener("mousedown", down);
+  }, [peekPath]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && peekPath && !document.querySelector("[data-popover]")) setPeekPath(null);
       if (!e.metaKey && !e.ctrlKey) return;
       const key = e.key.toLowerCase();
       if (key === "k" || key === "p") (e.preventDefault(), setPalette((v) => !v));
-      if (key === "n" && !e.altKey) (e.preventDefault(), createPage(null).then(openPage));
+      if (key === "n" && !e.altKey) (e.preventDefault(), createHere().then(openPage));
       if (key === "\\") (e.preventDefault(), setSidebar((v) => !v), setSidebarPeek(false));
       if (key === "s") (e.preventDefault(), run("Committing…", () => api.gitCommit()));
       if (key === ",") (e.preventDefault(), setSettings("appearance"));
@@ -311,10 +364,7 @@ export default function App() {
       // Re-sort right away; the files follow.
       setNotes((ns) => ns.map((n) => (n.path in writes ? { ...n, order: writes[n.path] } : n)));
       try {
-        for (const [page, order] of Object.entries(writes)) {
-          const { frontmatter, body } = splitNote(await api.readNote(page));
-          await api.writeNote(page, joinNote(patchFrontmatter(frontmatter, { order }), body));
-        }
+        await writeOrders(writes);
       } catch (e) {
         await message(String(e), { title: "Betelgeuse", kind: "error" });
       } finally {
@@ -346,10 +396,7 @@ export default function App() {
         const list = [...siblings.map((s) => ({ path: s, order: byPath.get(s)?.order ?? null })), { path: next, order: null }];
         const writes: Record<string, number | null> = gap === null ? {} : planReorder(list, next, gap);
         if (!(next in writes) && byPath.get(next)?.order != null) writes[next] = null;
-        for (const [page, order] of Object.entries(writes)) {
-          const { frontmatter, body } = splitNote(await api.readNote(page));
-          await api.writeNote(page, joinNote(patchFrontmatter(frontmatter, { order }), body));
-        }
+        await writeOrders(writes);
       } catch (e) {
         await message(String(e), { title: "Betelgeuse", kind: "error" });
       } finally {
@@ -360,9 +407,26 @@ export default function App() {
     [refresh, peekPath],
   );
 
+  const renamed = useCallback(
+    async (old: string, next: string) => {
+      if (old === next) return;
+      const [oldKey, newKey] = [old.replace(/\.md$/, ""), next.replace(/\.md$/, "")];
+      const remap = (p: string) => (p === old ? next : p.startsWith(`${oldKey}/`) ? newKey + p.slice(oldKey.length) : p);
+      const remapKey = (k: string) => (k === oldKey || k.startsWith(`${oldKey}/`) ? newKey + k.slice(oldKey.length) : k);
+      setTabs((t) => ({ ...t, list: t.list.map((tab) => ({ ...tab, stack: tab.stack.map(remap) })) }));
+      setRecents((r) => r.map(remap));
+      setFavorites((f) => f.map(remap));
+      setPeekPath((p) => p && remap(p));
+      setExpanded((prev) => new Set([...prev].map(remapKey)));
+      await refresh();
+      setRefreshKey((k) => k + 1);
+    },
+    [refresh],
+  );
+
   const ctx: VaultContextValue = useMemo(
-    () => ({ notes, refreshKey, openPage, peek: setPeekPath, createPage, refresh, aiPolicy, setPageAi }),
-    [notes, refreshKey, openPage, createPage, refresh, aiPolicy, setPageAi],
+    () => ({ notes, refreshKey, openPage, peek: setPeekPath, createPage, refresh, renamed, aiPolicy, setPageAi }),
+    [notes, refreshKey, openPage, createPage, refresh, renamed, aiPolicy, setPageAi],
   );
   const tree = useMemo(() => buildTree(notes), [notes]);
 
@@ -379,12 +443,9 @@ export default function App() {
 
   const pageProps = {
     onRenamed: async (old: string, next: string) => {
-      await refresh();
-      setFavorites((f) => f.map((x) => (x === old ? next : x)));
-      setTabs((t) => ({ ...t, list: t.list.map((tab) => ({ ...tab, stack: tab.stack.map((x) => (x === old ? next : x)) })) }));
-      setRecents((r) => r.map((x) => (x === old ? next : x)));
-      if (peekPath === old) setPeekPath(next);
-      else openPage(next);
+      const peeked = peekPath === old;
+      await renamed(old, next);
+      if (!peeked) openPage(next);
     },
     onDeleted: deletePage,
     onSaved: () => api.gitStatus().then(setStatus).catch(() => {}),
@@ -417,6 +478,7 @@ export default function App() {
             onToggle={toggle}
             onOpen={openPage}
             onCreate={(parent) => createPage(parent).then(openPage)}
+            onCreateHere={() => createHere().then(openPage)}
             onDelete={deletePage}
             onDuplicate={async (path) => openPage(await api.duplicateNote(path))}
             onToggleFavorite={toggleFavorite}
@@ -445,6 +507,8 @@ export default function App() {
               inset={!sidebar && !fullscreen}
               onSelect={selectTab}
               onClose={closeTab}
+              onCloseOthers={(i) => keepTabs(i, (k) => k === i)}
+              onCloseRight={(i) => keepTabs(i, (k) => k <= i)}
               onNew={() => openPath && openPage(openPath, { newTab: true })}
               onBack={activeTab && activeTab.index > 0 ? () => go(-1) : undefined}
               onForward={activeTab && activeTab.index < activeTab.stack.length - 1 ? () => go(1) : undefined}
@@ -473,7 +537,9 @@ export default function App() {
 
           {peekPath && (
             <div className="peek-panel absolute inset-y-0 right-0 z-30 flex w-[min(720px,62%)] border-l border-line bg-surface shadow-peek">
-              <PageView key={peekPath} path={peekPath} mode="peek" onClose={() => setPeekPath(null)} {...pageProps} />
+              {/* Not keyed by path: switching rows swaps the page in place, keeping the old one on
+                  screen until the next has loaded. */}
+              <PageView path={peekPath} mode="peek" onClose={() => setPeekPath(null)} {...pageProps} />
             </div>
           )}
           </div>
@@ -496,7 +562,7 @@ export default function App() {
           <CommandPalette
             notes={notes}
             onOpen={openPage}
-            onCreate={(title) => createPage(null, title).then(openPage)}
+            onCreate={(title) => createHere(title).then(openPage)}
             onClose={() => setPalette(false)}
           />
         )}

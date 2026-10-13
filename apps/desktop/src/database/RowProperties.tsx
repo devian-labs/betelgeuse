@@ -126,7 +126,7 @@ export function RowProperties({
             {p.type === "checkbox" ? (
               <Checkbox checked={asBool(values[p.name])} onChange={(v) => onPatch({ [p.name]: v })} />
             ) : (
-              <ValueView prop={p} value={valueOf(p)} wrap />
+              <ValueView prop={p} value={valueOf(p)} wrap limit={p.type === "relation" ? 3 : undefined} />
             )}
             {p.type !== "checkbox" && valueOf(p) == null && <span className="text-faint">Empty</span>}
           </div>
