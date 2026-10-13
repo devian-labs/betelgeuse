@@ -71,6 +71,10 @@ export default function App() {
       peek: openPage,
       createPage,
       refresh,
+      // Links are rewritten on disk by the engine; re-reading the vault picks up the new names.
+      renamed: async () => {
+        await refresh();
+      },
       aiPolicy: "all",
       setPageAi: async () => {},
     }),

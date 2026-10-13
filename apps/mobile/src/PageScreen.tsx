@@ -156,7 +156,11 @@ export function PageScreen({ path, onBack, onDeleted, onRenamed }: { path: strin
                 getNotes={() => notesRef.current}
                 createPage={async (t) => titleOf(await createPage(null, t))}
                 page={{
-                  createSubpage: () => createPage(path, "Untitled"),
+                  createSubpage: (title) => createPage(path, title || "Untitled"),
+                  findSubpage: (title) => {
+                    const want = `${path.replace(/\.md$/, "")}/${title}.md`.toLowerCase();
+                    return notesRef.current.find((n) => n.path.toLowerCase() === want)?.path;
+                  },
                   createDatabase: async () => {
                     const db = await createDatabase(path);
                     await refresh();
