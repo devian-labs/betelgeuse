@@ -22,18 +22,47 @@ export function splitNote(content: string): { frontmatter: string; body: string 
 export function parseFrontmatter(raw: string): Frontmatter {
   if (!raw.trim()) return {};
   try {
-    const v = parseDocument(raw).toJS();
-    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
+    const doc = parseDocument(raw);
+    // One malformed value (an unquoted colon, a stray dash) shouldn't spoil the rest.
+    if (doc.errors.length) return readLeniently(raw);
+    const v = doc.toJS();
+    if (!v || typeof v !== "object" || Array.isArray(v)) return {};
+    return v;
   } catch {
     return {};
   }
+}
+
+/**
+ * Reads frontmatter that has YAML errors one top-level entry at a time (a line starting a key, plus
+ * the indented lines under it), so one malformed value doesn't spoil the others. A value YAML can't
+ * read, like `Idea: "Wrong video": on a call` or `Goal: - Recursion`, is kept as the text written.
+ */
+function readLeniently(frontmatter: string): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const entries: string[][] = [];
+  for (const line of frontmatter.split(/\r?\n/)) {
+    if (/^[^\s#-][^:]*:/.test(line) || !entries.length) entries.push([line]);
+    else entries[entries.length - 1].push(line);
+  }
+  for (const lines of entries) {
+    const m = /^([^\s#-][^:]*):(.*)$/.exec(lines[0]);
+    if (!m) continue;
+    const key = m[1].trim();
+    const doc = parseDocument(lines.join("\n"));
+    const value = doc.errors.length ? undefined : (doc.toJS() as Record<string, unknown> | null)?.[key];
+    out[key] = value !== undefined ? value : [m[2], ...lines.slice(1)].join("\n").trim();
+  }
+  return out;
 }
 
 const isEmpty = (v: unknown) => v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
 
 /** Patches top-level keys, preserving the rest of the YAML (comments, order, formatting). */
 export function patchFrontmatter(raw: string, patch: FrontmatterPatch): string {
-  const doc: Document = raw.trim() ? parseDocument(raw) : new Document({});
+  let doc: Document = raw.trim() ? parseDocument(raw) : new Document({});
+  // YAML with errors can't be written back as is: start from the values as read, which repairs it.
+  if (doc.errors.length) doc = new Document(parseFrontmatter(raw));
   if (!isMap(doc.contents)) throw new Error("Frontmatter is not a YAML mapping");
   for (const [key, value] of Object.entries(patch)) {
     if (isEmpty(value)) doc.delete(key);

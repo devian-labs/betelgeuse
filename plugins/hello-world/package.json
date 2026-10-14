@@ -1,0 +1,19 @@
+{
+  "name": "@betelgeuse/plugin-hello-world",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Example Betelgeuse plugin",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch --mode development",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@betelgeuse/plugin-api": "*",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "@betelgeuse/plugin-api",
+  "version": "1.0.0",
+  "description": "Types, UI components and the build setup for Betelgeuse plugins",
+  "license": "MIT",
+  "type": "module",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" },
+    "./ui": { "types": "./ui.d.ts", "default": "./ui.js" },
+    "./vite": "./vite.js",
+    "./theme.css": "./theme.css"
+  },
+  "files": ["index.d.ts", "index.js", "ui.d.ts", "ui.js", "vite.js", "theme.css", "README.md"],
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@vitejs/plugin-react": "^6.0.0",
+    "tailwindcss": "^4.0.0",
+    "vite": "^8.0.0"
+  }
+}

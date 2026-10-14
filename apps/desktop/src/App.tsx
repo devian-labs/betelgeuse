@@ -5,6 +5,10 @@ import { AgentsDialog } from "./components/AgentsDialog";
 import { SettingsDialog, type Section } from "./components/SettingsDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { LibraryView } from "./library/LibraryView";
+import { LIBRARY_PATH, useStudioWorkspace } from "./lib/studio";
+import { loadWorkspace as loadPlugins, parseViewPath, setHost as setPluginHost, viewPath } from "./plugins/runtime";
+import { PluginView } from "./plugins/slots";
 import { Logo } from "./components/Logo";
 import { Toast, type ToastData } from "./components/Toast";
 import { PageView } from "./components/PageView";
@@ -12,7 +16,7 @@ import { TabBar } from "./components/TabBar";
 import { Sidebar } from "./components/Sidebar";
 import { api, type AiPolicy, type NoteMeta, type RepoStatus, type VaultInfo } from "./lib/api";
 import { aiAccess } from "./lib/ai";
-import type { OpenOptions } from "./lib/nav";
+import { wantsNewTab, type OpenOptions } from "./lib/nav";
 import { joinNote, patchFrontmatter, splitNote } from "./lib/frontmatter";
 import { planReorder } from "./lib/order";
 import { ancestorKeys, buildTree, childrenOf, parentPath } from "./lib/tree";
@@ -62,6 +66,8 @@ export default function App() {
   const [notes, setNotes] = useState<NoteMeta[]>([]);
   const [tabs, setTabs] = useState<Tabs>({ list: [], active: 0 });
   const openPath = current(tabs.list[tabs.active]);
+  /** The open page, when the tab shows one (not the Library). */
+  const pagePath = openPath === LIBRARY_PATH || openPath?.startsWith("@plugin/") ? undefined : openPath;
   const [recents, setRecents] = useState<string[]>([]);
   const [peekPath, setPeekPath] = useState<string | null>(null);
   const [status, setStatus] = useState<RepoStatus | null>(null);
@@ -81,6 +87,11 @@ export default function App() {
   const fullscreen = useFullscreen();
   useApplySettings();
   const [settings, setSettings] = useState<false | Section>(false);
+  useStudioWorkspace(vault?.path);
+  // Plugins: load the ones this workspace uses, and lend them navigation and messages.
+  useEffect(() => {
+    if (vault) loadPlugins(vault.path);
+  }, [vault]);
   const notesRef = useRef(notes);
   notesRef.current = notes;
 
@@ -111,7 +122,7 @@ export default function App() {
       const n = await refresh();
       const exists = (p: string) => n.some((x) => x.path === p);
       // Reopen the tabs from last time (each with just its page; back/forward history isn't kept).
-      const saved = readList(`tabs:${info.path}`).filter(exists);
+      const saved = readList(`tabs:${info.path}`).filter((p) => p === LIBRARY_PATH || p.startsWith("@plugin/") || exists(p));
       const last = store.get(`open:${info.path}`);
       const first = [last, n.find((x) => x.title === "Welcome")?.path, n[0]?.path].find((p): p is string => !!p && exists(p));
       const paths = saved.length ? saved : first ? [first] : [];
@@ -154,8 +165,8 @@ export default function App() {
   }, [vault, recents]);
   // Every page shown goes to the top of Recents.
   useEffect(() => {
-    if (openPath) setRecents((r) => [openPath, ...r.filter((x) => x !== openPath)].slice(0, RECENTS));
-  }, [openPath]);
+    if (pagePath) setRecents((r) => [pagePath, ...r.filter((x) => x !== pagePath)].slice(0, RECENTS));
+  }, [pagePath]);
   useEffect(() => store.set("sidebar", sidebar ? "shown" : "hidden"), [sidebar]);
   useEffect(() => {
     if (vault) store.set(`favorites:${vault.path}`, JSON.stringify(favorites));
@@ -177,6 +188,9 @@ export default function App() {
     },
     [reveal],
   );
+  useEffect(() => {
+    setPluginHost({ openPath: openPage, toast: (message) => setToast({ message }) });
+  }, [openPage]);
 
   const activeTab = tabs.list[tabs.active];
   const go = useCallback(
@@ -242,8 +256,8 @@ export default function App() {
   );
   /** A new page next to the open one (same parent, right below it), or at the top level. */
   const createHere = useCallback(
-    (title?: string) => createPage(openPath ? parentPath(openPath) : null, title, openPath ?? undefined),
-    [createPage, openPath],
+    (title?: string) => createPage(pagePath ? parentPath(pagePath) : null, title, pagePath ?? undefined),
+    [createPage, pagePath],
   );
 
   // Deleting moves to the Trash right away, with an Undo toast.
@@ -485,6 +499,8 @@ export default function App() {
             onReorder={reorderPage}
             onMove={movePage}
             onSearch={() => setPalette(true)}
+            onOpenLibrary={(e) => openPage(LIBRARY_PATH, { newTab: wantsNewTab(e) })}
+            onOpenPluginView={(pluginId, viewId, e) => openPage(viewPath(pluginId, viewId), { newTab: wantsNewTab(e) })}
             onSwitchVault={async () => {
               const dir = await openDialog({ directory: true, title: "Open or create a workspace folder" });
               if (typeof dir === "string") await openVault(await api.openVault(dir));
@@ -517,13 +533,17 @@ export default function App() {
             />
           )}
           <div className="relative flex min-h-0 flex-1">
-          {openPath ? (
+          {openPath === LIBRARY_PATH ? (
+            <LibraryView onOpenSettings={() => setSettings("studio")} />
+          ) : openPath && parseViewPath(openPath) ? (
+            <PluginView path={openPath} onOpenSettings={() => setSettings("plugins")} />
+          ) : pagePath ? (
             <PageView
               key={vault.path}
-              path={openPath}
+              path={pagePath}
               historyOpen={history}
-              favorite={favorites.includes(openPath)}
-              onToggleFavorite={() => toggleFavorite(openPath)}
+              favorite={favorites.includes(pagePath)}
+              onToggleFavorite={() => toggleFavorite(pagePath)}
               onToggleHistory={() => setHistory((v) => !v)}
               {...pageProps}
             />
@@ -545,14 +565,14 @@ export default function App() {
           </div>
         </div>
 
-        {history && openPath && (
+        {history && pagePath && (
           <HistoryPanel
-            path={openPath}
+            path={pagePath}
             refreshKey={refreshKey}
             onClose={() => setHistory(false)}
             onRestore={async (content, commit) => {
-              await api.writeNote(openPath, content);
-              await api.gitCommit(`Restore ${openPath.split("/").pop()!.replace(/\.md$/, "")} to ${commit.short}`);
+              await api.writeNote(pagePath, content);
+              await api.gitCommit(`Restore ${pagePath.split("/").pop()!.replace(/\.md$/, "")} to ${commit.short}`);
               setRefreshKey((k) => k + 1);
             }}
           />

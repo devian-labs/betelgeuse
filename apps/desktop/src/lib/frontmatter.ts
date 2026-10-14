@@ -16,11 +16,38 @@ export function joinNote(frontmatter: string, body: string): string {
 export function readFrontmatter(frontmatter: string): Record<string, unknown> {
   if (!frontmatter.trim()) return {};
   try {
-    const value = parseDocument(frontmatter).toJS();
-    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    const doc = parseDocument(frontmatter);
+    // One malformed value (an unquoted colon, a stray dash) shouldn't spoil the rest.
+    if (doc.errors.length) return readLeniently(frontmatter);
+    const value = doc.toJS();
+    if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+    return value;
   } catch {
     return {};
   }
+}
+
+/**
+ * Reads frontmatter that has YAML errors one top-level entry at a time (a line starting a key, plus
+ * the indented lines under it), so one malformed value doesn't spoil the others. A value YAML can't
+ * read, like `Idea: "Wrong video": on a call` or `Goal: - Recursion`, is kept as the text written.
+ */
+function readLeniently(frontmatter: string): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  const entries: string[][] = [];
+  for (const line of frontmatter.split(/\r?\n/)) {
+    if (/^[^\s#-][^:]*:/.test(line) || !entries.length) entries.push([line]);
+    else entries[entries.length - 1].push(line);
+  }
+  for (const lines of entries) {
+    const m = /^([^\s#-][^:]*):(.*)$/.exec(lines[0]);
+    if (!m) continue;
+    const key = m[1].trim();
+    const doc = parseDocument(lines.join("\n"));
+    const value = doc.errors.length ? undefined : (doc.toJS() as Record<string, unknown> | null)?.[key];
+    out[key] = value !== undefined ? value : [m[2], ...lines.slice(1)].join("\n").trim();
+  }
+  return out;
 }
 
 const isEmpty = (v: unknown) => v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
@@ -30,7 +57,10 @@ const isEmpty = (v: unknown) => v === null || v === undefined || v === "" || (Ar
  * YAML — comments, ordering and formatting included. Lists are written in `[a, b]` style.
  */
 export function patchFrontmatter(frontmatter: string, patch: Record<string, unknown>): string {
-  const doc: Document = frontmatter.trim() ? parseDocument(frontmatter) : new Document({});
+  let doc: Document = frontmatter.trim() ? parseDocument(frontmatter) : new Document({});
+  // YAML with errors can't be written back as is: start from the values as read (malformed lines
+  // recovered as text), which also repairs it.
+  if (doc.errors.length) doc = new Document(readFrontmatter(frontmatter));
   if (!isMap(doc.contents)) return frontmatter;
   for (const [key, value] of Object.entries(patch)) {
     if (isEmpty(value)) doc.delete(key);

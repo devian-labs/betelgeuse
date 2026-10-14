@@ -15,7 +15,7 @@ for (const key of ["window", "document", "navigator", "Node", "HTMLElement", "El
 const { Editor } = await import("@tiptap/core");
 const { contentExtensions } = await import("../src/editor/Editor.tsx");
 const { normalizeMarkdown } = await import("../src/editor/markdown.ts");
-const { joinNote, readFrontmatter, splitNote } = await import("../src/lib/frontmatter.ts");
+const { joinNote, patchFrontmatter, readFrontmatter, splitNote } = await import("../src/lib/frontmatter.ts");
 const { parseSchema } = await import("../src/database/model.ts");
 
 function roundTrip(md) {
@@ -226,4 +226,16 @@ test("pressing Enter starts the next block without the colour", () => {
   type("kept");
   assert.match(editor.getMarkdown(), /<span data-bg="yellow">kept<\/span>/);
   editor.destroy();
+});
+
+test("malformed frontmatter values read as their text and are repaired when patched", () => {
+  // An unquoted colon after a quoted phrase: YAML reads it as a nested map (and reports an error).
+  const fm = 'Channel: Smruti Ranjan\nBase idea: "Wrong video": on a work call, I go.';
+  assert.equal(readFrontmatter(fm)["Base idea"], '"Wrong video": on a work call, I go.');
+  const patched = patchFrontmatter(fm, { Status: "Published" });
+  assert.deepEqual(readFrontmatter(patched), { Channel: "Smruti Ranjan", "Base idea": '"Wrong video": on a work call, I go.', Status: "Published" });
+  // A stray dash: the rest still reads, and nothing turns into a new key.
+  const dash = "order: 3\nObjectives: - Recursion & Backtracking\ntags:\n- a\n- b";
+  assert.deepEqual(readFrontmatter(dash), { order: 3, Objectives: "- Recursion & Backtracking", tags: ["a", "b"] });
+  assert.deepEqual(readFrontmatter(patchFrontmatter(dash, {})), readFrontmatter(dash));
 });

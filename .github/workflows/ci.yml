@@ -19,6 +19,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck -w @betelgeuse/desktop -w @betelgeuse/mobile -w betelgeuse-mcp
+      # Every plugin in plugins/ typechecks and builds against the plugin API.
+      - run: npm run plugins
       - run: node --import tsx --test tests/*.test.mjs
         working-directory: apps/desktop
       - run: npm test -w betelgeuse-mcp

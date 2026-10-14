@@ -1,4 +1,6 @@
 mod importer;
+mod library;
+mod plugins;
 mod seed;
 
 // The workspace engine lives in the shared core crate; these keep `crate::vault` / `crate::git` paths working.
@@ -21,6 +23,8 @@ struct Shared {
     pending: Mutex<Option<Instant>>,
     /// Idle time before auto-committing; `None` turns auto-commit off.
     autocommit: Mutex<Option<Duration>>,
+    /// Creator Studio's asset library.
+    library: library::Shared,
 }
 
 impl Default for Shared {
@@ -30,6 +34,7 @@ impl Default for Shared {
             watcher: Mutex::default(),
             pending: Mutex::default(),
             autocommit: Mutex::new(Some(AUTOCOMMIT_IDLE)),
+            library: Arc::default(),
         }
     }
 }
@@ -146,6 +151,7 @@ fn activate(app: &AppHandle, state: &AppState, path: PathBuf, remember: bool) ->
     if remember {
         remember_vault(app, &path);
     }
+    library::load(app, &state.library, &path);
     Ok(info(&path))
 }
 
@@ -395,6 +401,142 @@ fn find_node() -> Option<String> {
     (out.status.success() && Path::new(&path).is_absolute()).then_some(path)
 }
 
+// Creator Studio: the asset library.
+
+#[tauri::command]
+fn library_status(app: AppHandle, state: State<AppState>) -> library::Status {
+    library::status(&app, &state.library)
+}
+
+#[tauri::command]
+fn library_set_settings(app: AppHandle, state: State<AppState>, settings: library::StudioSettings) -> Result<(), String> {
+    library::update_settings(&app, &state.library, settings)
+}
+
+#[tauri::command]
+fn library_add_folder(app: AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
+    library::add_root(&app, &state.library, &path)
+}
+
+#[tauri::command]
+fn library_remove_folder(app: AppHandle, state: State<AppState>, name: String) -> Result<(), String> {
+    library::remove_root(&app, &state.library, &name)
+}
+
+#[tauri::command]
+fn library_rescan(app: AppHandle, state: State<AppState>) {
+    library::rescan(&app, &state.library)
+}
+
+#[tauri::command]
+fn library_clear_cache(app: AppHandle, state: State<AppState>) -> Result<(), String> {
+    library::clear_cache(&app, &state.library)
+}
+
+#[tauri::command]
+fn library_search(state: State<AppState>, query: library::Query) -> library::SearchResult {
+    library::search(&state.library, &query)
+}
+
+#[tauri::command]
+fn library_folders(state: State<AppState>) -> Vec<(String, usize)> {
+    library::folders(&state.library)
+}
+
+#[tauri::command]
+fn library_tags(state: State<AppState>) -> Vec<(String, usize)> {
+    library::tags(&state.library)
+}
+
+#[tauri::command]
+fn library_set_meta(state: State<AppState>, ids: Vec<String>, patch: library::MetaPatch) -> Result<(), String> {
+    library::set_meta(&state.library, &ids, &patch)
+}
+
+/// The asset's thumbnail (PNG/JPEG bytes), or an empty response when there isn't one.
+#[tauri::command]
+async fn library_thumbnail(app: AppHandle, state: State<'_, AppState>, id: String) -> Result<tauri::ipc::Response, String> {
+    let lib = state.library.clone();
+    let bytes = tauri::async_runtime::spawn_blocking(move || library::thumbnail(&app, &lib, &id))
+        .await
+        .map_err(|e| e.to_string())??;
+    Ok(tauri::ipc::Response::new(bytes.unwrap_or_default()))
+}
+
+/// Opens the file in its default app (or `with`, an app name).
+#[tauri::command]
+fn library_open(app: AppHandle, state: State<AppState>, id: String, with: Option<String>) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let path = library::path_of(&state.library, &id)?;
+    app.opener().open_path(path.to_string_lossy(), with).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn library_subfolders(state: State<AppState>, id: String) -> Result<Vec<String>, String> {
+    library::subfolders(&state.library, &id)
+}
+
+#[tauri::command]
+fn library_folder_exists(state: State<AppState>, id: String) -> bool {
+    library::folder_exists(&state.library, &id)
+}
+
+/// Creates a production's project folder with the template's sub-folders; returns its id.
+#[tauri::command]
+fn library_create_folder(app: AppHandle, state: State<AppState>, parent: String, name: String, template: Vec<String>) -> Result<String, String> {
+    library::create_folder(&app, &state.library, &parent, &name, &template)
+}
+
+#[tauri::command]
+fn library_reveal(app: AppHandle, state: State<AppState>, id: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    let path = library::path_of(&state.library, &id)?;
+    app.opener().reveal_item_in_dir(path).map_err(|e| e.to_string())
+}
+
+// Plugins.
+
+#[tauri::command]
+fn plugins_list(app: AppHandle) -> Vec<plugins::PluginInfo> {
+    plugins::list(&app)
+}
+
+/// A file from a plugin's folder (its code or styles).
+#[tauri::command]
+fn plugin_file(app: AppHandle, id: String, file: String) -> Result<String, String> {
+    plugins::read_file(&app, &id, &file)
+}
+
+#[tauri::command]
+fn plugin_install_folder(app: AppHandle, path: String) -> Result<String, String> {
+    plugins::install_folder(&app, Path::new(&path))
+}
+
+#[tauri::command]
+fn plugin_uninstall(app: AppHandle, id: String) -> Result<(), String> {
+    plugins::uninstall(&app, &id)
+}
+
+#[tauri::command]
+fn plugins_enabled(state: State<AppState>) -> Result<Vec<String>, String> {
+    Ok(plugins::enabled(&vault(&state)?))
+}
+
+#[tauri::command]
+fn plugins_set_enabled(state: State<AppState>, ids: Vec<String>) -> Result<(), String> {
+    plugins::set_enabled(&vault(&state)?, ids)
+}
+
+#[tauri::command]
+fn plugin_data_get(app: AppHandle, state: State<AppState>, id: String, scope: String) -> Result<serde_json::Value, String> {
+    plugins::data_get(&app, &vault(&state)?, &id, &scope)
+}
+
+#[tauri::command]
+fn plugin_data_set(app: AppHandle, state: State<AppState>, id: String, scope: String, value: serde_json::Value) -> Result<(), String> {
+    plugins::data_set(&app, &vault(&state)?, &id, &scope, value)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state: AppState = Arc::default();
@@ -441,7 +583,31 @@ pub fn run() {
             ui_state_set,
             import_pages,
             set_ai_policy,
-            mcp_info
+            mcp_info,
+            library_status,
+            library_set_settings,
+            library_add_folder,
+            library_remove_folder,
+            library_rescan,
+            library_clear_cache,
+            library_search,
+            library_folders,
+            library_tags,
+            library_set_meta,
+            library_thumbnail,
+            library_open,
+            library_reveal,
+            library_subfolders,
+            library_folder_exists,
+            library_create_folder,
+            plugins_list,
+            plugin_file,
+            plugin_install_folder,
+            plugin_uninstall,
+            plugins_enabled,
+            plugins_set_enabled,
+            plugin_data_get,
+            plugin_data_set
         ])
         .run(tauri::generate_context!())
         .expect("error while running Betelgeuse");

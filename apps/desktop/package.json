@@ -48,6 +48,7 @@
     "yjs": "^13.6.33"
   },
   "devDependencies": {
+    "@betelgeuse/plugin-api": "*",
     "@tailwindcss/vite": "^4.3.3",
     "@tauri-apps/cli": "^2.12.1",
     "@types/react": "^19.3.0",

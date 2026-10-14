@@ -17,6 +17,8 @@ export type Settings = {
   sidebarAiBadges: boolean;
   /** How many Recents rows the sidebar shows; its height stays fixed at this many. */
   recentRows: number;
+  /** Access Key of the person's own Unsplash developer app, for cover photo search. */
+  unsplashKey: string;
 };
 
 export const ACCENTS: { id: string; label: string; color: string }[] = [
@@ -34,7 +36,7 @@ export const PALETTES: { id: Palette; label: string; hint: string; swatch: [stri
   { id: "midnight", label: "Midnight", hint: "Cool blue slate", swatch: ["#13161d", "#191d26", "#5b7cfa"] },
 ];
 
-const DEFAULTS: Settings = { mode: "system", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8, sidebarAiBadges: false, recentRows: 5 };
+const DEFAULTS: Settings = { mode: "system", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8, sidebarAiBadges: false, recentRows: 5, unsplashKey: "" };
 const KEY = "betelgeuse-settings";
 
 function load(): Settings {

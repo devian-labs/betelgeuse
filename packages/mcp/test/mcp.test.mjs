@@ -109,6 +109,13 @@ test("queries a database and adds a row with typed properties", async () => {
   assert.deepEqual(done.rows.map((r) => r.Name).sort(), ["Review", "Write tests"]);
 });
 
+test("updating a row with malformed frontmatter repairs it instead of failing", async () => {
+  writeFileSync(path.join(vault, "Tasks/Trailer.md"), '---\nStatus: Todo\nIdea: "Wrong video": on a call\n---\nbody\n');
+  await call("update_note", { note: "Tasks/Trailer", frontmatter: { Status: "Done" } });
+  const text = readFileSync(path.join(vault, "Tasks/Trailer.md"), "utf8");
+  assert.equal(text, "---\nStatus: Done\nIdea: '\"Wrong video\": on a call'\n---\nbody\n");
+});
+
 test("pages hidden from AI are invisible and untouchable", async () => {
   writeFileSync(path.join(vault, "Diary.md"), "---\nai: false\n---\nmy secret thoughts about comets\n");
   mkdirSync(path.join(vault, "Diary"), { recursive: true });

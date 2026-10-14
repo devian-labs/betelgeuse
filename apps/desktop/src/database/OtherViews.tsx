@@ -82,7 +82,7 @@ function Card({
       onClick={(e) => editing !== row.path && openRow(row.path, e)}
       className="group/card relative shrink-0 cursor-pointer overflow-hidden rounded-lg border border-line bg-raised transition-[background-color,border-color,box-shadow] hover:border-[var(--line-strong)] hover:bg-[var(--card-hover)] hover:shadow-card"
     >
-      {shown === "cover" && <CoverBox cover={String(row.values.cover)} className="h-32 w-full border-b border-line" />}
+      {shown === "cover" && <CoverBox cover={String(row.values.cover)} position={typeof row.values.coverY === "number" ? row.values.coverY : 50} className="h-32 w-full border-b border-line" />}
       {shown === "content" && (
         <div className="h-32 overflow-hidden border-b border-line bg-side px-3 pt-3 text-[11px] leading-snug whitespace-pre-line text-faint">
           {text || <span className="opacity-60">Empty page</span>}

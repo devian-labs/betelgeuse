@@ -1,0 +1,29 @@
+/*
+ * The app's design tokens as Tailwind theme values, so plugin classes like `text-muted`,
+ * `bg-raised` or `border-line` match the app in every theme and palette. The values are the app's
+ * CSS variables, so they follow light/dark mode by themselves.
+ *
+ * In a plugin's stylesheet:
+ *   @import "tailwindcss/theme" layer(theme);
+ *   @import "tailwindcss/utilities" layer(utilities);
+ *   @import "@betelgeuse/plugin-api/theme.css";
+ *   @source "./";
+ * (No preflight: the app has already reset the page.)
+ *
+ * Shadows aren't themed here: a Tailwind token named like the app's variable (--shadow-pop) would
+ * redefine that variable as itself. Use `shadow-[var(--shadow-pop)]` instead.
+ */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-side: var(--side);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif;
+  --font-mono: "iawriter-mono", Nitti, Menlo, Courier, monospace;
+}

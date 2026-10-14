@@ -98,6 +98,9 @@ jobs:
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Built into the app for Unsplash cover search (Settings: repository secret UNSPLASH_ACCESS_KEY).
+          # Without it the app still builds; people then add their own key in the cover picker.
+          VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         with:
           projectPath: apps/desktop
           args: ${{ matrix.args }}

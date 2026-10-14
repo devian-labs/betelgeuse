@@ -26,6 +26,9 @@ import { DatabaseView } from "../database/DatabaseView";
 import { defaultSchema, writeSchema } from "../database/model";
 import { Toggle } from "../database/PropertyMenu";
 import { RowProperties } from "../database/RowProperties";
+import { AssetsPanel } from "../library/AssetsPanel";
+import { PluginPagePanels } from "../plugins/slots";
+import { useStudio } from "../lib/studio";
 import { createDatabase } from "../database/useDatabase";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { Editor } from "../editor/Editor";
@@ -38,7 +41,7 @@ import { ancestorKeys, resolveWikiLink } from "../lib/tree";
 import { aiAccess, type AiAccess } from "../lib/ai";
 import { wantsNewTab } from "../lib/nav";
 import { useVault } from "../lib/vault";
-import { CoverBox, CoverPicker } from "./Cover";
+import { CoverBox, CoverCredit, CoverPicker, photoCover } from "./Cover";
 import { IconPicker } from "./IconPicker";
 import { Outline } from "./Outline";
 import { MenuDivider, MenuItem, MenuSection, Popover } from "./Popover";
@@ -98,6 +101,10 @@ export function PageView(p: Props) {
   const [shownPath, setShownPath] = useState(p.path);
   const [saving, setSaving] = useState(false);
   const [picker, setPicker] = useState<"icon" | "cover" | null>(null);
+  /** The Change cover button, which the cover picker opens under. */
+  const [coverAnchor, setCoverAnchor] = useState<HTMLElement | null>(null);
+  /** While repositioning the cover: the position being dragged to, saved on "Save position". */
+  const [coverDraft, setCoverDraft] = useState<number | null>(null);
   const [addingTag, setAddingTag] = useState(false);
   const [backlinks, setBacklinks] = useState<NoteMeta[]>([]);
   // Collapsed unless last left open (on any page): long lists would otherwise trail every page.
@@ -226,6 +233,7 @@ export function PageView(p: Props) {
   const ai = aiAccess(path, notes.map((n) => (n.path === path ? { ...n, ai: ownAi } : n)), aiPolicy);
   const parent = parentOf(path);
   const parentIsDb = !!parent && notes.find((n) => n.path === parent)?.kind === "database";
+  const studio = useStudio();
   const isDb = values.type === "database";
 
   if (doc === "missing") {
@@ -239,6 +247,8 @@ export function PageView(p: Props) {
 
   const icon = typeof values.icon === "string" ? values.icon : undefined;
   const cover = typeof values.cover === "string" ? values.cover : undefined;
+  /** Where the cover image sits vertically, 0–100 (centred by default). */
+  const coverY = typeof values.coverY === "number" ? Math.min(100, Math.max(0, values.coverY)) : 50;
   const tags = doc ? frontmatterTags(doc.frontmatter) : [];
   const font = values.font === "serif" || values.font === "mono" ? values.font : "default";
   const small = values.small === true;
@@ -255,15 +265,44 @@ export function PageView(p: Props) {
       {!peekMode && !isDb && <Outline key={`${path}:${editorKey}`} scroller={scroller} />}
       <div ref={scroller} className="h-full overflow-y-auto" data-font={font} data-small={small || undefined}>
         {cover && (
-          <CoverBox cover={cover} className="group/cover relative h-[30vh] max-h-[280px] min-h-[160px] w-full">
-            <div className="absolute right-4 bottom-3 hidden gap-1 group-hover/cover:flex">
-              <button onClick={() => setPicker("cover")} className="rounded-md bg-raised/90 px-2 py-1 text-xs text-muted shadow-sm hover:bg-raised">
+          <CoverBox
+            cover={cover}
+            position={coverDraft ?? coverY}
+            onPosition={coverDraft != null ? setCoverDraft : undefined}
+            className="group/cover relative h-[30vh] max-h-[280px] min-h-[160px] w-full"
+          >
+            {coverDraft == null && typeof values.coverCredit === "string" && typeof values.coverCreditUrl === "string" && (
+              <CoverCredit name={values.coverCredit} url={values.coverCreditUrl} />
+            )}
+            {coverDraft != null ? (
+              <div className="absolute right-4 bottom-3 z-20 flex gap-1" onMouseDown={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => (patch({ coverY: coverDraft === 50 ? null : coverDraft }), setCoverDraft(null))}
+                  className="rounded-md bg-raised px-2 py-1 text-xs font-medium text-ink shadow-sm hover:bg-hover"
+                >
+                  Save position
+                </button>
+                <button onClick={() => setCoverDraft(null)} className="rounded-md bg-raised/90 px-2 py-1 text-xs text-muted shadow-sm hover:bg-raised">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              // Above the page head, which overlaps the cover's bottom edge (the icon sits on it):
+              // otherwise reaching for these buttons would leave the cover and hide them.
+            <div className="absolute right-4 bottom-3 z-20 flex gap-1 opacity-0 transition-opacity group-hover/cover:opacity-100 hover:opacity-100 focus-within:opacity-100">
+              <button onClick={(e) => (setCoverAnchor(e.currentTarget), setPicker("cover"))} className="rounded-md bg-raised/90 px-2 py-1 text-xs text-muted shadow-sm hover:bg-raised">
                 Change cover
               </button>
-              <button onClick={() => patch({ cover: null })} className="rounded-md bg-raised/90 px-2 py-1 text-xs text-muted shadow-sm hover:bg-raised">
+              {!/^(gradient|color)_/.test(cover) && (
+                <button onClick={() => setCoverDraft(coverY)} title="Drag the image up or down" className="rounded-md bg-raised/90 px-2 py-1 text-xs text-muted shadow-sm hover:bg-raised">
+                  Reposition
+                </button>
+              )}
+              <button onClick={() => patch({ cover: null, coverY: null, coverCredit: null, coverCreditUrl: null })} className="rounded-md bg-raised/90 px-2 py-1 text-xs text-muted shadow-sm hover:bg-raised">
                 Remove
               </button>
             </div>
+            )}
           </CoverBox>
         )}
 
@@ -279,7 +318,7 @@ export function PageView(p: Props) {
             )}
             <div className="flex h-8 items-end gap-0.5 text-sm text-faint opacity-0 transition-opacity group-hover/head:opacity-100">
               {!icon && <HeadButton icon={<SmilePlus size={15} />} label="Add icon" onClick={() => setPicker("icon")} />}
-              {!cover && <HeadButton icon={<ImageIcon size={15} />} label="Add cover" onClick={() => patch({ cover: "gradient_1" })} />}
+              {!cover && <HeadButton icon={<ImageIcon size={15} />} label="Add cover" onClick={() => (patch({ cover: photoCover(), coverCredit: null, coverCreditUrl: null }), setCoverDraft(50))} />}
               {tags.length === 0 && !addingTag && !isDb && <HeadButton icon={<Tag size={14} />} label="Add tags" onClick={() => setAddingTag(true)} />}
             </div>
             {picker === "icon" && (
@@ -294,10 +333,13 @@ export function PageView(p: Props) {
             )}
             {picker === "cover" && (
               <CoverPicker
+                anchor={coverAnchor}
                 onClose={() => setPicker(null)}
-                onPick={(c) => {
+                onPick={(c, credit) => {
                   setPicker(null);
-                  patch({ cover: c });
+                  patch({ cover: c, coverY: null, coverCredit: credit?.name ?? null, coverCreditUrl: credit?.url ?? null });
+                  // A new photo goes straight into reposition mode, to frame it.
+                  if (!/^(gradient|color)_/.test(c)) setCoverDraft(50);
                 }}
               />
             )}
@@ -346,6 +388,22 @@ export function PageView(p: Props) {
 
           {parentIsDb && doc && (
             <RowProperties dbPath={parent!} rowPath={path} frontmatter={doc.frontmatter} times={{ created: meta?.created ?? 0, modified: meta?.modified ?? 0 }} onPatch={patch} />
+          )}
+          {doc && (
+            <PluginPagePanels
+              page={{
+                path,
+                title: meta?.title ?? title,
+                properties: values,
+                isDatabase: !!isDb,
+                database: parentIsDb ? parent! : null,
+                setProperties: patch,
+              }}
+            />
+          )}
+          {/* Rows of the Creator Studio pipeline are productions: show their project folder's files. */}
+          {parentIsDb && doc && studio.enabled && parent === studio.status?.settings.pipeline.database && (
+            <AssetsPanel title={meta?.title ?? title} frontmatter={doc.frontmatter} onPatch={patch} />
           )}
 
           {isDb ? (

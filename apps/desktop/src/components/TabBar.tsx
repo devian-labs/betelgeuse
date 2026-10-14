@@ -1,7 +1,9 @@
-import { ChevronLeft, ChevronRight, ChevronsRight, FileText, PanelLeft, Plus, Table2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsRight, FileText, Library, PanelLeft, Puzzle, Plus, Table2, X } from "lucide-react";
 import { useState } from "react";
 import type { NoteMeta } from "../lib/api";
 import { PageIcon } from "./PageIcon";
+import { LIBRARY_PATH } from "../lib/studio";
+import { parseViewPath, useContributions } from "../plugins/runtime";
 import { MenuDivider, MenuItem, Popover } from "./Popover";
 
 type Props = {
@@ -30,6 +32,7 @@ export function TabBar(props: Props) {
   const { tabs, active, notes, inset, onSelect, onClose, onNew, onBack, onForward, onShowSidebar, onPeekSidebar } = props;
   // Right-clicking a tab: which one, and where.
   const [menu, setMenu] = useState<{ i: number; at: DOMRect } | null>(null);
+  const { views } = useContributions();
   const run = (f: (i: number) => void) => () => (menu && f(menu.i), setMenu(null));
   return (
     <div
@@ -59,7 +62,10 @@ export function TabBar(props: Props) {
       <div data-tauri-drag-region className="flex min-w-0 flex-1 items-stretch overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         {tabs.map((tab, i) => {
           const note = notes.find((n) => n.path === tab.path);
-          const title = note?.title ?? tab.path.split("/").pop()!.replace(/\.md$/, "");
+          const library = tab.path === LIBRARY_PATH;
+          const plugin = parseViewPath(tab.path);
+          const view = plugin && views.find((v) => v.pluginId === plugin.pluginId && v.id === plugin.viewId);
+          const title = library ? "Library" : plugin ? (view?.title ?? plugin.viewId) : (note?.title ?? tab.path.split("/").pop()!.replace(/\.md$/, ""));
           const on = i === active;
           return (
             <div
@@ -77,7 +83,7 @@ export function TabBar(props: Props) {
               }`}
             >
               <span className="grid size-4 shrink-0 place-items-center text-faint">
-                {note?.icon ? <PageIcon icon={note.icon} size={15} /> : note?.kind === "database" ? <Table2 size={14} /> : <FileText size={14} />}
+                {library ? <Library size={14} /> : plugin ? (view?.icon ?? <Puzzle size={14} />) : note?.icon ? <PageIcon icon={note.icon} size={15} /> : note?.kind === "database" ? <Table2 size={14} /> : <FileText size={14} />}
               </span>
               <span className="min-w-0 flex-1 truncate">{title}</span>
               {/* A lone tab can't be closed: there would be no page left to show. */}

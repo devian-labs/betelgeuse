@@ -17,7 +17,8 @@
   },
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "plugins/*"
   ],
   "scripts": {
     "app": "npm run app -w @betelgeuse/desktop",
@@ -26,6 +27,7 @@
     "mcp:build": "npm run build -w betelgeuse-mcp",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
-    "version:set": "node scripts/set-version.mjs"
+    "version:set": "node scripts/set-version.mjs",
+    "plugins": "node scripts/plugins.mjs"
   }
 }

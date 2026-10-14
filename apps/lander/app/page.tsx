@@ -172,6 +172,7 @@ export default async function Home() {
             <a className="optional" href="#agents">AI agents</a>
             <a className="optional" href="#import">Import</a>
             <a className="optional" href="#open-source">Open source</a>
+            <a href="/docs/">Docs</a>
           </nav>
           <StarButton className="button small" label="Star" />
         </div>
@@ -494,6 +495,8 @@ export default async function Home() {
             <a href="#features">Features</a>
             <a href="#agents">AI agents</a>
             <a href="#import">Import</a>
+            <a href="/docs/">Docs</a>
+            <a href="/docs/developers/plugins/">Build a plugin</a>
             <a href="#download">Download</a>
           </nav>
           <nav aria-label="Project">

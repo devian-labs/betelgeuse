@@ -13,6 +13,10 @@ apps/lander/next-env.d.ts
 apps/desktop/public/third-party-notices.txt
 *.tsbuildinfo
 
+# Local keys (e.g. VITE_UNSPLASH_ACCESS_KEY): release builds get them from CI secrets
+.env.local
+.env.*.local
+
 # OS / editor
 .DS_Store
 *.log

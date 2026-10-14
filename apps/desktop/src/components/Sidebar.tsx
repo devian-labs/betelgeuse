@@ -17,6 +17,7 @@ import {
   Plus,
   RefreshCw,
   Settings,
+  Library,
   Search,
   SquarePen,
   Star,
@@ -34,6 +35,8 @@ import { aiAccess } from "../lib/ai";
 import { LINKS, open as openLink } from "../lib/links";
 import { wantsNewTab, type OpenOptions } from "../lib/nav";
 import { useSettings } from "../lib/settings";
+import { LIBRARY_PATH, useStudio } from "../lib/studio";
+import { PluginSidebarItems } from "../plugins/slots";
 import { useVault } from "../lib/vault";
 import { Logo } from "./Logo";
 import { MenuDivider, MenuItem, Popover } from "./Popover";
@@ -70,6 +73,10 @@ type Props = {
   onSync: () => void;
   onAgents: () => void;
   onSettings: () => void;
+  /** Opens Creator Studio's Library (shown when Creator Studio is on). */
+  onOpenLibrary: (e: React.MouseEvent) => void;
+  /** Opens a plugin's view (from a plugin's sidebar item). */
+  onOpenPluginView: (pluginId: string, viewId: string, e: React.MouseEvent) => void;
   onImport: () => void;
   onCollapse: () => void;
   /** Docked open (true), or hidden off-screen unless `peeking`. */
@@ -109,6 +116,7 @@ export function Sidebar(p: Props) {
   }, [p.recents]);
   const recents = shownRecents.map((r) => byPath.get(r)).filter((n): n is NoteMeta => !!n);
   const settings = useSettings();
+  const studio = useStudio();
 
   const resize = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -188,6 +196,22 @@ export function Sidebar(p: Props) {
           <span className="rounded border border-line px-1 text-[11px] leading-4">⌘K</span>
         </button>
       </div>
+
+      <div className="px-2">
+        <PluginSidebarItems activePath={p.openPath ?? undefined} onOpenView={p.onOpenPluginView} />
+      </div>
+      {studio.enabled && (
+        <div className="px-2">
+          <button
+            onClick={p.onOpenLibrary}
+            className={`flex h-[30px] w-full items-center gap-2 rounded-md px-2 text-sm ${p.openPath === LIBRARY_PATH ? "bg-hover font-medium text-ink" : "text-muted hover:bg-hover"}`}
+          >
+            <Library size={16} className={p.openPath === LIBRARY_PATH ? "text-[var(--accent)]" : "text-faint"} />
+            <span className="flex-1 text-left">Library</span>
+            {studio.progress.phase !== "idle" && <RefreshCw size={12} className="animate-spin text-faint" />}
+          </button>
+        </div>
+      )}
 
       <div ref={scroller} className="relative mt-3 min-h-0 flex-1 overflow-y-auto px-2 pb-4">
         {/* While dragging, rows ignore the pointer so nothing but the drop line reacts to it. */}
