@@ -61,8 +61,10 @@ export function PluginView({ path, onOpenSettings }: { path: string; onOpenSetti
     );
   }
   const V = view.component;
+  // A row, so the view's root is stretched to exactly the space under the tab bar (whatever its own
+  // layout): its scrolling areas get a fixed height to scroll within.
   return (
-    <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <Boundary pluginId={view.pluginId}>
         <V viewId={view.id} />
       </Boundary>

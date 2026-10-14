@@ -66,4 +66,6 @@ To try a plugin in an installed copy of Betelgeuse, use **Settings â†’ Plugins â
 - [UI and styling](/docs/developers/plugins/ui/): the app's components and design tokens.
 - [Testing and publishing](/docs/developers/plugins/publishing/): checks, guidelines and the store.
 
+For a full, real plugin, read [Media Library](https://github.com/devian-labs/betelgeuse/tree/main/plugins/media-library): a view, settings, page panels, search and the media library.
+
 The [Hello World plugin](https://github.com/devian-labs/betelgeuse/tree/main/plugins/hello-world) uses every contribution point; read it alongside these pages.

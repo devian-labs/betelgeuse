@@ -51,6 +51,8 @@ export interface PluginManifest {
   styles?: string;
   /** What the plugin may do. Shown before installing; the API enforces it. */
   permissions?: Permission[];
+  /** Kept out of the plugin store (examples, internal tools). */
+  private?: boolean;
 }
 
 export type Permission =
@@ -60,6 +62,8 @@ export type Permission =
   | "workspace:write"
   /** Open web links and files in other apps. */
   | "shell:open"
+  /** Index folders the person picks and preview their files (`ctx.library`). */
+  | "library"
   /** `ctx.http.fetch` to this host, e.g. "network:api.unsplash.com". */
   | `network:${string}`;
 
@@ -98,6 +102,8 @@ export interface PluginContext {
   readonly shell?: Shell;
   /** Present with at least one "network:<host>" permission; only those hosts are allowed. */
   readonly http?: Http;
+  /** The media library: index folders, search files, previews. Present with the "library" permission. */
+  readonly library?: MediaLibrary;
 
   /** Extra disposables to clean up when the plugin is turned off. */
   readonly subscriptions: Disposable[];
@@ -151,6 +157,8 @@ export interface SidebarItem {
 
 export interface SettingsSections {
   register(section: SettingsSection): Disposable;
+  /** Opens Settings at this plugin's section. */
+  open(): void;
 }
 
 export interface SettingsSection {
@@ -250,6 +258,8 @@ export interface Workspace {
   readPage(path: string): Promise<{ properties: Record<string, unknown>; body: string }>;
   /** A database's rows, with their properties. */
   databaseRows(path: string): Promise<{ path: string; title: string; properties: Record<string, unknown> }[]>;
+  /** A database's properties (columns): name, type, and options for selects. */
+  databaseSchema(path: string): Promise<{ name: string; type: string; options?: { name: string; color: string }[] }[]>;
   /** Opens a page in the app. */
   openPage(path: string, options?: { newTab?: boolean }): void;
   /** Called after pages change on disk (any page, by anyone). */
@@ -267,4 +277,121 @@ export interface Shell {
 
 export interface Http {
   fetch(url: string, init?: RequestInit): Promise<Response>;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Media library (permission "library")
+
+/**
+ * An index of the files in folders the person picks (footage, photos, audio, design and project
+ * files), kept up to date as files change, with media details and thumbnails. Files are only read,
+ * never moved or uploaded. One library per workspace, shared by the plugins that use it; it scans
+ * and watches only while at least one of them is active.
+ */
+export interface MediaLibrary {
+  status(): Promise<LibraryStatus>;
+  /** Called when the index changes (files added, changed, details read). */
+  onChange(listener: () => void): Disposable;
+  /** Called as scanning progresses. */
+  onProgress(listener: (progress: LibraryProgress) => void): Disposable;
+
+  /** Asks the person for a folder to add (or adds `path`). */
+  addFolder(path?: string): Promise<void>;
+  /** Forgets a folder's index; its files aren't touched. */
+  removeFolder(name: string): Promise<void>;
+  rescan(): Promise<void>;
+  /** Shows a folder picker; returns the absolute path, or null if cancelled. */
+  pickFolder(title?: string): Promise<string | null>;
+  setOptions(options: { ignore?: string[]; thumbnails?: boolean }): Promise<void>;
+  clearCache(): Promise<void>;
+
+  search(query: LibraryQuery): Promise<LibraryResult>;
+  /** Folders that hold files, with how many: `[id, count]`. */
+  folders(): Promise<[string, number][]>;
+  tags(): Promise<[string, number][]>;
+  /** Sub-folder names of a folder, read from disk. */
+  subfolders(id: string): Promise<string[]>;
+  folderExists(id: string): Promise<boolean>;
+  /** Creates `<parent>/<name>` with the given sub-folders; returns its id. */
+  createFolder(parent: string, name: string, subfolders: string[]): Promise<string>;
+  /** Tags, rating and notes (saved in the workspace; they follow files that move). */
+  setMeta(ids: string[], patch: MetaPatch): Promise<void>;
+
+  /** An object URL for the file's thumbnail, or null when there isn't one. */
+  thumbnail(asset: Pick<Asset, "id" | "modified">): Promise<string | null>;
+  /** A URL that plays or shows the file itself in `<video>`, `<audio>` or `<img>`. */
+  fileUrl(asset: Pick<Asset, "path">): string;
+  /** Opens a file or folder (by id) in its app, or reveals it in Finder/Explorer. */
+  open(id: string): Promise<void>;
+  reveal(id: string): Promise<void>;
+}
+
+export type AssetKind = "video" | "audio" | "image" | "raw" | "design" | "project" | "font" | "document" | "other";
+
+export interface Asset {
+  /** `<library folder name>/<path inside it>`: the same on every computer. */
+  id: string;
+  root: string;
+  rel: string;
+  name: string;
+  ext: string;
+  kind: AssetKind;
+  size: number;
+  modified: number;
+  created: number;
+  width: number | null;
+  height: number | null;
+  /** Seconds. */
+  duration: number | null;
+  fps: number | null;
+  codec: string | null;
+  /** Its folder's drive isn't connected. */
+  offline: boolean;
+  tags: string[];
+  rating: number;
+  notes: string;
+  /** Absolute path on this computer. */
+  path: string;
+}
+
+export interface LibraryStatus {
+  options: { ignore: string[]; thumbnails: boolean };
+  roots: { name: string; path: string; files: number; exists: boolean }[];
+  active: boolean;
+  scanning: boolean;
+  lastScan: number | null;
+  total: number;
+  ffmpeg: string | null;
+  ffprobe: string | null;
+  cacheBytes: number;
+}
+
+export type LibraryProgress = { phase: "idle" | "scanning" | "probing"; done?: number; total?: number };
+
+export interface LibraryQuery {
+  /** Free text plus filters: `goa kind:video duration:>30 #broll ext:psd rating:>=4`. */
+  text?: string;
+  kinds?: AssetKind[];
+  /** Only files under this folder id. */
+  folder?: string | null;
+  tags?: string[];
+  list?: "recent" | "favorites" | "untagged" | null;
+  sort?: "relevance" | "modified" | "name" | "size" | "duration";
+  desc?: boolean;
+  limit?: number;
+}
+
+export interface LibraryResult {
+  hits: Asset[];
+  total: number;
+  /** Matches per kind, ignoring the kind filter. */
+  kinds: Partial<Record<AssetKind, number>>;
+}
+
+export interface MetaPatch {
+  tags?: string[];
+  addTags?: string[];
+  removeTags?: string[];
+  rating?: number;
+  notes?: string;
 }

@@ -1,11 +1,9 @@
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { ChevronRight, Clapperboard, ExternalLink, Folder, FolderOpen, FolderPlus, Layers, Library, Link2, TriangleAlert, Unlink } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { api, type Asset, type LibraryStatus } from "../lib/api";
-import { getString, readFrontmatter } from "../lib/frontmatter";
-import { channelNoise, homeFolder, suggestFolders } from "../lib/pipeline";
-import { formatBytes, formatDuration, LIBRARY_PATH, showInLibrary, useStudio } from "../lib/studio";
-import { useVault } from "../lib/vault";
+import type { Asset, LibraryStatus, PageInfo } from "@betelgeuse/plugin-api";
+import { channelNoise, homeFolder, suggestFolders, usePipeline } from "./pipeline";
+import { formatBytes, formatDuration, showInLibrary, useStudio } from "./store";
+import { library, openLibrary } from "./host";
 import { PreviewOverlay, Thumb } from "./LibraryView";
 
 const OPEN_KEY = "assets-panel-open";
@@ -26,13 +24,14 @@ function idFor(path: string, roots: LibraryStatus["roots"]) {
  * sub-folder, with buttons to open the project or the folder. Without a folder yet, offers to
  * create one from the template or link an existing one.
  */
-export function AssetsPanel({ title, frontmatter, onPatch }: { title: string; frontmatter: string; onPatch: (values: Record<string, unknown>) => void }) {
+export function AssetsPanel({ page }: { page: PageInfo }) {
   const { status, version } = useStudio();
-  const { openPage } = useVault();
-  const pipeline = status?.settings.pipeline;
-  const fm = readFrontmatter(frontmatter);
-  const folder = pipeline ? getString(fm, pipeline.folderProperty)?.replace(/\/+$/, "") || null : null;
-  const channel = pipeline ? getString(fm, pipeline.channelProperty) ?? null : null;
+  const pipeline = usePipeline();
+  const title = page.title;
+  const onPatch = (values: Record<string, unknown>) => void page.setProperties(values);
+  const text = (v: unknown) => (typeof v === "string" ? v : typeof v === "number" ? String(v) : undefined);
+  const folder = text(page.properties[pipeline.folderProperty])?.replace(/\/+$/, "") || null;
+  const channel = text(page.properties[pipeline.channelProperty]) ?? null;
   const [open, setOpen] = useState(localStorage.getItem(OPEN_KEY) !== "closed");
   const [assets, setAssets] = useState<Asset[] | null>(null);
   const [subfolders, setSubfolders] = useState<string[]>([]);
@@ -47,9 +46,9 @@ export function AssetsPanel({ title, frontmatter, onPatch }: { title: string; fr
   useEffect(() => {
     if (!folder) return setAssets(null);
     let live = true;
-    api.librarySearch({ folder, sort: "modified", limit: 2000 }).then((r) => live && setAssets(r.hits));
-    api.libraryFolderExists(folder).then((e) => live && setExists(e));
-    api.librarySubfolders(folder).then((s) => live && setSubfolders(s)).catch(() => live && setSubfolders([]));
+    library().search({ folder, sort: "modified", limit: 2000 }).then((r) => live && setAssets(r.hits));
+    library().folderExists(folder).then((e) => live && setExists(e));
+    library().subfolders(folder).then((s) => live && setSubfolders(s)).catch(() => live && setSubfolders([]));
     return () => {
       live = false;
     };
@@ -60,7 +59,7 @@ export function AssetsPanel({ title, frontmatter, onPatch }: { title: string; fr
   useEffect(() => {
     if (folder || !status?.roots.length) return setSuggestions([]);
     let live = true;
-    api.libraryFolders().then((all) => {
+    library().folders().then((all) => {
       const scope = all.map(([id]) => id).filter((id) => !home || id.startsWith(`${home}/`));
       live && setSuggestions(suggestFolders(title, scope, 0.5, pipeline ? channelNoise(pipeline, channel) : []).slice(0, 3));
     });
@@ -81,7 +80,7 @@ export function AssetsPanel({ title, frontmatter, onPatch }: { title: string; fr
     return [...m.entries()].sort(([a], [b]) => (a === "" ? -1 : b === "" ? 1 : a.localeCompare(b, undefined, { numeric: true })));
   }, [assets, subfolders, folder]);
 
-  if (!status?.settings.enabled || !pipeline) return null;
+  if (!status) return null;
 
   const project = (assets ?? []).filter((a) => a.kind === "project").sort((a, b) => b.modified - a.modified)[0];
   const footage = (assets ?? []).filter((a) => a.kind === "video").reduce((s, a) => s + (a.duration ?? 0), 0);
@@ -89,9 +88,9 @@ export function AssetsPanel({ title, frontmatter, onPatch }: { title: string; fr
 
   const create = async () => {
     setError(null);
-    if (!home) return setError(channel ? `Choose where ${channel}'s project folders go in Settings → Creator Studio.` : "Choose a default project folder in Settings → Creator Studio.");
+    if (!home) return setError(channel ? `Choose where ${channel}'s project folders go in Settings → Media Library.` : "Choose a default project folder in Settings → Media Library.");
     try {
-      const id = await api.libraryCreateFolder(home, title, pipeline.template);
+      const id = await library().createFolder(home, title, pipeline.template);
       onPatch({ [pipeline.folderProperty]: id });
     } catch (e) {
       setError(String(e));
@@ -99,16 +98,16 @@ export function AssetsPanel({ title, frontmatter, onPatch }: { title: string; fr
   };
   const choose = async () => {
     setError(null);
-    const dir = await openDialog({ directory: true, title: `Project folder for ${title}`, defaultPath: status.roots[0]?.path });
-    if (typeof dir !== "string") return;
+    const dir = await library().pickFolder(`Project folder for ${title}`);
+    if (!dir) return;
     const id = idFor(dir, status.roots);
-    if (!id) return setError("That folder isn't in the Library. Add its drive or parent folder in Settings → Creator Studio first.");
+    if (!id) return setError("That folder isn't in the Library. Add its drive or parent folder in Settings → Media Library first.");
     onPatch({ [pipeline.folderProperty]: id });
   };
-  const library = () => {
+  const showLibrary = () => {
     if (!folder) return;
     showInLibrary(folder);
-    openPage(LIBRARY_PATH);
+    openLibrary();
   };
 
   return (
@@ -128,10 +127,10 @@ export function AssetsPanel({ title, frontmatter, onPatch }: { title: string; fr
         {folder && (
           <>
             {project && (
-              <PanelButton icon={<Layers size={13} />} label="Open project" title={project.name} onClick={() => api.libraryOpen(project.id)} />
+              <PanelButton icon={<Layers size={13} />} label="Open project" title={project.name} onClick={() => library().open(project.id)} />
             )}
-            <PanelButton icon={<FolderOpen size={13} />} label="Folder" title="Open the folder" onClick={() => api.libraryOpen(folder)} />
-            <PanelButton icon={<Library size={13} />} label="Library" title="Show in the Library" onClick={library} />
+            <PanelButton icon={<FolderOpen size={13} />} label="Folder" title="Open the folder" onClick={() => library().open(folder)} />
+            <PanelButton icon={<Library size={13} />} label="Library" title="Show in the Library" onClick={showLibrary} />
           </>
         )}
       </div>
@@ -183,7 +182,7 @@ export function AssetsPanel({ title, frontmatter, onPatch }: { title: string; fr
               </div>
               {groups.length === 0 && <p className="py-2 text-[13px] text-faint">The folder is empty.</p>}
               {groups.map(([name, files]) => (
-                <Group key={name || "."} name={name} files={files} onPreview={setPreview} onOpenFolder={() => api.libraryOpen(name ? `${folder}/${name}` : folder)} />
+                <Group key={name || "."} name={name} files={files} onPreview={setPreview} onOpenFolder={() => library().open(name ? `${folder}/${name}` : folder)} />
               ))}
             </>
           )}
@@ -218,7 +217,7 @@ function Group({ name, files, onPreview, onOpenFolder }: { name: string; files: 
             <button
               key={a.id}
               onClick={() => onPreview(a)}
-              onDoubleClick={() => api.libraryOpen(a.id)}
+              onDoubleClick={() => library().open(a.id)}
               title={`${a.name}\nClick to preview, double-click to open`}
               className="group min-w-0 rounded-md p-1 text-left hover:bg-hover"
             >

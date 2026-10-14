@@ -1,15 +1,13 @@
 import { Command, CornerDownLeft, FileText, Plus, Search } from "lucide-react";
 import { PageIcon } from "./PageIcon";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type Asset, type NoteMeta, type SearchHit } from "../lib/api";
-import { formatDuration, useStudio } from "../lib/studio";
-import { Thumb } from "../library/LibraryView";
+import { api, type NoteMeta, type SearchHit } from "../lib/api";
 import { useContributions } from "../plugins/runtime";
 import type { SearchResult as PluginResult } from "@betelgeuse/plugin-api";
 import type { ReactNode } from "react";
 import { Modal } from "./Modal";
 
-type Result = { id: string; title: string; icon: string | null; detail?: string; run: () => void; asset?: Asset; first?: string; node?: ReactNode };
+type Result = { id: string; title: string; icon: string | null; detail?: string; run: () => void; first?: string; node?: ReactNode };
 
 export function CommandPalette({
   notes,
@@ -26,8 +24,6 @@ export function CommandPalette({
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [active, setActive] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
-  const studio = useStudio();
-  const [files, setFiles] = useState<Asset[]>([]);
   // Plugins: their commands, and their search result groups.
   const { commands, search } = useContributions();
   const [pluginHits, setPluginHits] = useState<{ group: string; results: PluginResult[] }[]>([]);
@@ -48,14 +44,10 @@ export function CommandPalette({
   }, [query, search]);
 
   useEffect(() => {
-    if (!query.trim()) return (setHits([]), setFiles([]));
-    const t = setTimeout(() => {
-      api.search(query).then(setHits).catch(() => setHits([]));
-      // With Creator Studio on, files from the Library too.
-      if (studio.enabled) api.librarySearch({ text: query, limit: 6 }).then((r) => setFiles(r.hits)).catch(() => setFiles([]));
-    }, 120);
+    if (!query.trim()) return setHits([]);
+    const t = setTimeout(() => api.search(query).then(setHits).catch(() => setHits([])), 120);
     return () => clearTimeout(t);
-  }, [query, studio.enabled]);
+  }, [query]);
 
   const results: Result[] = useMemo(() => {
     const open = (path: string) => () => (onOpen(path), onClose());
@@ -66,17 +58,6 @@ export function CommandPalette({
         .map((n) => ({ id: n.path, title: n.title, icon: n.icon, detail: parentOf(n.path), run: open(n.path) }));
     }
     const out: Result[] = hits.map((h) => ({ id: h.path, title: h.title, icon: h.icon, detail: h.snippet, run: open(h.path) }));
-    files.forEach((a, i) =>
-      out.push({
-        id: `file:${a.id}`,
-        title: a.name,
-        icon: null,
-        detail: [a.id.slice(0, a.id.lastIndexOf("/")), formatDuration(a.duration)].filter(Boolean).join(" · "),
-        run: () => (api.libraryOpen(a.id), onClose()),
-        asset: a,
-        first: i === 0 ? "Files" : undefined,
-      }),
-    );
     const q = query.trim().toLowerCase();
     commands
       .filter((c) => c.title.toLowerCase().includes(q))
@@ -88,7 +69,7 @@ export function CommandPalette({
       );
     out.push({ id: "__create", title: `New page "${query.trim()}"`, icon: null, run: () => (onCreate(query.trim()), onClose()) });
     return out;
-  }, [query, hits, files, commands, pluginHits, notes, onOpen, onCreate, onClose]);
+  }, [query, hits, commands, pluginHits, notes, onOpen, onCreate, onClose]);
 
   useEffect(() => setActive(0), [results]);
   useEffect(() => {
@@ -123,8 +104,8 @@ export function CommandPalette({
               onClick={r.run}
               className={`flex w-full items-start gap-3 rounded-md px-2.5 py-2 text-left ${i === active ? "bg-hover" : ""}`}
             >
-              <span className={`mt-0.5 grid shrink-0 place-items-center overflow-hidden text-faint ${r.asset ? "h-6 w-10 rounded bg-side" : "size-5"}`}>
-                {r.asset ? <Thumb asset={r.asset} /> : r.node ? r.node : r.id.startsWith("cmd:") ? <Command size={15} /> : r.id === "__create" ? <Plus size={16} /> : r.icon ? <PageIcon icon={r.icon} size={17} /> : <FileText size={16} />}
+              <span className={`mt-0.5 grid shrink-0 place-items-center overflow-hidden text-faint ${r.node ? "h-6 min-w-5 rounded" : "size-5"}`}>
+                {r.node ? r.node : r.id.startsWith("cmd:") ? <Command size={15} /> : r.id === "__create" ? <Plus size={16} /> : r.icon ? <PageIcon icon={r.icon} size={17} /> : <FileText size={16} />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm text-ink">{r.title}</span>

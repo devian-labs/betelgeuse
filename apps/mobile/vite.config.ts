@@ -10,7 +10,11 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     // The editor, databases and styles are shared with the desktop app (until they move to packages/ui).
-    alias: { "@desktop": fileURLToPath(new URL("../desktop/src", import.meta.url)) },
+    alias: {
+      "@desktop": fileURLToPath(new URL("../desktop/src", import.meta.url)),
+      // Keeps Yjs out of the app: see that stub.
+      "@tiptap/y-tiptap": fileURLToPath(new URL("../desktop/src/editor/y-tiptap-stub.ts", import.meta.url)),
+    },
   },
   clearScreen: false,
   server: {

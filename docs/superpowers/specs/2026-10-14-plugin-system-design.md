@@ -1,6 +1,6 @@
 # Plugin system: design
 
-Date: 2026-10-14 · Status: step 1 built (runtime, API 1, Settings → Plugins, Hello World, docs site)
+Date: 2026-10-14 · Status: steps 1–4 built (runtime and API 1, media library service, Creator Studio as a plugin, signed store with updates, docs site). Step 5 (more extension points, plugin MCP tools) is next.
 
 ## Goal
 
@@ -94,6 +94,25 @@ Development builds load plugins from `plugins/*/dist` (marked "Development", wit
 builds load installed ones from `<app data>/plugins/<id>/`. Contribution points in v1: views,
 sidebar, settings, page panels, commands, search. Activation is at startup for enabled plugins
 (lazy activation is a later optimisation; the manifest doesn't declare contributions yet).
+
+### Steps 2–4 as built
+
+> Renamed after building: the plugin first called "Creator Studio" (`creator-studio`) is **Media
+> Library** (`media-library`): it's a file and media browser; content planning lives in the
+> workspace's own Content Studio pages. The app migrates the old id (plugin list, data, tabs).
+
+- **Media library service** (`ctx.library`, permission `library`): the former Creator Studio engine
+  (`library.rs`) runs only while a plugin using it is active (`library_set_active`). Its data stays
+  where it was (`.betelgeuse/studio.json` for options, `.betelgeuse/library.jsonl` for tags).
+- **Creator Studio** is `plugins/creator-studio` (66 KB of JS); the core has no Creator Studio code.
+  Its pipeline settings moved into the plugin's data. A one-time migration turns the plugin on for
+  workspaces that had the built-in feature switched on, and old `@library` tabs open the plugin's view.
+- **Store**: `scripts/package-plugins.mjs` zips and Ed25519-signs each non-private plugin and writes
+  `plugins.json`; the Release workflow's `plugins` job attaches them to the release. The app reads
+  `releases/latest/download/plugins.json` (or `BETELGEUSE_PLUGIN_INDEX`), checks SHA-256 and the
+  signature against `plugin-signing.pub`, unpacks with path checks and verifies the manifest matches
+  (`plugin_store.rs`). Settings → Plugins has Installed and Browse, update badges, automatic updates
+  (on by default) and installs for plugins a workspace uses but the computer lacks.
 
 ## Repository layout
 

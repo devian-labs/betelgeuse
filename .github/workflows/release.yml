@@ -198,6 +198,41 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "$GITHUB_REF_NAME" dist-mobile/*.apk --clobber
 
+  plugins:
+    name: Plugins (store packages)
+    # After the desktop builds, so the draft release exists to attach to.
+    needs: [checks, version, build]
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Builds every plugin, zips it and signs it with the store key (the app only installs plugins
+      # signed with it). Writes dist-plugins/plugins.json, which the app reads from the latest release.
+      - name: Package and sign
+        env:
+          PLUGIN_SIGNING_KEY: ${{ secrets.PLUGIN_SIGNING_KEY }}
+        run: |
+          if [ -z "$PLUGIN_SIGNING_KEY" ]; then
+            echo "::warning::No PLUGIN_SIGNING_KEY secret: plugins are packaged unsigned, and release builds of the app won't install them."
+          fi
+          node scripts/package-plugins.mjs
+      - uses: actions/upload-artifact@v6
+        with:
+          name: plugins
+          path: dist-plugins/*
+      - name: Attach to the draft release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "$GITHUB_REF_NAME" dist-plugins/* --clobber
+
   ios:
     name: Build (iOS, simulator)
     needs: [checks]

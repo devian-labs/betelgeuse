@@ -4,8 +4,6 @@ description: Add features to Betelgeuse with plugins, and decide what each one m
 ---
 Plugins add features to Betelgeuse: new screens, panels on pages, settings, commands and search results. The core app stays small and focused; you add only what you need.
 
-> [!blue] 🧩
-> The plugin store is on its way. Until it opens, plugins are installed from a folder (see below), and the first plugins are the ones in the Betelgeuse repository.
 
 ## Where plugins live
 
@@ -19,7 +17,21 @@ Open **Settings → Plugins**. For each plugin you'll see its version, what it d
 
 Plugins with their own settings get their own entry in the Settings sidebar.
 
+## Install from the plugin store
+
+1. Open **Settings → Plugins → Browse**.
+2. Each plugin shows what it does and what it may do. Click **Install**, and confirm.
+3. It's downloaded, checked and turned on for this workspace straight away.
+
+Store plugins are built from source by Betelgeuse's release pipeline and **signed**; the app checks the signature and refuses anything that doesn't match, so what you install is exactly what was published.
+
+**Updates** install automatically when a new version works with your Betelgeuse (switch this off with **Update automatically** under the Installed tab, then use **Update to …** on each plugin). **Check for updates** looks right away.
+
+If you open a workspace that uses a plugin this computer doesn't have (say, after syncing it from another machine), Settings → Plugins offers to install it.
+
 ## Install a plugin from a folder
+
+For plugins that aren't in the store, such as one you're building or one a friend shared:
 
 1. Get the plugin's built folder: the one with `betelgeuse-plugin.json`, `main.js` and maybe `styles.css`.
 2. In **Settings → Plugins**, click **Install from folder…** and choose it.
@@ -37,11 +49,12 @@ Every plugin lists what it may do, and Betelgeuse holds it to that:
 | Create and change pages | It can create pages and edit their content and properties. |
 | Open links and files in other apps | It can open web links in your browser and files in their apps. |
 | Connect to *a website* | It can talk to that website (only that one), for example to search photos. |
+| Index the folders you choose and preview their files | It can use the media library: folders you add, their files' details and thumbnails. |
 
 A plugin without a permission doesn't get the part of the API that needs it. Click **N permissions** under a plugin in Settings to see its list.
 
 > [!yellow] ⚠️
-> Plugins run inside the app with the access their permissions describe. Install plugins only from sources you trust; plugins from the store will be reviewed and signed.
+> Plugins run inside the app with the access their permissions describe. Store plugins are reviewed and signed; install plugins from a folder only from sources you trust.
 
 ## When a plugin can't run
 

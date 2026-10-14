@@ -1,5 +1,3 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import {
   AudioLines,
   Box,
@@ -19,6 +17,8 @@ import {
   Image as ImageIcon,
   Layers,
   LayoutList,
+  PanelLeftClose,
+  PanelLeftOpen,
   Library,
   PenTool,
   RefreshCw,
@@ -31,22 +31,14 @@ import {
   X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { MenuDivider, MenuItem, Popover } from "../components/Popover";
-import { api, type Asset, type AssetKind, type LibraryQuery, type LibraryResult } from "../lib/api";
-import { labelColor, tagColor } from "../lib/colors";
-import {
-  KIND_LABELS,
-  KIND_ORDER,
-  formatBytes,
-  formatDuration,
-  formatResolution,
-  thumbnailUrl,
-  useLibraryRequest,
-  useStudio,
-} from "../lib/studio";
-import { productionOf, useProductions, type Production } from "../lib/pipeline";
-import { useVault } from "../lib/vault";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useViewport, visibleRows } from "./virtual";
+import { MenuDivider, MenuItem, Popover } from "@betelgeuse/plugin-api/ui";
+import type { Asset, AssetKind, LibraryQuery, LibraryResult, MetaPatch } from "@betelgeuse/plugin-api";
+import { library, openPage } from "./host";
+import { labelColor, tagColor } from "./colors";
+import { KIND_LABELS, KIND_ORDER, formatBytes, formatDuration, formatResolution, useLibraryRequest, useStudio } from "./store";
+import { productionOf, useProductions, type Production } from "./pipeline";
 
 type List = "recent" | "favorites" | "untagged" | null;
 type Sort = NonNullable<LibraryQuery["sort"]>;
@@ -72,9 +64,9 @@ const store = {
   set: (k: string, v: string) => localStorage.setItem(`library:${k}`, v),
 };
 
-/** Creator Studio's Library: every file in the library folders, searchable, with previews. */
+/** The Library: every file in the library folders, searchable, with previews. */
 export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) {
-  const { status, enabled, progress, version } = useStudio();
+  const { status, progress, version } = useStudio();
   const [text, setText] = useState("");
   const [kind, setKind] = useState<AssetKind | null>(null);
   const [folder, setFolder] = useState<string | null>(null);
@@ -83,6 +75,10 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
   const [sort, setSort] = useState<Sort>((store.get("sort") as Sort) ?? "relevance");
   const [mode, setMode] = useState<"grid" | "list">(store.get("mode") === "list" ? "list" : "grid");
   const [size, setSize] = useState(Number(store.get("size")) || 180);
+  // Side panels: widths and whether the left list shows, remembered between sessions.
+  const [navWidth, setNavWidth] = useState(Number(store.get("navWidth")) || 224);
+  const [inspectorWidth, setInspectorWidth] = useState(Number(store.get("inspectorWidth")) || 320);
+  const [navHidden, setNavHidden] = useState(store.get("navHidden") === "1");
   const [result, setResult] = useState<LibraryResult | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [focus, setFocus] = useState<string | null>(null);
@@ -108,7 +104,7 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
   useEffect(() => {
     if (!folder) return setSubfolders([]);
     let live = true;
-    api.librarySubfolders(folder).then((s) => live && setSubfolders(s)).catch(() => live && setSubfolders([]));
+    library().subfolders(folder).then((s) => live && setSubfolders(s)).catch(() => live && setSubfolders([]));
     return () => {
       live = false;
     };
@@ -117,33 +113,36 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
   useEffect(() => store.set("sort", sort), [sort]);
   useEffect(() => store.set("mode", mode), [mode]);
   useEffect(() => store.set("size", String(size)), [size]);
+  useEffect(() => store.set("navWidth", String(navWidth)), [navWidth]);
+  useEffect(() => store.set("inspectorWidth", String(inspectorWidth)), [inspectorWidth]);
+  useEffect(() => store.set("navHidden", navHidden ? "1" : "0"), [navHidden]);
 
   const query = useMemo<LibraryQuery>(
-    () => ({ text, kinds: kind ? [kind] : [], folder, tags: tag ? [tag] : [], list, sort, desc: sort !== "name" }),
+    () => ({ text, kinds: kind ? [kind] : [], folder, tags: tag ? [tag] : [], list, sort, desc: sort !== "name", limit: 3000 }),
     [text, kind, folder, tag, list, sort],
   );
-  const runSearch = useCallback(() => api.librarySearch(query).then(setResult).catch(() => {}), [query]);
+  const runSearch = useCallback(() => library().search(query).then(setResult).catch(() => {}), [query]);
 
   useEffect(() => {
-    if (!enabled) return;
     const t = window.setTimeout(runSearch, text ? 120 : 0);
     return () => window.clearTimeout(t);
-  }, [enabled, runSearch, text, version]);
+  }, [runSearch, text, version]);
   useEffect(() => {
-    if (!enabled) return;
-    api.libraryFolders().then(setFolders).catch(() => {});
-    api.libraryTags().then(setTags).catch(() => {});
-  }, [enabled, version]);
+    library().folders().then(setFolders).catch(() => {});
+    library().tags().then(setTags).catch(() => {});
+  }, [version]);
 
   const hits = result?.hits ?? [];
   const byId = useMemo(() => new Map(hits.map((h) => [h.id, h])), [hits]);
   const focused = focus ? byId.get(focus) ?? null : null;
   const chosen = [...selected].map((id) => byId.get(id)).filter((a): a is Asset => !!a);
 
-  const refreshMeta = async (ids: string[], patch: Parameters<typeof api.librarySetMeta>[1]) => {
-    await api.librarySetMeta(ids, patch);
+  const closeDetails = () => (setSelected(new Set()), setFocus(null));
+
+  const refreshMeta = async (ids: string[], patch: MetaPatch) => {
+    await library().setMeta(ids, patch);
     await runSearch();
-    api.libraryTags().then(setTags);
+    library().tags().then(setTags);
   };
 
   const select = (a: Asset, e: React.MouseEvent) => {
@@ -164,6 +163,37 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
     setFocus(a.id);
   };
 
+  // The results scroll on their own, rendering only the rows on screen.
+  const { el: scroller, ref: scrollerRef, view } = useViewport();
+  const cols = gridColumns(view.width - 32, size);
+
+  // One stable handler for every tile and row, so they don't re-render when the view does.
+  const actions = useRef({ select, open: (a: Asset) => library().open(a.id), menu: (_a: Asset, _at: DOMRect) => {} });
+  actions.current = {
+    select,
+    open: (a) => library().open(a.id),
+    menu: (a, at) => {
+      const ids = selected.has(a.id) ? [...selected] : [a.id];
+      if (!selected.has(a.id)) (setSelected(new Set([a.id])), setFocus(a.id));
+      setMenu({ at, ids });
+    },
+  };
+  const onAction = useCallback<Action>((kind, a, e) => {
+    if (kind === "click") actions.current.select(a, e as React.MouseEvent);
+    else if (kind === "open") actions.current.open(a);
+    else actions.current.menu(a, e as DOMRect);
+  }, []);
+
+  /** Scrolls so result `i` is on screen (the rows off screen aren't in the page to scroll to). */
+  const reveal = (i: number) => {
+    const el = scroller;
+    if (!el) return;
+    const [top, height] = mode === "grid" ? [Math.floor(i / cols) * gridStride(view.width - 32, size), gridTileHeight(view.width - 32, size)] : [LIST_HEAD + i * LIST_ROW, LIST_ROW];
+    if (top < el.scrollTop) el.scrollTop = top;
+    else if (top + height > el.scrollTop + el.clientHeight) el.scrollTop = top + height - el.clientHeight + 8;
+  };
+
+
   // Keyboard: ⌘F focuses search; arrows move; Enter opens; Space previews; Escape clears.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -182,7 +212,7 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
       }
       if (!focused) return;
       const i = hits.findIndex((h) => h.id === focused.id);
-      const perRow = mode === "grid" ? Math.max(1, Math.floor((document.getElementById("library-grid")?.clientWidth ?? size) / (size + 12))) : 1;
+      const perRow = mode === "grid" ? cols : 1;
       const move = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: perRow, ArrowUp: -perRow }[e.key];
       if (move) {
         e.preventDefault();
@@ -191,32 +221,23 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
           setFocus(next.id);
           setSelected(new Set([next.id]));
           if (preview) setPreview(next);
-          document.querySelector(`[data-asset="${CSS.escape(next.id)}"]`)?.scrollIntoView({ block: "nearest" });
+          reveal(hits.indexOf(next));
         }
       } else if (e.key === " ") {
         e.preventDefault();
         setPreview(focused);
       } else if (e.key === "Enter") {
-        api.libraryOpen(focused.id);
+        library().open(focused.id);
       } else if (e.key === "Escape") {
         setSelected(new Set());
+        setFocus(null);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focused, hits, mode, size, preview, menu]);
+  }, [focused, hits, mode, size, preview, menu, cols, view.width]);
 
   if (!status) return <div className="flex-1" />;
-  if (!enabled) {
-    return (
-      <Empty icon={<Library size={28} />} title="Creator Studio is off">
-        Turn it on in Settings to search your footage, photos, audio and project files from here.
-        <button onClick={onOpenSettings} className="mt-4 rounded-md bg-[var(--accent)] px-3 py-1.5 text-sm font-medium text-white">
-          Open Settings
-        </button>
-      </Empty>
-    );
-  }
   if (!status.roots.length) {
     return (
       <Empty icon={<FolderPlus size={28} />} title="Add your first library folder">
@@ -234,8 +255,11 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
 
   return (
     <div className="flex min-w-0 flex-1">
-      {/* Left: smart lists, kinds, folders, tags. */}
-      <aside className="flex w-56 shrink-0 flex-col overflow-y-auto border-r border-line px-2 pt-12 pb-4 text-sm">
+      {/* Left: smart lists, kinds, folders, tags. Resizable, and can be hidden. */}
+      {!navHidden && (
+      <div style={{ width: navWidth }} className="relative shrink-0 border-r border-line">
+        <Resizer side="right" width={navWidth} min={170} max={420} onResize={setNavWidth} />
+      <aside className="flex h-full flex-col overflow-y-auto px-2 pt-12 pb-4 text-sm">
         <Nav icon={<Library size={15} />} label="All files" count={!kind ? allCount : undefined} active={!list && !kind && !folder && !tag} onClick={() => (setList(null), setKind(null), setFolder(null), setTag(null))} />
         <Nav icon={<Clock size={15} />} label="Last 7 days" active={list === "recent"} onClick={() => setList(list === "recent" ? null : "recent")} />
         <Nav icon={<Star size={15} />} label="Favourites" hint="★4+" active={list === "favorites"} onClick={() => setList(list === "favorites" ? null : "favorites")} />
@@ -265,11 +289,15 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
           </>
         )}
       </aside>
+      </div>
+      )}
 
       {/* Middle: search and results. */}
       <section className="flex min-w-0 flex-1 flex-col">
         <header data-tauri-drag-region className="flex h-11 shrink-0 items-center gap-2 px-3 text-sm">
-          <Library size={16} className="text-muted" />
+          <IconBtn title={navHidden ? "Show the side list" : "Hide the side list"} onClick={() => setNavHidden((v) => !v)}>
+            {navHidden ? <PanelLeftOpen size={15} /> : <PanelLeftClose size={15} />}
+          </IconBtn>
           <span className="font-medium">Library</span>
           <span data-tauri-drag-region className="flex-1" />
           {busy && (
@@ -278,7 +306,7 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
               {progress.phase === "probing" ? `Reading details ${progress.done ?? 0}/${progress.total ?? 0}` : "Scanning…"}
             </span>
           )}
-          <IconBtn title="Rescan folders" onClick={() => api.libraryRescan()}>
+          <IconBtn title="Rescan folders" onClick={() => library().rescan()}>
             <RefreshCw size={15} />
           </IconBtn>
           <IconBtn title="Library settings" onClick={onOpenSettings}>
@@ -321,7 +349,7 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
                   </span>
                 );
               })}
-              <button onClick={() => api.libraryOpen(folder)} title="Open in Finder" className="ml-1 grid size-6 place-items-center rounded text-faint hover:bg-hover hover:text-ink">
+              <button onClick={() => library().open(folder)} title="Open in Finder" className="ml-1 grid size-6 place-items-center rounded text-faint hover:bg-hover hover:text-ink">
                 <FolderOpen size={13} />
               </button>
               <button onClick={() => setFolder(null)} title="All folders" className="grid size-6 place-items-center rounded text-faint hover:bg-hover hover:text-ink">
@@ -335,7 +363,7 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
                   <button
                     key={sf}
                     onClick={() => setFolder(`${folder}/${sf}`)}
-                    onDoubleClick={() => api.libraryOpen(`${folder}/${sf}`)}
+                    onDoubleClick={() => library().open(`${folder}/${sf}`)}
                     className="flex h-7 max-w-64 items-center gap-1.5 rounded-md border border-line px-2 text-xs text-muted hover:bg-hover hover:text-ink"
                   >
                     <Folder size={13} className="shrink-0 text-faint" />
@@ -355,7 +383,7 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
             {result && result.total > hits.length ? ` · showing the first ${hits.length}` : ""}
           </span>
           <span className="flex-1" />
-          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="rounded-md bg-transparent px-1 py-0.5 text-xs text-muted hover:bg-hover">
+          <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="cursor-pointer rounded-md bg-transparent px-1 py-0.5 text-xs text-muted hover:bg-hover">
             <option value="relevance">Relevance</option>
             <option value="modified">Date modified</option>
             <option value="name">Name</option>
@@ -363,7 +391,7 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
             <option value="duration">Length</option>
           </select>
           {mode === "grid" && (
-            <input type="range" min={120} max={320} value={size} onChange={(e) => setSize(Number(e.target.value))} className="w-24 accent-[var(--accent)]" title="Thumbnail size" />
+            <input type="range" min={120} max={320} value={size} onChange={(e) => setSize(Number(e.target.value))} className="w-24 cursor-pointer accent-[var(--accent)]" title="Thumbnail size" />
           )}
           <div className="flex rounded-md border border-line">
             <button title="Grid" onClick={() => setMode("grid")} className={`grid size-6 place-items-center ${mode === "grid" ? "bg-hover text-ink" : "text-faint"}`}>
@@ -376,54 +404,42 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
         </div>
 
         <div
+          ref={scrollerRef}
           className="min-h-0 flex-1 overflow-y-auto px-4 pb-8"
-          onMouseDown={(e) => e.target === e.currentTarget && setSelected(new Set())}
+          onMouseDown={(e) => e.target === e.currentTarget && (setSelected(new Set()), setFocus(null))}
         >
           {result && !hits.length ? (
             <div className="pt-16 text-center text-sm text-faint">{busy && !status.total ? "Scanning your folders…" : "Nothing matches."}</div>
           ) : mode === "grid" ? (
-            <div id="library-grid" className="grid gap-3" style={{ gridTemplateColumns: `repeat(auto-fill, minmax(${size}px, 1fr))` }}>
-              {hits.map((a) => (
-                <Tile
-                  key={a.id}
-                  asset={a}
-                  selected={selected.has(a.id)}
-                  onClick={(e) => select(a, e)}
-                  onOpen={() => api.libraryOpen(a.id)}
-                  onMenu={(at) => {
-                    const ids = selected.has(a.id) ? [...selected] : [a.id];
-                    if (!selected.has(a.id)) (setSelected(new Set([a.id])), setFocus(a.id));
-                    setMenu({ at, ids });
-                  }}
-                />
-              ))}
-            </div>
+            <Grid hits={hits} selected={selected} size={size} view={view} width={view.width - 32} onAction={onAction} />
           ) : (
-            <Table
-              hits={hits}
-              selected={selected}
-              onClick={select}
-              onOpen={(a) => api.libraryOpen(a.id)}
-              onMenu={(a, at) => {
-                const ids = selected.has(a.id) ? [...selected] : [a.id];
-                if (!selected.has(a.id)) (setSelected(new Set([a.id])), setFocus(a.id));
-                setMenu({ at, ids });
-              }}
-            />
+            <List hits={hits} selected={selected} view={view} onAction={onAction} />
           )}
         </div>
       </section>
 
-      {/* Right: the inspector. */}
-      <aside className="w-80 shrink-0 overflow-y-auto border-l border-line">
-        {chosen.length > 1 ? (
-          <Bulk assets={chosen} onMeta={(patch) => refreshMeta(chosen.map((a) => a.id), patch)} />
-        ) : focused ? (
-          <Inspector key={focused.id} asset={focused} production={productionOf(focused.id, productions)} onMeta={(patch) => refreshMeta([focused.id], patch)} onTag={(t) => setTag(t)} onPreview={() => setPreview(focused)} />
-        ) : (
-          <div className="px-5 pt-16 text-center text-sm text-faint">Select a file to see its details.</div>
-        )}
-      </aside>
+      {/* Right: the inspector, while something is selected. */}
+      {(chosen.length > 1 || focused) && (
+        <div style={{ width: inspectorWidth }} className="relative shrink-0 border-l border-line">
+          <Resizer side="left" width={inspectorWidth} min={260} max={640} onResize={setInspectorWidth} />
+        <aside className="h-full overflow-y-auto">
+          <button
+            onClick={closeDetails}
+            title="Close (Esc)"
+            className="absolute top-2 right-2 z-10 grid size-7 place-items-center rounded-md bg-black/40 text-white/90 hover:bg-black/60"
+          >
+            <X size={15} />
+          </button>
+          {chosen.length > 1 ? (
+            <Bulk assets={chosen} onMeta={(patch) => refreshMeta(chosen.map((a) => a.id), patch)} />
+          ) : (
+            focused && (
+              <Inspector key={focused.id} asset={focused} production={productionOf(focused.id, productions)} onMeta={(patch) => refreshMeta([focused.id], patch)} onTag={(t) => setTag(t)} onPreview={() => setPreview(focused)} />
+            )
+          )}
+        </aside>
+        </div>
+      )}
 
       {menu && (
         <AssetMenu
@@ -440,8 +456,9 @@ export function LibraryView({ onOpenSettings }: { onOpenSettings: () => void }) 
 }
 
 async function addFolder() {
-  const dir = await openDialog({ directory: true, title: "Add a library folder" });
-  if (typeof dir === "string") await api.libraryAddFolder(dir).catch((e) => alert(String(e)));
+  await library()
+    .addFolder()
+    .catch((e) => alert(String(e)));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -541,7 +558,7 @@ function useThumb(asset: Asset, visible = true) {
   useEffect(() => {
     if (!visible) return;
     let live = true;
-    thumbnailUrl(asset.id, asset.modified).then((u) => live && setUrl(u));
+    library().thumbnail(asset).then((u) => live && setUrl(u));
     return () => {
       live = false;
     };
@@ -549,23 +566,9 @@ function useThumb(asset: Asset, visible = true) {
   return url;
 }
 
-/** Becomes true once the element has scrolled near the screen, so thumbnails load as needed. */
-function useNearScreen<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [near, setNear] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || near) return;
-    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setNear(true), { rootMargin: "400px" });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [near]);
-  return [ref, near] as const;
-}
-
 export function Thumb({ asset, visible = true, className = "" }: { asset: Asset; visible?: boolean; className?: string }) {
   const url = useThumb(asset, visible);
-  if (url) return <img src={url} alt="" draggable={false} className={`h-full w-full object-contain ${className}`} />;
+  if (url) return <img src={url} alt="" draggable={false} decoding="async" className={`h-full w-full object-contain ${className}`} />;
   return (
     <div className="grid h-full w-full place-items-center text-faint">
       <div className="flex flex-col items-center gap-1.5">
@@ -576,8 +579,40 @@ export function Thumb({ asset, visible = true, className = "" }: { asset: Asset;
   );
 }
 
-function Tile({ asset, selected, onClick, onOpen, onMenu }: { asset: Asset; selected: boolean; onClick: (e: React.MouseEvent) => void; onOpen: () => void; onMenu: (at: DOMRect) => void }) {
-  const [ref, near] = useNearScreen<HTMLButtonElement>();
+type Action = (kind: "click" | "open" | "menu", asset: Asset, e: React.MouseEvent | DOMRect) => void;
+
+// Grid geometry, fixed so rows can be placed without measuring: a tile is its padding (12), the
+// 16:9 thumbnail, and two text lines (6 + 20 + 16); rows are 12 apart.
+const GAP = 12;
+const gridColumns = (width: number, size: number) => Math.max(1, Math.floor((width + GAP) / (size + GAP)));
+function gridTileHeight(width: number, size: number) {
+  const cols = gridColumns(width, size);
+  const tile = (width - GAP * (cols - 1)) / cols;
+  return Math.round(12 + ((tile - 12) * 9) / 16 + 42);
+}
+const gridStride = (width: number, size: number) => gridTileHeight(width, size) + GAP;
+
+function Grid({ hits, selected, size, view, width, onAction }: { hits: Asset[]; selected: Set<string>; size: number; view: { top: number; height: number }; width: number; onAction: Action }) {
+  const cols = gridColumns(width, size);
+  const tile = gridTileHeight(width, size);
+  const stride = tile + GAP;
+  const rows = Math.ceil(hits.length / cols);
+  const { first, last } = visibleRows(view, 0, stride, rows);
+  return (
+    <div className="relative" style={{ height: Math.max(0, rows * stride - GAP) }}>
+      <div
+        className="absolute inset-x-0 grid"
+        style={{ top: first * stride, gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: `${tile}px`, gap: GAP }}
+      >
+        {hits.slice(first * cols, last * cols).map((a) => (
+          <Tile key={a.id} asset={a} selected={selected.has(a.id)} onAction={onAction} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const Tile = memo(function Tile({ asset, selected, onAction }: { asset: Asset; selected: boolean; onAction: Action }) {
   // Resting the pointer on a video plays it, muted, in the tile.
   const [playing, setPlaying] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -585,18 +620,17 @@ function Tile({ asset, selected, onClick, onOpen, onMenu }: { asset: Asset; sele
   const badge = asset.duration ? formatDuration(asset.duration) : asset.kind !== "image" ? asset.ext.toUpperCase() : "";
   return (
     <button
-      ref={ref}
       data-asset={asset.id}
-      onClick={onClick}
-      onDoubleClick={onOpen}
-      onContextMenu={(e) => (e.preventDefault(), onMenu(new DOMRect(e.clientX, e.clientY, 0, 0)))}
+      onClick={(e) => onAction("click", asset, e)}
+      onDoubleClick={(e) => onAction("open", asset, e)}
+      onContextMenu={(e) => (e.preventDefault(), onAction("menu", asset, new DOMRect(e.clientX, e.clientY, 0, 0)))}
       onMouseEnter={() => canPlay && (timer.current = window.setTimeout(() => setPlaying(true), 450))}
       onMouseLeave={() => (window.clearTimeout(timer.current), setPlaying(false))}
-      className={`group flex min-w-0 flex-col rounded-lg p-1.5 text-left ${selected ? "bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] ring-1 ring-[var(--accent)]" : "hover:bg-hover"}`}
+      className={`group flex min-w-0 flex-col overflow-hidden rounded-lg p-1.5 text-left ${selected ? "bg-[color-mix(in_srgb,var(--accent)_16%,transparent)] ring-1 ring-[var(--accent)]" : "hover:bg-hover"}`}
     >
-      <div className="relative aspect-video w-full overflow-hidden rounded-md bg-side">
-        <Thumb asset={asset} visible={near} />
-        {playing && <video src={convertFileSrc(asset.path)} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full bg-black object-contain" />}
+      <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-md bg-side">
+        <Thumb asset={asset} />
+        {playing && <video src={library().fileUrl(asset)} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full bg-black object-contain" />}
         {asset.offline && (
           <span title="Drive not connected" className="absolute top-1 right-1 grid size-5 place-items-center rounded bg-black/60 text-white">
             <CloudOff size={11} />
@@ -610,68 +644,71 @@ function Tile({ asset, selected, onClick, onOpen, onMenu }: { asset: Asset; sele
           </span>
         )}
       </div>
-      <div className="mt-1.5 truncate px-0.5 text-[13px] text-ink" title={asset.name}>
+      <div className="mt-1.5 h-5 shrink-0 truncate px-0.5 text-[13px] leading-5 text-ink" title={asset.name}>
         {asset.name}
       </div>
-      <div className="truncate px-0.5 text-[11px] text-faint">{[formatResolution(asset.width, asset.height), formatBytes(asset.size)].filter(Boolean).join(" · ")}</div>
+      <div className="h-4 shrink-0 truncate px-0.5 text-[11px] leading-4 text-faint">{[formatResolution(asset.width, asset.height), formatBytes(asset.size)].filter(Boolean).join(" · ")}</div>
     </button>
   );
-}
+});
 
-function Table({ hits, selected, onClick, onOpen, onMenu }: { hits: Asset[]; selected: Set<string>; onClick: (a: Asset, e: React.MouseEvent) => void; onOpen: (a: Asset) => void; onMenu: (a: Asset, at: DOMRect) => void }) {
-  return (
-    <table className="w-full table-fixed border-collapse text-[13px]">
-      <thead>
-        <tr className="h-8 border-b border-line text-left text-xs text-faint">
-          <th className="w-[46%] font-normal">Name</th>
-          <th className="font-normal">Kind</th>
-          <th className="font-normal">Length</th>
-          <th className="font-normal">Size</th>
-          <th className="font-normal">Resolution</th>
-          <th className="font-normal">Modified</th>
-        </tr>
-      </thead>
-      <tbody>
-        {hits.map((a) => (
-          <ListRow key={a.id} asset={a} selected={selected.has(a.id)} onClick={(e) => onClick(a, e)} onOpen={() => onOpen(a)} onMenu={(at) => onMenu(a, at)} />
-        ))}
-      </tbody>
-    </table>
-  );
-}
+// List geometry: a 32px header, then 36px rows.
+const LIST_HEAD = 32;
+const LIST_ROW = 36;
+const LIST_COLUMNS = "minmax(0, 46fr) minmax(0, 11fr) minmax(0, 9fr) minmax(0, 9fr) minmax(0, 11fr) minmax(0, 14fr)";
 
-function ListRow({ asset: a, selected, onClick, onOpen, onMenu }: { asset: Asset; selected: boolean; onClick: (e: React.MouseEvent) => void; onOpen: () => void; onMenu: (at: DOMRect) => void }) {
-  const [ref, near] = useNearScreen<HTMLTableRowElement>();
+function List({ hits, selected, view, onAction }: { hits: Asset[]; selected: Set<string>; view: { top: number; height: number }; onAction: Action }) {
+  const { first, last } = visibleRows(view, LIST_HEAD, LIST_ROW, hits.length, 8);
   return (
-    <tr
-      ref={ref}
-      data-asset={a.id}
-      onClick={onClick}
-      onDoubleClick={onOpen}
-      onContextMenu={(e) => (e.preventDefault(), onMenu(new DOMRect(e.clientX, e.clientY, 0, 0)))}
-      className={`h-9 cursor-default border-b border-line/50 ${selected ? "bg-[color-mix(in_srgb,var(--accent)_16%,transparent)]" : "hover:bg-hover"}`}
-    >
-      <td className="pr-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="h-6 w-10 shrink-0 overflow-hidden rounded bg-side">
-            <Thumb asset={a} visible={near} />
-          </span>
-          <span className="truncate" title={a.id}>
-            {a.name}
-          </span>
-          {a.tags.slice(0, 2).map((t) => (
-            <TagPill key={t} tag={t} />
+    <div className="text-[13px]">
+      <div className="sticky top-0 z-10 grid h-8 items-center border-b border-line bg-surface text-xs text-faint" style={{ gridTemplateColumns: LIST_COLUMNS }}>
+        <span>Name</span>
+        <span>Kind</span>
+        <span>Length</span>
+        <span>Size</span>
+        <span>Resolution</span>
+        <span>Modified</span>
+      </div>
+      <div className="relative" style={{ height: hits.length * LIST_ROW }}>
+        <div className="absolute inset-x-0" style={{ top: first * LIST_ROW }}>
+          {hits.slice(first, last).map((a) => (
+            <ListRow key={a.id} asset={a} selected={selected.has(a.id)} onAction={onAction} />
           ))}
         </div>
-      </td>
-      <td className="text-muted">{KIND_LABELS[a.kind]}</td>
-      <td className="text-muted tabular-nums">{formatDuration(a.duration)}</td>
-      <td className="text-muted tabular-nums">{formatBytes(a.size)}</td>
-      <td className="text-muted">{formatResolution(a.width, a.height)}</td>
-      <td className="text-muted">{new Date(a.modified).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</td>
-    </tr>
+      </div>
+    </div>
   );
 }
+
+const ListRow = memo(function ListRow({ asset: a, selected, onAction }: { asset: Asset; selected: boolean; onAction: Action }) {
+  return (
+    <div
+      data-asset={a.id}
+      onClick={(e) => onAction("click", a, e)}
+      onDoubleClick={(e) => onAction("open", a, e)}
+      onContextMenu={(e) => (e.preventDefault(), onAction("menu", a, new DOMRect(e.clientX, e.clientY, 0, 0)))}
+      style={{ gridTemplateColumns: LIST_COLUMNS, height: LIST_ROW }}
+      className={`box-border grid cursor-default items-center border-b border-line/50 ${selected ? "bg-[color-mix(in_srgb,var(--accent)_16%,transparent)]" : "hover:bg-hover"}`}
+    >
+      <div className="flex min-w-0 items-center gap-2 pr-3">
+        <span className="h-6 w-10 shrink-0 overflow-hidden rounded bg-side">
+          <Thumb asset={a} />
+        </span>
+        <span className="truncate" title={a.id}>
+          {a.name}
+        </span>
+        {a.tags.slice(0, 2).map((t) => (
+          <TagPill key={t} tag={t} />
+        ))}
+      </div>
+      <span className="truncate text-muted">{KIND_LABELS[a.kind]}</span>
+      <span className="text-muted tabular-nums">{formatDuration(a.duration)}</span>
+      <span className="text-muted tabular-nums">{formatBytes(a.size)}</span>
+      <span className="truncate text-muted">{formatResolution(a.width, a.height)}</span>
+      <span className="truncate text-muted">{new Date(a.modified).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>
+    </div>
+  );
+});
 
 const TagPill = ({ tag, onRemove, onClick }: { tag: string; onRemove?: () => void; onClick?: () => void }) => (
   <span className="flex shrink-0 items-center gap-0.5 rounded px-1.5 text-xs leading-5 text-ink" style={{ background: tagColor(labelColor(tag)) }}>
@@ -690,7 +727,7 @@ const TagPill = ({ tag, onRemove, onClick }: { tag: string; onRemove?: () => voi
 // Inspector
 
 function Preview({ asset, large }: { asset: Asset; large?: boolean }) {
-  const src = convertFileSrc(asset.path);
+  const src = library().fileUrl(asset);
   if (asset.kind === "video" && PLAYABLE.has(asset.ext)) {
     return <video key={src} src={src} controls autoPlay={large} className="h-full w-full bg-black object-contain" />;
   }
@@ -708,7 +745,7 @@ function Preview({ asset, large }: { asset: Asset; large?: boolean }) {
   return <Thumb asset={asset} />;
 }
 
-function Inspector({ asset: a, production, onMeta, onTag, onPreview }: { asset: Asset; production: Production | null; onMeta: (patch: Parameters<typeof api.librarySetMeta>[1]) => void; onTag: (t: string) => void; onPreview: () => void }) {
+function Inspector({ asset: a, production, onMeta, onTag, onPreview }: { asset: Asset; production: Production | null; onMeta: (patch: MetaPatch) => void; onTag: (t: string) => void; onPreview: () => void }) {
   const [notes, setNotes] = useState(a.notes);
   const [tagInput, setTagInput] = useState("");
   const details: [string, string][] = [
@@ -746,8 +783,8 @@ function Inspector({ asset: a, production, onMeta, onTag, onPreview }: { asset: 
         )}
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <Action icon={<ExternalLink size={13} />} label="Open" onClick={() => api.libraryOpen(a.id)} />
-          <Action icon={<FolderOpen size={13} />} label="Reveal" onClick={() => api.libraryReveal(a.id)} />
+          <Action icon={<ExternalLink size={13} />} label="Open" onClick={() => library().open(a.id)} />
+          <Action icon={<FolderOpen size={13} />} label="Reveal" onClick={() => library().reveal(a.id)} />
           <Action icon={<Copy size={13} />} label="Copy path" onClick={() => navigator.clipboard.writeText(a.path)} />
         </div>
 
@@ -798,7 +835,7 @@ function Inspector({ asset: a, production, onMeta, onTag, onPreview }: { asset: 
   );
 }
 
-function Bulk({ assets, onMeta }: { assets: Asset[]; onMeta: (patch: Parameters<typeof api.librarySetMeta>[1]) => void }) {
+function Bulk({ assets, onMeta }: { assets: Asset[]; onMeta: (patch: MetaPatch) => void }) {
   const [tagInput, setTagInput] = useState("");
   const common = assets.reduce<string[]>((acc, a, i) => (i === 0 ? a.tags : acc.filter((t) => a.tags.includes(t))), []);
   const total = assets.reduce((s, a) => s + a.size, 0);
@@ -827,7 +864,7 @@ function Bulk({ assets, onMeta }: { assets: Asset[]; onMeta: (patch: Parameters<
         />
       </div>
       <div className="mt-4 flex flex-wrap gap-1.5">
-        <Action icon={<FolderOpen size={13} />} label="Reveal" onClick={() => assets.slice(0, 10).forEach((a) => api.libraryReveal(a.id))} />
+        <Action icon={<FolderOpen size={13} />} label="Reveal" onClick={() => assets.slice(0, 10).forEach((a) => library().reveal(a.id))} />
         <Action icon={<Copy size={13} />} label="Copy paths" onClick={() => navigator.clipboard.writeText(assets.map((a) => a.path).join("\n"))} />
       </div>
     </div>
@@ -862,14 +899,14 @@ function Stars({ value, onChange }: { value: number; onChange: (n: number) => vo
   );
 }
 
-function AssetMenu({ at, assets, onClose, onPreview, onMeta }: { at: DOMRect; assets: Asset[]; onClose: () => void; onPreview: (a: Asset) => void; onMeta: (patch: Parameters<typeof api.librarySetMeta>[1]) => void }) {
+function AssetMenu({ at, assets, onClose, onPreview, onMeta }: { at: DOMRect; assets: Asset[]; onClose: () => void; onPreview: (a: Asset) => void; onMeta: (patch: MetaPatch) => void }) {
   const one = assets.length === 1 ? assets[0] : null;
   const run = (f: () => void) => () => (f(), onClose());
   return (
     <Popover anchor={at} onClose={onClose} className="w-56 p-1">
-      {one && <MenuItem icon={<ExternalLink size={15} />} label="Open" hint="↵" onClick={run(() => api.libraryOpen(one.id))} />}
+      {one && <MenuItem icon={<ExternalLink size={15} />} label="Open" hint="↵" onClick={run(() => library().open(one.id))} />}
       {one && <MenuItem icon={<Box size={15} />} label="Preview" hint="Space" onClick={run(() => onPreview(one))} />}
-      <MenuItem icon={<FolderOpen size={15} />} label="Reveal in Finder" onClick={run(() => assets.slice(0, 10).forEach((a) => api.libraryReveal(a.id)))} />
+      <MenuItem icon={<FolderOpen size={15} />} label="Reveal in Finder" onClick={run(() => assets.slice(0, 10).forEach((a) => library().reveal(a.id)))} />
       <MenuItem icon={<Copy size={15} />} label={one ? "Copy path" : `Copy ${assets.length} paths`} onClick={run(() => navigator.clipboard.writeText(assets.map((a) => a.path).join("\n")))} />
       <MenuDivider />
       {[5, 4, 3, 0].map((n) => (
@@ -884,7 +921,7 @@ export function PreviewOverlay({ asset, onClose }: { asset: Asset; onClose: () =
     <div className="fixed inset-0 z-[100] flex flex-col bg-black/90 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="flex h-11 shrink-0 items-center gap-3 px-4 text-sm text-white/80">
         <span className="min-w-0 flex-1 truncate">{asset.name}</span>
-        <button onClick={() => api.libraryOpen(asset.id)} className="flex items-center gap-1.5 rounded-md px-2 py-1 hover:bg-white/10">
+        <button onClick={() => library().open(asset.id)} className="flex items-center gap-1.5 rounded-md px-2 py-1 hover:bg-white/10">
           <ExternalLink size={14} /> Open
         </button>
         <button onClick={onClose} className="grid size-7 place-items-center rounded-md hover:bg-white/10" title="Close (Space)">
@@ -919,7 +956,6 @@ function ProductionList({ productions, active, onPick }: { productions: Producti
 }
 
 function ProductionLink({ production }: { production: Production }) {
-  const { openPage } = useVault();
   return (
     <button
       onClick={() => openPage(production.path)}
@@ -930,5 +966,39 @@ function ProductionLink({ production }: { production: Production }) {
       <span className="truncate">{production.title}</span>
       {production.status && <span className="shrink-0 text-faint">· {production.status}</span>}
     </button>
+  );
+}
+
+/**
+ * A drag handle on a panel's edge. `side` is the edge it sits on: "right" grows the panel as the
+ * pointer moves right (a left panel), "left" as it moves left (a right panel).
+ */
+function Resizer({ side, width, min, max, onResize }: { side: "left" | "right"; width: number; min: number; max: number; onResize: (w: number) => void }) {
+  const start = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const x0 = e.clientX;
+    const move = (ev: MouseEvent) => {
+      const d = side === "right" ? ev.clientX - x0 : x0 - ev.clientX;
+      onResize(Math.round(Math.min(max, Math.max(min, width + d))));
+    };
+    const up = () => {
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  };
+  return (
+    <div
+      onMouseDown={start}
+      onDoubleClick={() => onResize(side === "right" ? 224 : 320)}
+      title="Drag to resize; double-click to reset"
+      className="absolute inset-y-0 z-20 w-1.5 cursor-col-resize transition-colors hover:bg-[var(--accent)]/40"
+      style={{ [side]: -3 }}
+    />
   );
 }

@@ -1,10 +1,6 @@
 import {
   Bot,
-  Clapperboard,
   Puzzle,
-  FolderPlus,
-  RefreshCw,
-  Trash2,
   Check,
   Coffee,
   Heart,
@@ -38,14 +34,12 @@ import { PageIcon } from "./PageIcon";
 import { ACCENTS, PALETTES, updateSettings, useSettings, type Mode, type TextSize } from "../lib/settings";
 import { Logo } from "./Logo";
 import { Modal } from "./Modal";
-import { PipelineSettings } from "../library/PipelineSettings";
 import { PluginsSection } from "../plugins/PluginsSection";
 import { PluginSettingsSection } from "../plugins/slots";
 import { useContributions } from "../plugins/runtime";
-import { formatBytes, forgetThumbnails, refreshStudio, useStudio } from "../lib/studio";
 
 /** `plugin:<key>` is a plugin's own settings section. */
-export type Section = "appearance" | "git" | "vault" | "studio" | "plugins" | "import" | "agents" | "about" | `plugin:${string}`;
+export type Section = "appearance" | "git" | "vault" | "plugins" | "import" | "agents" | "about" | `plugin:${string}`;
 
 type Props = {
   vault: VaultInfo;
@@ -67,7 +61,6 @@ export function SettingsDialog(p: Props) {
     { id: "appearance", label: "Appearance", icon: <PaletteIcon size={16} /> },
     { id: "git", label: "Git & sync", icon: <GitBranch size={16} /> },
     { id: "vault", label: "Workspace", icon: <FolderOpen size={16} /> },
-    { id: "studio", label: "Creator Studio", icon: <Clapperboard size={16} /> },
     { id: "plugins", label: "Plugins", icon: <Puzzle size={16} /> },
     ...pluginSettings.map((ps) => ({ id: `plugin:${ps.key}` as Section, label: ps.title, icon: ps.icon ?? <Puzzle size={16} /> })),
     { id: "import", label: "Import", icon: <Download size={16} /> },
@@ -98,7 +91,6 @@ export function SettingsDialog(p: Props) {
           {section === "appearance" && <Appearance />}
           {section === "git" && <GitSection status={p.status} onChanged={p.onChanged} />}
           {section === "vault" && <VaultSection vault={p.vault} pageCount={p.pageCount} onSwitchVault={p.onSwitchVault} />}
-          {section === "studio" && <StudioSection />}
           {section === "plugins" && <PluginsSection />}
           {section.startsWith("plugin:") && <PluginSettingsSection sectionKey={section.slice(7)} />}
           {section === "import" && <ImportSection onChanged={p.onChanged} />}
@@ -226,7 +218,7 @@ function Appearance() {
             ))}
           </div>
         </Row>
-        <Row label="Recents in the sidebar" hint="How many recent pages show. The section keeps this height; older ones scroll.">
+        <Row label="Recents in the sidebar" hint="How many of your most recent pages the sidebar lists.">
           <Segmented<"3" | "5" | "8">
             value={String(s.recentRows) as "3" | "5" | "8"}
             onChange={(v) => updateSettings({ recentRows: Number(v) })}
@@ -469,134 +461,6 @@ function VaultSection({ vault, pageCount, onSwitchVault }: { vault: VaultInfo; p
           <span className="text-sm text-muted">.assets/</span>
         </Row>
       </div>
-    </>
-  );
-}
-
-function StudioSection() {
-  const { status, progress } = useStudio();
-  const [error, setError] = useState<string | null>(null);
-  const [ignore, setIgnore] = useState<string | null>(null);
-  if (!status) return null;
-  const s = status.settings;
-  const save = async (patch: Partial<typeof s>) => {
-    await api.librarySetSettings({ ...s, ...patch });
-    await refreshStudio();
-  };
-  const addFolder = async () => {
-    const dir = await openDialog({ directory: true, title: "Add a library folder" });
-    if (typeof dir !== "string") return;
-    setError(null);
-    await api.libraryAddFolder(dir).catch((e) => setError(String(e)));
-    await refreshStudio();
-  };
-  const busy = progress.phase !== "idle";
-
-  return (
-    <>
-      <Heading title="Creator Studio" hint="A searchable library of your footage, audio, photos and project files, for planning and making content." />
-      <div className="divide-y divide-[var(--line)]">
-        <Row label="Turn on Creator Studio" hint="Adds the Library to the sidebar. Your files stay where they are: Betelgeuse only reads them, and nothing is uploaded.">
-          <Switch checked={s.enabled} onChange={(enabled) => save({ enabled })} label="Creator Studio" />
-        </Row>
-      </div>
-
-      {s.enabled && (
-        <>
-          <h3 className="mt-6 mb-1 text-sm font-semibold text-ink">Library folders</h3>
-          <p className="mb-3 text-xs text-muted">
-            Folders the Library indexes, including everything inside them. These are remembered on this computer only; tags and notes you add are saved in the workspace.
-          </p>
-          <div className="rounded-lg border border-line">
-            {status.roots.map((r) => (
-              <div key={r.name} className="flex items-center gap-3 border-b border-line px-3 py-2.5 last:border-b-0">
-                <FolderOpen size={16} className="shrink-0 text-faint" />
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-ink">{r.name}</div>
-                  <div className="truncate font-mono text-xs text-muted" title={r.path}>
-                    {r.path}
-                  </div>
-                </div>
-                <span className={`text-xs ${r.exists ? "text-muted" : "text-[var(--c-red-text)]"}`}>{r.exists ? `${r.files.toLocaleString()} files` : "Not found"}</span>
-                <button
-                  title="Remove from the Library (the files aren't touched)"
-                  onClick={async () => (await api.libraryRemoveFolder(r.name), refreshStudio())}
-                  className="grid size-7 place-items-center rounded-md text-faint hover:bg-hover hover:text-ink"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-            <div className="flex items-center gap-2 px-3 py-2.5">
-              <Button onClick={addFolder}>
-                <FolderPlus size={14} /> Add folder…
-              </Button>
-              <Button onClick={() => api.libraryRescan()}>
-                <RefreshCw size={14} className={busy ? "animate-spin" : ""} /> Rescan
-              </Button>
-              <span className="flex-1" />
-              <span className="text-xs text-faint">
-                {busy
-                  ? progress.phase === "probing"
-                    ? `Reading details ${progress.done ?? 0}/${progress.total ?? 0}`
-                    : "Scanning…"
-                  : `${status.total.toLocaleString()} files${status.lastScan ? ` · scanned ${new Date(status.lastScan).toLocaleTimeString(undefined, { timeStyle: "short" })}` : ""}`}
-              </span>
-            </div>
-          </div>
-          {error && <p className="mt-2 text-xs text-[var(--c-red-text)]">{error}</p>}
-
-          <div className="mt-4 divide-y divide-[var(--line)]">
-            <Row
-              label="Thumbnails"
-              hint={`Previews for videos, photos, PSDs and PDFs, made once and kept in the app's cache (${formatBytes(status.cacheBytes)}).`}
-            >
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={async () => (await api.libraryClearCache(), forgetThumbnails(), refreshStudio())}
-                  className="text-xs text-muted hover:text-ink hover:underline"
-                >
-                  Clear cache
-                </button>
-                <Switch checked={s.thumbnails} onChange={(thumbnails) => save({ thumbnails })} label="Thumbnails" />
-              </div>
-            </Row>
-            <Row
-              label="Video details"
-              hint={
-                status.ffprobe ? (
-                  <>Length, resolution and frame rate are read with ffprobe ({status.ffprobe}).</>
-                ) : (
-                  <>
-                    Install ffmpeg to see video length, resolution and frame rate (on a Mac: <code className="font-mono">brew install ffmpeg</code>).
-                  </>
-                )
-              }
-            >
-              <span className={`text-xs ${status.ffprobe ? "text-muted" : "text-[var(--c-orange-text)]"}`}>{status.ffprobe ? "ffmpeg found" : "Not installed"}</span>
-            </Row>
-            <div className="py-3.5">
-              <div className="text-sm font-medium text-ink">Skip these files and folders</div>
-              <div className="mt-0.5 mb-2 text-xs text-muted">
-                One name per line; <code className="font-mono">*</code> matches anything. Caches like Premiere's media cache are skipped by default.
-              </div>
-              <textarea
-                value={ignore ?? s.ignore.join("\n")}
-                onChange={(e) => setIgnore(e.target.value)}
-                onBlur={() => {
-                  if (ignore == null) return;
-                  const list = ignore.split("\n").map((l) => l.trim()).filter(Boolean);
-                  setIgnore(null);
-                  if (list.join("\n") !== s.ignore.join("\n")) save({ ignore: list });
-                }}
-                rows={6}
-                className="w-full resize-y rounded-md border border-line bg-transparent px-2 py-1.5 font-mono text-xs outline-none focus:border-[var(--line-strong)]"
-              />
-            </div>
-          </div>
-          <PipelineSettings />
-        </>
-      )}
     </>
   );
 }

@@ -5,9 +5,17 @@
   "description": "An example plugin: a view, a sidebar item, a page panel, settings, a command and search results.",
   "author": "Devian Labs",
   "icon": "👋",
-  "engines": { "betelgeuse": ">=0.3.0", "api": "1" },
-  "platforms": ["desktop"],
+  "engines": {
+    "betelgeuse": ">=0.3.0",
+    "api": "1"
+  },
+  "platforms": [
+    "desktop"
+  ],
   "main": "main.js",
   "styles": "styles.css",
-  "permissions": ["workspace:read"]
+  "permissions": [
+    "workspace:read"
+  ],
+  "private": true
 }

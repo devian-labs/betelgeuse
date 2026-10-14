@@ -1,17 +1,19 @@
 import { FolderInput, Link2, LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { parseSchema, type Property } from "../database/model";
-import { api, type Pipeline } from "../lib/api";
-import { joinNote, patchFrontmatter, splitNote } from "../lib/frontmatter";
-import { channelNoise, homeFolder, loadProductions, savePipeline, suggestFolders } from "../lib/pipeline";
-import { useStudio } from "../lib/studio";
-import { useVault } from "../lib/vault";
+import type { PageMeta } from "@betelgeuse/plugin-api";
+import { library, usePagesVersion, workspace } from "./host";
+import { channelNoise, homeFolder, loadProductions, savePipeline, suggestFolders, usePipeline, type Pipeline } from "./pipeline";
+import { useStudio } from "./store";
 
-/** Settings → Creator Studio → Pipeline: which database holds the productions, and where their folders go. */
+type Property = { name: string; type: string; options?: { name: string; color: string }[] };
+
+/** Settings → Media Library → Project folders: which database holds the productions, and where their folders go. */
 export function PipelineSettings() {
-  const { status, version } = useStudio();
-  const { notes } = useVault();
-  const pipeline = status?.settings.pipeline;
+  const { version } = useStudio();
+  const pipeline = usePipeline();
+  const pages = usePagesVersion();
+  const [notes, setNotes] = useState<PageMeta[]>([]);
+  useEffect(() => void workspace().listPages().then(setNotes), [pages]);
   const [props, setProps] = useState<Property[]>([]);
   const [folders, setFolders] = useState<string[]>([]);
   const [template, setTemplate] = useState<string | null>(null);
@@ -22,13 +24,13 @@ export function PipelineSettings() {
 
   useEffect(() => {
     if (!pipeline?.database) return setProps([]);
-    api
-      .readNote(pipeline.database)
-      .then((t) => setProps(parseSchema(splitNote(t).body).properties))
+    workspace()
+      .databaseSchema(pipeline.database)
+      .then(setProps)
       .catch(() => setProps([]));
   }, [pipeline?.database]);
   useEffect(() => {
-    api.libraryFolders().then((f) => setFolders(f.map(([id]) => id)));
+    library().folders().then((f) => setFolders(f.map(([id]) => id)));
   }, [version]);
 
   if (!pipeline) return null;
@@ -42,7 +44,7 @@ export function PipelineSettings() {
     setLinking(true);
     setReport(null);
     try {
-      const all = (await api.libraryFolders()).map(([id]) => id);
+      const all = (await library().folders()).map(([id]) => id);
       const productions = await loadProductions(pipeline);
       const missing = productions.filter((p) => !p.folder);
       let linked = 0;
@@ -52,9 +54,7 @@ export function PipelineSettings() {
         const [best, next] = suggestFolders(p.title, scope, 0.75, channelNoise(pipeline, p.channel));
         // Only when there's one clear winner.
         if (!best || (next && next.score === best.score)) continue;
-        const text = await api.readNote(p.path);
-        const { frontmatter, body } = splitNote(text);
-        await api.writeNote(p.path, joinNote(patchFrontmatter(frontmatter, { [pipeline.folderProperty]: best.id }), body));
+        await workspace().setProperties(p.path, { [pipeline.folderProperty]: best.id });
         linked++;
       }
       setReport(missing.length ? `Linked ${linked} of ${missing.length} productions without a folder.` : "Every production already has a folder.");
@@ -65,12 +65,12 @@ export function PipelineSettings() {
 
   return (
     <div className="mt-6">
-      <h3 className="mb-1 text-sm font-semibold text-ink">Pipeline</h3>
+      <h3 className="mb-1 text-sm font-semibold text-ink">Project folders</h3>
       <p className="mb-3 text-xs text-muted">
-        Each row of the pipeline database is a production (a video, a post). Its page shows an Assets panel with the files in its project folder.
+        Link a database's pages to folders in the library: each row of the database (a video, a post, a project) gets an Assets panel with the files in its folder.
       </p>
       <div className="divide-y divide-[var(--line)] rounded-lg border border-line">
-        <Line label="Pipeline database">
+        <Line label="Database">
           <select
             value={pipeline.database ?? ""}
             onChange={(e) => save({ database: e.target.value || null })}
@@ -171,7 +171,7 @@ function FolderField({ label, value, onSave }: { label: string; value: string; o
   useEffect(() => setText(value), [value]);
   useEffect(() => {
     if (!text) return setOk(true);
-    api.libraryFolderExists(text).then(setOk);
+    library().folderExists(text).then(setOk);
   }, [text]);
   return (
     <>
@@ -198,7 +198,7 @@ type Candidate = { id: string; name: string; channel: string | null; checked: bo
 
 /**
  * Creates productions for project folders that don't have one yet, so videos made before
- * Creator Studio are in the pipeline too.
+ * the library are in the pipeline too.
  */
 function ImportProjects({ pipeline, channels }: { pipeline: Pipeline; channels: string[] }) {
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
@@ -214,7 +214,7 @@ function ImportProjects({ pipeline, channels }: { pipeline: Pipeline; channels: 
       if (pipeline.defaultFolder && !homes.some(([, f]) => f === pipeline.defaultFolder)) homes.push([null, pipeline.defaultFolder]);
       const found: Candidate[] = [];
       for (const [channel, home] of homes) {
-        const names = await api.librarySubfolders(home).catch(() => []);
+        const names = await library().subfolders(home).catch(() => []);
         for (const name of names) {
           const id = `${home}/${name}`;
           // Skip folders already linked, the inside of one, or another channel's home.
@@ -235,10 +235,10 @@ function ImportProjects({ pipeline, channels }: { pipeline: Pipeline; channels: 
     let made = 0;
     try {
       for (const c of candidates.filter((c) => c.checked)) {
-        const row = await api.createNote(pipeline.database, c.name);
+        const row = await workspace().createPage(pipeline.database, c.name);
         const values: Record<string, unknown> = { [pipeline.folderProperty]: c.id };
         if (c.channel) values[pipeline.channelProperty] = c.channel;
-        await api.writeNote(row, joinNote(patchFrontmatter("", values), ""));
+        await workspace().setProperties(row, values);
         made++;
       }
       setReport(`Created ${made} ${made === 1 ? "production" : "productions"}. Set their status on the pipeline board.`);

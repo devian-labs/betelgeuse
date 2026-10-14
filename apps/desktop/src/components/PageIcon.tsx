@@ -1,4 +1,4 @@
-import { icons, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import { api } from "../lib/api";
 import { textColor } from "../lib/colors";
@@ -12,14 +12,13 @@ import { textColor } from "../lib/colors";
  */
 export type ParsedIcon =
   | { kind: "emoji"; value: string }
-  | { kind: "lucide"; name: string; color: string; Component: LucideIcon }
+  | { kind: "lucide"; name: string; color: string }
   | { kind: "image"; src: string; local: boolean };
 
 export function parseIcon(icon: string): ParsedIcon {
   if (icon.startsWith("lucide:")) {
     const [, name, color = "default"] = icon.split(":");
-    const Component = (icons as Record<string, LucideIcon | undefined>)[name];
-    if (Component) return { kind: "lucide", name, color, Component };
+    if (name) return { kind: "lucide", name, color };
   }
   if (icon.startsWith(".assets/")) return { kind: "image", src: icon, local: true };
   if (/^https?:\/\//.test(icon)) return { kind: "image", src: icon, local: false };
@@ -27,6 +26,24 @@ export function parseIcon(icon: string): ParsedIcon {
 }
 
 export const lucideIcon = (name: string, color: string) => `lucide:${name}:${color}`;
+
+// Every Lucide icon, loaded the first time a page shows one, so the app starts without them.
+let iconMap: Record<string, LucideIcon> | null = null;
+let loadingIcons: Promise<Record<string, LucideIcon>> | null = null;
+export function loadIcons() {
+  loadingIcons ??= import("./lucideIcons").then((m) => (iconMap = m.icons as Record<string, LucideIcon>));
+  return loadingIcons;
+}
+
+function LucidePageIcon({ name, color, size, className }: { name: string; color: string; size: number; className: string }) {
+  const [map, setMap] = useState(iconMap);
+  useEffect(() => {
+    if (!map) loadIcons().then(setMap);
+  }, [map]);
+  const Component = map?.[name];
+  if (!Component) return <span style={{ width: size, height: size }} className={`inline-block shrink-0 ${className}`} />;
+  return <Component size={size} strokeWidth={size > 40 ? 1.5 : 2} className={`shrink-0 ${className}`} style={{ color: textColor(color) ?? "var(--muted)" }} />;
+}
 
 const assetUrls = new Map<string, Promise<string>>();
 
@@ -57,10 +74,7 @@ function AssetImage({ src, local, size }: { src: string; local: boolean; size: n
 
 export function PageIcon({ icon, size = 16, className = "" }: { icon: string; size?: number; className?: string }) {
   const parsed = parseIcon(icon);
-  if (parsed.kind === "lucide") {
-    const { Component, color } = parsed;
-    return <Component size={size} strokeWidth={size > 40 ? 1.5 : 2} className={`shrink-0 ${className}`} style={{ color: textColor(color) ?? "var(--muted)" }} />;
-  }
+  if (parsed.kind === "lucide") return <LucidePageIcon name={parsed.name} color={parsed.color} size={size} className={className} />;
   if (parsed.kind === "image") return <AssetImage src={parsed.src} local={parsed.local} size={size} />;
   return (
     // A line icon only fills ~85% of its box, so emoji are drawn at that size to look the same.

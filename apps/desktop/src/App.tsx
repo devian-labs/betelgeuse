@@ -5,8 +5,6 @@ import { AgentsDialog } from "./components/AgentsDialog";
 import { SettingsDialog, type Section } from "./components/SettingsDialog";
 import { CommandPalette } from "./components/CommandPalette";
 import { HistoryPanel } from "./components/HistoryPanel";
-import { LibraryView } from "./library/LibraryView";
-import { LIBRARY_PATH, useStudioWorkspace } from "./lib/studio";
 import { loadWorkspace as loadPlugins, parseViewPath, setHost as setPluginHost, viewPath } from "./plugins/runtime";
 import { PluginView } from "./plugins/slots";
 import { Logo } from "./components/Logo";
@@ -20,6 +18,8 @@ import { wantsNewTab, type OpenOptions } from "./lib/nav";
 import { joinNote, patchFrontmatter, splitNote } from "./lib/frontmatter";
 import { planReorder } from "./lib/order";
 import { ancestorKeys, buildTree, childrenOf, parentPath } from "./lib/tree";
+import { isQuietWrite } from "./lib/quiet";
+import { loadIcons } from "./components/PageIcon";
 import { VaultContext, type VaultContextValue } from "./lib/vault";
 import { useFullscreen } from "./lib/window";
 import { useApplySettings } from "./lib/settings";
@@ -67,7 +67,7 @@ export default function App() {
   const [tabs, setTabs] = useState<Tabs>({ list: [], active: 0 });
   const openPath = current(tabs.list[tabs.active]);
   /** The open page, when the tab shows one (not the Library). */
-  const pagePath = openPath === LIBRARY_PATH || openPath?.startsWith("@plugin/") ? undefined : openPath;
+  const pagePath = openPath?.startsWith("@plugin/") ? undefined : openPath;
   const [recents, setRecents] = useState<string[]>([]);
   const [peekPath, setPeekPath] = useState<string | null>(null);
   const [status, setStatus] = useState<RepoStatus | null>(null);
@@ -87,19 +87,27 @@ export default function App() {
   const fullscreen = useFullscreen();
   useApplySettings();
   const [settings, setSettings] = useState<false | Section>(false);
-  useStudioWorkspace(vault?.path);
   // Plugins: load the ones this workspace uses, and lend them navigation and messages.
   useEffect(() => {
     if (vault) loadPlugins(vault.path);
   }, [vault]);
+  // The icon set loads on demand; fetch it once the app has settled, so page icons are ready.
+  useEffect(() => {
+    const t = window.setTimeout(() => void loadIcons(), 1500);
+    return () => window.clearTimeout(t);
+  }, []);
   const notesRef = useRef(notes);
   notesRef.current = notes;
+  const vaultRef = useRef(vault);
+  vaultRef.current = vault;
 
   const refresh = useCallback(async () => {
     const [n, s] = await Promise.all([api.listNotes(), api.gitStatus().catch(() => null)]);
-    setNotes(n);
-    setStatus(s);
-    return n;
+    // Keep what didn't change, so a refresh that changes nothing re-renders nothing.
+    const next = reconcileNotes(notesRef.current, n);
+    setNotes(next);
+    setStatus((old) => (JSON.stringify(old) === JSON.stringify(s) ? old : s));
+    return next;
   }, []);
 
   const openVault = useCallback(
@@ -122,7 +130,10 @@ export default function App() {
       const n = await refresh();
       const exists = (p: string) => n.some((x) => x.path === p);
       // Reopen the tabs from last time (each with just its page; back/forward history isn't kept).
-      const saved = readList(`tabs:${info.path}`).filter((p) => p === LIBRARY_PATH || p.startsWith("@plugin/") || exists(p));
+      // Library tabs from before the Media Library plugin ("@library") and its first name (creator-studio).
+      const saved = readList(`tabs:${info.path}`)
+        .map((p) => (p === "@library" || p === "@plugin/creator-studio/library" ? "@plugin/media-library/library" : p))
+        .filter((p) => p.startsWith("@plugin/") || exists(p));
       const last = store.get(`open:${info.path}`);
       const first = [last, n.find((x) => x.title === "Welcome")?.path, n[0]?.path].find((p): p is string => !!p && exists(p));
       const paths = saved.length ? saved : first ? [first] : [];
@@ -140,12 +151,18 @@ export default function App() {
   useEffect(() => {
     let timer: number | undefined;
     const unlisten = [
-      listen("vault-changed", () => {
+      listen<string[]>("vault-changed", (e) => {
+        // Typing saves (see lib/quiet) only need one catch-up refresh once the typing pauses.
+        const root = vaultRef.current?.path ?? "";
+        const quiet = e.payload.every((p) => isQuietWrite(p.startsWith(root) ? p.slice(root.length + 1) : p));
         window.clearTimeout(timer);
-        timer = window.setTimeout(() => {
-          refresh();
-          setRefreshKey((k) => k + 1);
-        }, 250);
+        timer = window.setTimeout(
+          () => {
+            refresh();
+            setRefreshKey((k) => k + 1);
+          },
+          quiet ? 3000 : 250,
+        );
       }),
       listen("git-committed", () => refresh()),
     ];
@@ -189,7 +206,7 @@ export default function App() {
     [reveal],
   );
   useEffect(() => {
-    setPluginHost({ openPath: openPage, toast: (message) => setToast({ message }) });
+    setPluginHost({ openPath: openPage, toast: (message) => setToast({ message }), openSettings: (section) => setSettings(section as Section) });
   }, [openPage]);
 
   const activeTab = tabs.list[tabs.active];
@@ -499,7 +516,6 @@ export default function App() {
             onReorder={reorderPage}
             onMove={movePage}
             onSearch={() => setPalette(true)}
-            onOpenLibrary={(e) => openPage(LIBRARY_PATH, { newTab: wantsNewTab(e) })}
             onOpenPluginView={(pluginId, viewId, e) => openPage(viewPath(pluginId, viewId), { newTab: wantsNewTab(e) })}
             onSwitchVault={async () => {
               const dir = await openDialog({ directory: true, title: "Open or create a workspace folder" });
@@ -533,9 +549,7 @@ export default function App() {
             />
           )}
           <div className="relative flex min-h-0 flex-1">
-          {openPath === LIBRARY_PATH ? (
-            <LibraryView onOpenSettings={() => setSettings("studio")} />
-          ) : openPath && parseViewPath(openPath) ? (
+          {openPath && parseViewPath(openPath) ? (
             <PluginView path={openPath} onOpenSettings={() => setSettings("plugins")} />
           ) : pagePath ? (
             <PageView
@@ -617,4 +631,17 @@ export default function App() {
       </div>
     </VaultContext.Provider>
   );
+}
+
+/** The new page list, reusing the old entries (and the old list) where nothing changed. */
+function reconcileNotes(prev: NoteMeta[], next: NoteMeta[]): NoteMeta[] {
+  const old = new Map(prev.map((n) => [n.path, n]));
+  let same = prev.length === next.length;
+  const out = next.map((n, i) => {
+    const o = old.get(n.path);
+    const keep = o && JSON.stringify(o) === JSON.stringify(n) ? o : n;
+    if (keep !== prev[i]) same = false;
+    return keep;
+  });
+  return same ? prev : out;
 }

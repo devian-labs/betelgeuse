@@ -15,6 +15,11 @@ import tailwindcss from "@tailwindcss/vite";
 export const SHARED_MODULES = ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "@betelgeuse/plugin-api", "@betelgeuse/plugin-api/ui"];
 
 export function pluginConfig({ root = process.cwd(), entry = "src/main.tsx", outDir = "dist" } = {}) {
+  // Vite calls this with the mode: `vite build --mode development` (npm run dev) adds source maps.
+  return ({ mode }) => buildConfig({ root, entry, outDir, dev: mode === "development" });
+}
+
+function buildConfig({ root, entry, outDir, dev }) {
   const manifestPath = resolve(root, "betelgeuse-plugin.json");
   if (!existsSync(manifestPath)) throw new Error(`No betelgeuse-plugin.json in ${root}`);
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
@@ -32,11 +37,12 @@ export function pluginConfig({ root = process.cwd(), entry = "src/main.tsx", out
         },
       },
     ],
-    define: { "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV ?? "production") },
+    define: { "process.env.NODE_ENV": JSON.stringify(dev ? "development" : "production") },
     build: {
       outDir,
       emptyOutDir: true,
-      sourcemap: "inline",
+      // Source maps only while developing: they'd double the size of what people download.
+      sourcemap: dev ? "inline" : false,
       lib: { entry: resolve(root, entry), formats: ["cjs"], fileName: () => "main.js", cssFileName: "styles" },
       rollupOptions: { external: SHARED_MODULES, output: { exports: "named" } },
     },

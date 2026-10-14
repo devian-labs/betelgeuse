@@ -1,4 +1,4 @@
-//! Creator Studio's asset library: an index of the media files in folders the user adds (footage,
+//! The media library: an index of the media files in folders the user adds (footage,
 //! audio, photos, Photoshop and Premiere files…), searchable from the app.
 //!
 //! Files are only read, never moved or copied into the workspace. What's derived from them (the file
@@ -70,6 +70,8 @@ pub fn kind_of(ext: &str) -> &'static str {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase", default)]
 pub struct StudioSettings {
+    /// Set when the library was a built-in feature ("Creator Studio") switched on in Settings. Now it
+    /// runs while a plugin uses it; this only tells the app to turn the Media Library plugin on once.
     pub enabled: bool,
     /// File and folder names (with `*` wildcards) the scanner skips.
     pub ignore: Vec<String>,
@@ -246,8 +248,8 @@ fn write_meta(ws: &Path, meta: &HashMap<String, Meta>) -> Result<(), String> {
 #[derive(Default)]
 pub struct Library {
     inner: Mutex<Inner>,
-    /// Thumbnail jobs running right now (bounded by THUMB_WORKERS).
-    thumb_slots: (Mutex<usize>, Condvar),
+    /// Thumbnail jobs: running now (at most THUMB_WORKERS) and waiting, newest first.
+    thumb_slots: (Mutex<Slots>, Condvar),
 }
 
 #[derive(Default)]
@@ -269,6 +271,8 @@ struct Inner {
     meta_stamp: Option<std::time::SystemTime>,
     /// Bumped whenever the watcher is replaced, so the old one's debounce thread stops.
     watch_generation: u64,
+    /// A plugin is using the library: scan and watch the folders. Off until one asks.
+    active: bool,
 }
 
 fn meta_stamp(ws: &Path) -> Option<std::time::SystemTime> {
@@ -288,6 +292,15 @@ impl Inner {
 }
 
 pub type Shared = Arc<Library>;
+
+/// Thumbnail work is served newest first: when someone scrolls quickly, the tiles now on screen
+/// asked last, and the ones scrolled past shouldn't make them wait.
+#[derive(Default)]
+struct Slots {
+    busy: usize,
+    waiting: std::collections::BTreeSet<u64>,
+    next: u64,
+}
 
 fn cache_dir(app: &AppHandle, ws: &Path) -> Option<PathBuf> {
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -332,7 +345,7 @@ fn save_index(app: &AppHandle, ws: &Path, assets: &[Asset]) {
 }
 
 /// Points the library at a workspace (on open or switch): loads its settings, folders, tags and the
-/// cached index, then rescans in the background if Creator Studio is on.
+/// cached index, then rescans in the background while a plugin uses it.
 pub fn load(app: &AppHandle, lib: &Shared, ws: &Path) {
     let mut assets: Vec<Asset> = index_file(app, ws)
         .and_then(|f| std::fs::read(f).ok())
@@ -349,6 +362,20 @@ pub fn load(app: &AppHandle, lib: &Shared, ws: &Path) {
         g.meta_stamp = meta_stamp(ws);
         g.assets = assets;
         g.watcher = None;
+        g.watch_generation += 1;
+        // Each workspace starts idle; its plugins turn the library on.
+        g.active = false;
+    }
+}
+
+/// Turns the library on (scan, watch) or off, for the plugins that use it.
+pub fn set_active(app: &AppHandle, lib: &Shared, on: bool) {
+    {
+        let mut g = lib.inner.lock().unwrap();
+        if g.active == on {
+            return;
+        }
+        g.active = on;
     }
     let (app, lib) = (app.clone(), lib.clone());
     std::thread::spawn(move || apply(&app, &lib));
@@ -358,7 +385,7 @@ pub fn load(app: &AppHandle, lib: &Shared, ws: &Path) {
 fn apply(app: &AppHandle, lib: &Shared) {
     let (enabled, roots) = {
         let g = lib.inner.lock().unwrap();
-        (g.settings.enabled, g.roots.clone())
+        (g.active, g.roots.clone())
     };
     if !enabled {
         let mut g = lib.inner.lock().unwrap();
@@ -444,7 +471,7 @@ fn millis(t: std::io::Result<std::time::SystemTime>) -> i64 {
 pub fn scan(app: &AppHandle, lib: &Shared) {
     let (ws, generation, roots, ignore, previous) = {
         let mut g = lib.inner.lock().unwrap();
-        if !g.settings.enabled {
+        if !g.active {
             return;
         }
         if g.scanning {
@@ -1034,20 +1061,24 @@ pub fn thumbnail(app: &AppHandle, lib: &Shared, id: &str) -> Result<Option<Vec<u
     }
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
-    // Wait for a free slot.
+    // Wait for a free slot, newest request first.
     {
         let (lock, cv) = &lib.thumb_slots;
-        let mut busy = lock.lock().unwrap();
-        while *busy >= THUMB_WORKERS {
-            busy = cv.wait(busy).unwrap();
+        let mut slots = lock.lock().unwrap();
+        let ticket = slots.next;
+        slots.next += 1;
+        slots.waiting.insert(ticket);
+        while slots.busy >= THUMB_WORKERS || slots.waiting.last() != Some(&ticket) {
+            slots = cv.wait(slots).unwrap();
         }
-        *busy += 1;
+        slots.waiting.remove(&ticket);
+        slots.busy += 1;
     }
     let made = make_thumbnail(lib, &src, &asset.kind, &cached);
     {
         let (lock, cv) = &lib.thumb_slots;
-        *lock.lock().unwrap() -= 1;
-        cv.notify_one();
+        lock.lock().unwrap().busy -= 1;
+        cv.notify_all();
     }
     match made.and_then(|_| std::fs::read(&cached).ok()) {
         Some(bytes) => Ok(Some(bytes)),
@@ -1105,6 +1136,8 @@ fn make_thumbnail(lib: &Shared, src: &Path, kind: &str, out: &Path) -> Option<()
 #[serde(rename_all = "camelCase")]
 pub struct Status {
     pub settings: StudioSettings,
+    /// Scanning and watching (a plugin has turned the library on).
+    pub active: bool,
     pub roots: Vec<RootStatus>,
     pub scanning: bool,
     pub last_scan: Option<i64>,
@@ -1135,6 +1168,7 @@ pub fn status(app: &AppHandle, lib: &Shared) -> Status {
         .unwrap_or(0);
     Status {
         settings: g.settings.clone(),
+        active: g.active,
         roots: g
             .roots
             .iter()

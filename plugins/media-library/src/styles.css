@@ -1,0 +1,4 @@
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+@import "@betelgeuse/plugin-api/theme.css";
+@source "./";

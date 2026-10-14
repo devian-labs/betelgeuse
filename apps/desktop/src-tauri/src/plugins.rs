@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn ids() {
-        assert!(valid_id("creator-studio"));
+        assert!(valid_id("media-library"));
         assert!(valid_id("hello-world2"));
         assert!(!valid_id("../evil"));
         assert!(!valid_id("Upper"));

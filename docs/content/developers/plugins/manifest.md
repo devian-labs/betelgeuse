@@ -38,6 +38,7 @@ Every plugin has a `betelgeuse-plugin.json` at the top of its folder. The build 
 | `main` | | The code file; `main.js` by default. |
 | `styles` | | A stylesheet to load with the plugin, such as `styles.css`. |
 | `permissions` | | What the plugin may do (below). |
+| `private` | | `true` keeps it out of the plugin store (examples, internal tools). |
 
 Betelgeuse won't load a plugin whose `engines` don't match, and says why in Settings → Plugins.
 
@@ -51,5 +52,6 @@ Ask only for what you use. People see these in plain words before installing, an
 | `workspace:write` | `ctx.workspace.createPage`, `writePage`, `setProperties`, and `page.setProperties` in page panels. Needs `workspace:read` too. |
 | `shell:open` | `ctx.shell.openUrl`: open web links in the browser. |
 | `network:<host>` | `ctx.http.fetch` to that host, e.g. `network:api.example.com`. Use `network:*.example.com` for its subdomains. One entry per host. |
+| `library` | `ctx.library`: the media library (folders the person picks, file search, details, thumbnails). |
 
 Every plugin can always use its own storage (`ctx.storage`), show messages (`ctx.ui`) and register views, panels, commands and search results.

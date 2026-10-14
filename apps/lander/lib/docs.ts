@@ -52,7 +52,7 @@ export const NAV: Section[] = [
   },
   {
     title: "Plugins",
-    pages: [content("plugins"), content("plugins/creator-studio")],
+    pages: [content("plugins"), content("plugins/media-library")],
   },
   {
     title: "Build a plugin",

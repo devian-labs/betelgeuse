@@ -70,7 +70,7 @@ One section in Settings, with its own entry in the Settings sidebar.
 ctx.settings.register({ title: "Word Goals", icon: <span>🎯</span>, component: SettingsScreen });
 ```
 
-Use `SettingRow`, `Switch` and `TextInput` from [the UI kit](/docs/developers/plugins/ui/) so it looks like the other sections.
+Use `SettingRow`, `Switch` and `TextInput` from [the UI kit](/docs/developers/plugins/ui/) so it looks like the other sections. `ctx.settings.open()` opens Settings at your section (from a "Settings" button in your view, say).
 
 ## Page panels
 
@@ -150,6 +150,7 @@ Present with the `workspace:read` permission (`ctx.workspace` is `undefined` oth
 | `listPages()` | Every page: path, title, icon, tags, kind (`"database"` for databases), modified and created times. |
 | `readPage(path)` | `{ properties, body }`: the page's properties and its Markdown. |
 | `databaseRows(path)` | A database's rows: path, title and properties of each. |
+| `databaseSchema(path)` | A database's properties (columns): name, type and, for selects, their options. |
 | `openPage(path, { newTab? })` | Opens a page in the app. |
 | `onChange(listener)` | Called after any page changes on disk (by you, the person, git or an agent). Returns a `Disposable`. |
 | `createPage(parent, title)` | Creates a page (inside `parent`'s sub-pages, or at the top level for `null`); returns its path. Needs `workspace:write`. |
@@ -157,6 +158,27 @@ Present with the `workspace:read` permission (`ctx.workspace` is `undefined` oth
 | `setProperties(path, patch)` | Sets or (with `null`) removes properties. Needs `workspace:write`. |
 
 Pages are Markdown files, and other editors open them too: write content that reads well as plain Markdown.
+
+## Media library
+
+Present with the `library` permission. An index of the folders the person adds (footage, photos, audio, design and project files), kept up to date as files change, with media details (length, resolution, frame rate) and thumbnails. Files are only read. There's one library per workspace, shared by the plugins that use it; it scans and watches only while at least one of them is on. [Media Library](https://github.com/devian-labs/betelgeuse/tree/main/plugins/media-library) is built on it.
+
+| | |
+|---|---|
+| `status()` | Folders (with file counts), whether it's scanning, totals, whether ffmpeg was found, cache size, options. |
+| `onChange(fn)`, `onProgress(fn)` | When the index changes; scan progress (`scanning`, `probing` with counts, `idle`). |
+| `addFolder(path?)`, `removeFolder(name)`, `rescan()` | Manage folders (without a path, the person picks one). |
+| `pickFolder(title?)` | A folder picker; the absolute path, or `null`. |
+| `setOptions({ ignore?, thumbnails? })`, `clearCache()` | Names to skip (with `*`), thumbnails on or off. |
+| `search(query)` | Files matching `text` (with filters like `kind:video duration:>30 #broll`), `kinds`, `folder`, `tags`, `list`, `sort`. Returns `{ hits, total, kinds }`. |
+| `folders()`, `tags()`, `subfolders(id)`, `folderExists(id)` | Browse the folders and tags. |
+| `createFolder(parent, name, subfolders)` | Makes a folder (with sub-folders) inside a library folder. |
+| `setMeta(ids, patch)` | Tags, rating and notes: saved in the workspace, and they follow files that are renamed or moved. |
+| `thumbnail(asset)` | An image URL for the file's preview, or `null`. |
+| `fileUrl(asset)` | A URL that plays or shows the file itself in `<video>`, `<audio>` or `<img>`. |
+| `open(id)`, `reveal(id)` | Open a file or folder in its app, or show it in Finder/Explorer. |
+
+Files are identified by `<library folder name>/<path inside it>`, so ids are the same on every computer even when the folder lives somewhere else.
 
 ## Messages
 

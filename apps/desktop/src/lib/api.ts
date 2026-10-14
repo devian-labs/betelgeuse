@@ -23,65 +23,6 @@ export type GitSettings = { branch: string; remote_url: string | null; user_name
 export type AiPolicy = "all" | "shared";
 export type TrashItem = { id: string; title: string; icon: string | null; original: string; deleted: number; pages: number };
 export type ImportReport = { root: string; pages: number; databases: number; assets: number; skipped: string[] };
-export type AssetKind = "video" | "audio" | "image" | "raw" | "design" | "project" | "font" | "document" | "other";
-/** How productions (rows of a pipeline database) map to project folders in the library. */
-export type Pipeline = {
-  /** The pipeline database's page path. */
-  database: string | null;
-  channelProperty: string;
-  folderProperty: string;
-  /** Where new project folders go, per channel value: library folder ids. */
-  channelFolders: Record<string, string>;
-  defaultFolder: string | null;
-  template: string[];
-};
-export type StudioSettings = { enabled: boolean; ignore: string[]; thumbnails: boolean; pipeline: Pipeline };
-export type LibraryStatus = {
-  settings: StudioSettings;
-  roots: { name: string; path: string; files: number; exists: boolean }[];
-  scanning: boolean;
-  lastScan: number | null;
-  total: number;
-  ffmpeg: string | null;
-  ffprobe: string | null;
-  cacheBytes: number;
-};
-export type Asset = {
-  /** `<library folder name>/<path inside it>`: the same on every machine. */
-  id: string;
-  root: string;
-  rel: string;
-  name: string;
-  ext: string;
-  kind: AssetKind;
-  size: number;
-  modified: number;
-  created: number;
-  width: number | null;
-  height: number | null;
-  duration: number | null;
-  fps: number | null;
-  codec: string | null;
-  /** Its library folder isn't reachable right now (an unplugged drive). */
-  offline: boolean;
-  tags: string[];
-  rating: number;
-  notes: string;
-  /** Absolute path on this machine. */
-  path: string;
-};
-export type LibraryQuery = {
-  text?: string;
-  kinds?: AssetKind[];
-  folder?: string | null;
-  tags?: string[];
-  list?: "recent" | "favorites" | "untagged" | null;
-  sort?: "relevance" | "modified" | "name" | "size" | "duration";
-  desc?: boolean;
-  limit?: number;
-};
-export type LibraryResult = { hits: Asset[]; total: number; kinds: Partial<Record<AssetKind, number>> };
-export type MetaPatch = { tags?: string[]; addTags?: string[]; removeTags?: string[]; rating?: number; notes?: string };
 export type McpInfo = { server_path: string; built: boolean; vault: string; node_path: string | null };
 
 export const api = {
@@ -124,24 +65,4 @@ export const api = {
   uiStateGet: (key: string) => invoke<string | null>("ui_state_get", { key }),
   uiStateSet: (key: string, value: string) => invoke<void>("ui_state_set", { key, value }),
 
-  // Creator Studio: the asset library.
-  libraryStatus: () => invoke<LibraryStatus>("library_status"),
-  librarySetSettings: (settings: StudioSettings) => invoke<void>("library_set_settings", { settings }),
-  libraryAddFolder: (path: string) => invoke<void>("library_add_folder", { path }),
-  libraryRemoveFolder: (name: string) => invoke<void>("library_remove_folder", { name }),
-  libraryRescan: () => invoke<void>("library_rescan"),
-  libraryClearCache: () => invoke<void>("library_clear_cache"),
-  librarySearch: (query: LibraryQuery) => invoke<LibraryResult>("library_search", { query }),
-  libraryFolders: () => invoke<[string, number][]>("library_folders"),
-  libraryTags: () => invoke<[string, number][]>("library_tags"),
-  librarySetMeta: (ids: string[], patch: MetaPatch) => invoke<void>("library_set_meta", { ids, patch }),
-  /** PNG/JPEG bytes, or empty when the file has no preview. */
-  libraryThumbnail: (id: string) => invoke<ArrayBuffer>("library_thumbnail", { id }),
-  libraryOpen: (id: string, withApp?: string) => invoke<void>("library_open", { id, with: withApp ?? null }),
-  libraryReveal: (id: string) => invoke<void>("library_reveal", { id }),
-  /** Sub-folder names of a library folder, read from disk. */
-  librarySubfolders: (id: string) => invoke<string[]>("library_subfolders", { id }),
-  libraryFolderExists: (id: string) => invoke<boolean>("library_folder_exists", { id }),
-  /** Creates `<parent>/<name>` with the template's sub-folders; returns the new folder's id. */
-  libraryCreateFolder: (parent: string, name: string, template: string[]) => invoke<string>("library_create_folder", { parent, name, template }),
 };

@@ -8,9 +8,9 @@
  * the app's React. Everything a plugin registers is tracked and disposed when it's turned off.
  */
 import { getVersion } from "@tauri-apps/api/app";
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { confirm } from "@tauri-apps/plugin-dialog";
+import { confirm, open as openDialog } from "@tauri-apps/plugin-dialog";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import * as ReactDOMClient from "react-dom/client";
@@ -19,6 +19,9 @@ import { useSyncExternalStore } from "react";
 import type {
   Command,
   Disposable,
+  LibraryProgress,
+  LibraryStatus,
+  MediaLibrary,
   PagePanel,
   Permission,
   PluginContext,
@@ -32,6 +35,7 @@ import type {
 } from "@betelgeuse/plugin-api";
 import { api } from "../lib/api";
 import { joinNote, patchFrontmatter, readFrontmatter, splitNote } from "../lib/frontmatter";
+import { parseSchema } from "../database/model";
 import { open as openExternal } from "../lib/links";
 import * as kit from "./ui";
 
@@ -64,6 +68,8 @@ export type Contributions = {
 export type Host = {
   openPath: (path: string, options?: { newTab?: boolean }) => void;
   toast: (message: string) => void;
+  /** Opens Settings at a section (`plugin:<key>` for a plugin's own). */
+  openSettings: (section: string) => void;
 };
 
 /** Tabs show a plugin's view when their "path" is `@plugin/<plugin id>/<view id>`. */
@@ -178,12 +184,58 @@ export async function loadWorkspace(path: string) {
   await unloadAll();
   appVersion = await getVersion().catch(() => appVersion);
   await refreshList();
+  await migrateBuiltInStudio();
   for (const p of plugins) if (p.enabled && p.status === "off") await activate(p.id);
+  void checkForUpdates();
+}
+
+/** The library plugin's id; it was "creator-studio" before it was renamed Media Library. */
+const MEDIA_LIBRARY = "media-library";
+const OLD_ID = "creator-studio";
+
+/**
+ * One-time moves for the media library:
+ * - from the built-in feature (switched on in `.betelgeuse/studio.json`) to the plugin, carrying
+ *   its pipeline settings into the plugin's data;
+ * - from the plugin's first name (creator-studio) to media-library: the workspace's plugin list,
+ *   its data, and the old installed copy.
+ */
+async function migrateBuiltInStudio() {
+  type Legacy = { settings: { enabled: boolean; ignore: string[]; thumbnails: boolean; pipeline?: { database?: string | null } } };
+  const id = MEDIA_LIBRARY;
+  const enabled = await invoke<string[]>("plugins_enabled").catch((): string[] => []);
+  const data = await invoke<Record<string, unknown>>("plugin_data_get", { id, scope: "workspace" });
+  let changed = false;
+
+  if (enabled.includes(OLD_ID)) {
+    const old = await invoke<Record<string, unknown>>("plugin_data_get", { id: OLD_ID, scope: "workspace" });
+    if (!data.pipeline && old.pipeline) await invoke("plugin_data_set", { id, scope: "workspace", value: { ...data, ...old } });
+    await invoke("plugins_set_enabled", { ids: [...enabled.filter((x) => x !== OLD_ID), id] });
+    if (plugins.some((p) => p.id === OLD_ID && p.source === "installed")) await invoke("plugin_uninstall", { id: OLD_ID }).catch(() => {});
+    changed = true;
+  }
+
+  const legacy = await invoke<Legacy>("library_status").catch(() => null);
+  if (legacy?.settings.enabled) {
+    if (!data.pipeline && legacy.settings.pipeline?.database) {
+      await invoke("plugin_data_set", { id, scope: "workspace", value: { ...data, pipeline: legacy.settings.pipeline } });
+    }
+    // The workspace now uses the plugin: it starts when it's here, and Settings offers it when it isn't.
+    const now = await invoke<string[]>("plugins_enabled").catch((): string[] => []);
+    if (!now.includes(id)) await invoke("plugins_set_enabled", { ids: [...now, id] });
+    await invoke("library_set_settings", { settings: { ...legacy.settings, enabled: false } });
+    changed = true;
+  }
+
+  if (!changed) return;
+  await refreshList();
+  if (!plugins.some((p) => p.id === id)) host?.toast("The Library is now the Media Library plugin. Install it in Settings → Plugins to keep using it.");
 }
 
 /** Re-reads which plugins are installed and enabled, keeping running ones as they are. */
 export async function refreshList() {
   const [found, enabled] = await Promise.all([invoke<PluginInfo[]>("plugins_list"), invoke<string[]>("plugins_enabled").catch((): string[] => [])]);
+  missing = enabled.filter((id) => !found.some((f) => f.id === id));
   plugins = found.map((f) => {
     const manifest = f.manifest as unknown as PluginManifest;
     const existing = plugins.find((p) => p.id === f.id);
@@ -218,6 +270,83 @@ export async function reload(id: string) {
   await refreshList();
   if (plugins.find((p) => p.id === id)?.enabled) await activate(id);
 }
+
+// ------------------------------------------------------------------------------------------------
+// The plugin store
+
+export type StoreEntry = {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  icon: string;
+  homepage: string;
+  engines: PluginManifest["engines"];
+  platforms: string[];
+  permissions: string[];
+  size: number;
+};
+export type StoreIndex = { plugins: StoreEntry[]; fetched: number; stale: boolean };
+
+let store: StoreIndex | null = null;
+let storeError: string | null = null;
+const storeListeners = new Set<() => void>();
+const storeSubscribe = (l: () => void) => (storeListeners.add(l), () => storeListeners.delete(l));
+const storeEmit = () => storeListeners.forEach((l) => l());
+export const useStore = () => ({ index: useSyncExternalStore(storeSubscribe, () => store), error: useSyncExternalStore(storeSubscribe, () => storeError) });
+
+export async function loadStore(refresh = false) {
+  try {
+    store = await invoke<StoreIndex>("plugin_store_index", { refresh });
+    storeError = null;
+  } catch (e) {
+    storeError = String(e);
+  }
+  storeEmit();
+  return store;
+}
+
+/** A newer version in the store that this app can run, if there is one. */
+export function updateFor(p: PluginState, index = store): StoreEntry | null {
+  const entry = index?.plugins.find((e) => e.id === p.id);
+  if (!entry || p.source !== "installed" || cmp(entry.version, p.manifest.version) <= 0) return null;
+  return incompatibility(entry as unknown as PluginManifest) ? null : entry;
+}
+
+/** Installs (or updates) a plugin from the store, turns it on for this workspace and starts it. */
+export async function installFromStore(id: string) {
+  await invoke<string>("plugin_store_install", { id });
+  await deactivate(id);
+  await refreshList();
+  const p = plugins.find((x) => x.id === id);
+  if (p && !p.enabled) await setEnabled(id, true);
+  else await activate(id);
+}
+
+const AUTO_UPDATE = "plugins:autoUpdate";
+export const autoUpdates = () => localStorage.getItem(AUTO_UPDATE) !== "off";
+export const setAutoUpdates = (on: boolean) => localStorage.setItem(AUTO_UPDATE, on ? "on" : "off");
+
+/** In the background after start-up: fetch the store's list and update plugins (if allowed). */
+async function checkForUpdates() {
+  const index = await loadStore();
+  if (!index || !autoUpdates()) return;
+  for (const p of plugins) {
+    const u = updateFor(p, index);
+    if (!u) continue;
+    try {
+      await installFromStore(p.id);
+      host?.toast(`${u.name} updated to ${u.version}`);
+    } catch (e) {
+      console.error(`[plugin ${p.id}] update`, e);
+    }
+  }
+}
+
+/** Plugins this workspace has turned on that aren't installed on this computer. */
+let missing: string[] = [];
+export const useMissing = () => useSyncExternalStore(subscribe, () => missing);
 
 export async function installFromFolder(dir: string) {
   const id = await invoke<string>("plugin_install_folder", { path: dir });
@@ -306,6 +435,78 @@ export function reportCrash(id: string, error: unknown) {
 }
 
 // ------------------------------------------------------------------------------------------------
+// The media library service
+
+/** Plugins currently using the library; it scans and watches while there's at least one. */
+const libraryUsers = new Set<string>();
+const thumbs = new Map<string, Promise<string | null>>();
+
+type RawStatus = Omit<LibraryStatus, "options"> & { settings: { enabled: boolean; ignore: string[]; thumbnails: boolean; pipeline: unknown } };
+
+function libraryFor(id: string, track: (d: Disposable) => Disposable): MediaLibrary {
+  libraryUsers.add(id);
+  invoke("library_set_active", { on: true });
+  track({
+    dispose: () => {
+      libraryUsers.delete(id);
+      if (!libraryUsers.size) invoke("library_set_active", { on: false });
+    },
+  });
+  const raw = () => invoke<RawStatus>("library_status");
+  const event = <T,>(name: string, listener: (payload: T) => void) => {
+    const un = listen<T>(name, (e) => listener(e.payload));
+    return track({ dispose: () => void un.then((f) => f()) });
+  };
+  return {
+    status: async () => {
+      const { settings, ...rest } = await raw();
+      return { ...rest, options: { ignore: settings.ignore, thumbnails: settings.thumbnails } };
+    },
+    onChange: (listener) => event("library-changed", () => listener()),
+    onProgress: (listener) => event<LibraryProgress>("library-progress", listener),
+    addFolder: async (path) => {
+      const dir = path ?? (await openDialog({ directory: true, title: "Add a library folder" }));
+      if (typeof dir === "string") await invoke("library_add_folder", { path: dir });
+    },
+    removeFolder: (name) => invoke("library_remove_folder", { name }),
+    rescan: () => invoke("library_rescan"),
+    pickFolder: async (title) => {
+      const dir = await openDialog({ directory: true, title });
+      return typeof dir === "string" ? dir : null;
+    },
+    setOptions: async (options) => {
+      const { settings } = await raw();
+      await invoke("library_set_settings", { settings: { ...settings, ...options } });
+    },
+    clearCache: async () => {
+      await invoke("library_clear_cache");
+      thumbs.clear();
+    },
+    search: (query) => invoke("library_search", { query }),
+    folders: () => invoke("library_folders"),
+    tags: () => invoke("library_tags"),
+    subfolders: (folder) => invoke("library_subfolders", { id: folder }),
+    folderExists: (folder) => invoke("library_folder_exists", { id: folder }),
+    createFolder: (parent, name, template) => invoke("library_create_folder", { parent, name, template }),
+    setMeta: (ids, patch) => invoke("library_set_meta", { ids, patch }),
+    thumbnail: ({ id: asset, modified }) => {
+      const key = `${asset}@${modified}`;
+      let p = thumbs.get(key);
+      if (!p) {
+        p = invoke<ArrayBuffer>("library_thumbnail", { id: asset })
+          .then((buf) => (buf.byteLength ? URL.createObjectURL(new Blob([buf])) : null))
+          .catch(() => null);
+        thumbs.set(key, p);
+      }
+      return p;
+    },
+    fileUrl: ({ path }) => convertFileSrc(path),
+    open: (target) => invoke("library_open", { id: target, with: null }),
+    reveal: (target) => invoke("library_reveal", { id: target }),
+  };
+}
+
+// ------------------------------------------------------------------------------------------------
 // The context each plugin gets
 
 function makeContext(p: PluginState): PluginContext {
@@ -335,6 +536,12 @@ function makeContext(p: PluginState): PluginContext {
         },
         databaseRows: async (path) =>
           (await api.databaseRows(path)).map((r) => ({ path: r.path, title: r.title, properties: readFrontmatter(splitNote(r.content).frontmatter) })),
+        databaseSchema: async (path) =>
+          parseSchema(splitNote(await api.readNote(path)).body).properties.map((p) => ({
+            name: p.name,
+            type: p.type,
+            options: p.options?.map((o) => ({ name: o.name, color: o.color })),
+          })),
         openPage: (path, options) => host?.openPath(path, options),
         onChange: (listener) => {
           let timer: number | undefined;
@@ -376,7 +583,13 @@ function makeContext(p: PluginState): PluginContext {
       open: (viewId, options) => host?.openPath(viewPath(id, viewId), options),
     },
     sidebar: { register: (item) => add("sidebar", own(item)) },
-    settings: { register: (section) => add("settings", own({ ...section, key: `${id}:${section.title}` })) },
+    settings: {
+      register: (section) => add("settings", own({ ...section, key: `${id}:${section.title}` })),
+      open: () => {
+        const mine = contributions.settings.find((x) => x.pluginId === id);
+        host?.openSettings(mine ? `plugin:${mine.key}` : "plugins");
+      },
+    },
     pagePanels: { register: (panel) => add("pagePanels", own({ ...panel, permissions: [...perms] })) },
     commands: {
       register: (command) => add("commands", own({ ...command, key: `${id}.${command.id}` })),
@@ -393,6 +606,7 @@ function makeContext(p: PluginState): PluginContext {
       confirm: (message, options) => confirm(message, { title: p.manifest.name, kind: options?.danger ? "warning" : "info", okLabel: options?.confirmLabel ?? "OK" }),
     },
     workspace: workspaceApi,
+    library: perms.has("library") ? libraryFor(id, track) : undefined,
     shell: perms.has("shell:open") ? { openUrl: async (url) => void (await openExternal(url)) } : undefined,
     http: hosts.length
       ? {
@@ -418,6 +632,7 @@ export function describePermission(perm: string): string {
   if (perm === "workspace:read") return "Read your pages and databases";
   if (perm === "workspace:write") return "Create and change pages";
   if (perm === "shell:open") return "Open links and files in other apps";
+  if (perm === "library") return "Index the folders you choose and preview their files";
   if (perm.startsWith("network:")) return `Connect to ${perm.slice(8)}`;
   return perm;
 }

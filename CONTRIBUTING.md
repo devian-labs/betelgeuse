@@ -78,6 +78,17 @@ The tag starts the Release workflow. It runs the tests, checks that the tag matc
 
 To try the builds without releasing, run the workflow by hand (**Actions → Release → Run workflow**): the installers are attached to the run as artifacts and nothing is published.
 
+The release also packages every plugin in `plugins/` for the plugin store: `plugin-<id>-<version>.zip` and `plugins.json`, attached to the same release. Each zip is signed with the store key; the app only installs plugins signed with it. The repository needs two Actions secrets:
+
+| Secret | What |
+|---|---|
+| `PLUGIN_SIGNING_KEY` | The private key (PEM) made by `node scripts/plugin-keys.mjs`. Its public half is `apps/desktop/src-tauri/plugin-signing.pub`. |
+| `UNSPLASH_ACCESS_KEY` | Built into the app for cover photo search. |
+
+## Plugins
+
+Plugins live in `plugins/<id>/` and build against `packages/plugin-api`. `npm run plugins` typechecks and builds them all (CI runs it); a development build of the app (`npm run app`) loads them from their `dist/` folders. See the [plugin docs](https://betelgeuse.devianlabs.com/docs/developers/plugins/).
+
 ## Updating the screenshots
 
 `npm run screenshots -w @betelgeuse/lander` captures the app in light and dark for the README and website.

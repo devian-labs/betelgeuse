@@ -20,7 +20,7 @@ import { Check, ChevronDown, Copy, FileText, Image as ImageIcon, Maximize2, Tras
 import { createPortal } from "react-dom";
 import { common, createLowlight } from "lowlight";
 import { createContext, useContext, useEffect, useState } from "react";
-import { IconPicker } from "../components/IconPicker";
+import { IconPicker } from "../components/LazyIconPicker";
 import { MenuItem, Popover } from "../components/Popover";
 import { DatabaseView } from "../database/DatabaseView";
 import { api } from "../lib/api";

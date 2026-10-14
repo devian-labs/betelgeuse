@@ -26,9 +26,8 @@ import { DatabaseView } from "../database/DatabaseView";
 import { defaultSchema, writeSchema } from "../database/model";
 import { Toggle } from "../database/PropertyMenu";
 import { RowProperties } from "../database/RowProperties";
-import { AssetsPanel } from "../library/AssetsPanel";
 import { PluginPagePanels } from "../plugins/slots";
-import { useStudio } from "../lib/studio";
+import { markQuietWrite } from "../lib/quiet";
 import { createDatabase } from "../database/useDatabase";
 import type { Editor as TiptapEditor } from "@tiptap/react";
 import { Editor } from "../editor/Editor";
@@ -42,7 +41,7 @@ import { aiAccess, type AiAccess } from "../lib/ai";
 import { wantsNewTab } from "../lib/nav";
 import { useVault } from "../lib/vault";
 import { CoverBox, CoverCredit, CoverPicker, photoCover } from "./Cover";
-import { IconPicker } from "./IconPicker";
+import { IconPicker } from "./LazyIconPicker";
 import { Outline } from "./Outline";
 import { MenuDivider, MenuItem, MenuSection, Popover } from "./Popover";
 
@@ -134,6 +133,8 @@ export function PageView(p: Props) {
     pending.current = false;
     const content = joinNote(fm.current, body.current);
     if (content === lastWritten.current) return setSaving(false);
+    // Only the text changed: nothing else in the app needs to reload for this save.
+    if (lastWritten.current !== null && splitNote(lastWritten.current).frontmatter === fm.current) markQuietWrite(pathRef.current);
     lastWritten.current = content;
     await api.writeNote(pathRef.current, content);
     setSaving(false);
@@ -233,7 +234,6 @@ export function PageView(p: Props) {
   const ai = aiAccess(path, notes.map((n) => (n.path === path ? { ...n, ai: ownAi } : n)), aiPolicy);
   const parent = parentOf(path);
   const parentIsDb = !!parent && notes.find((n) => n.path === parent)?.kind === "database";
-  const studio = useStudio();
   const isDb = values.type === "database";
 
   if (doc === "missing") {
@@ -400,10 +400,6 @@ export function PageView(p: Props) {
                 setProperties: patch,
               }}
             />
-          )}
-          {/* Rows of the Creator Studio pipeline are productions: show their project folder's files. */}
-          {parentIsDb && doc && studio.enabled && parent === studio.status?.settings.pipeline.database && (
-            <AssetsPanel title={meta?.title ?? title} frontmatter={doc.frontmatter} onPatch={patch} />
           )}
 
           {isDb ? (

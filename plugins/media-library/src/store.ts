@@ -1,52 +1,52 @@
-import { listen } from "@tauri-apps/api/event";
-import { useEffect, useSyncExternalStore } from "react";
-import { api, type AssetKind, type LibraryStatus } from "./api";
-
-/** Tabs show the Library when their "path" is this (pages always end in `.md`). */
-export const LIBRARY_PATH = "@library";
-
-export type Progress = { phase: "idle" | "scanning" | "probing"; done?: number; total?: number };
+/**
+ * Media Library's live state: the library's status and scan progress (kept current through the
+ * library's events), and requests to show a folder in the Library.
+ */
+import type { AssetKind, LibraryProgress, LibraryStatus } from "@betelgeuse/plugin-api";
+import { useSyncExternalStore } from "react";
+import { library } from "./host";
 
 let status: LibraryStatus | null = null;
+let progress: LibraryProgress = { phase: "idle" };
+/** Bumped whenever the index changes, so open screens search again. */
+let version = 0;
 /** A folder the Library should show next (from "Show in Library" on a production). */
 let request: { folder: string; at: number } | null = null;
-let progress: Progress = { phase: "idle" };
-/** Bumped whenever the index changes, so open Library views search again. */
-let version = 0;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
+const subscribe = (l: () => void) => (listeners.add(l), () => listeners.delete(l));
 
 export async function refreshStudio() {
-  status = await api.libraryStatus().catch(() => status);
+  status = await library()
+    .status()
+    .catch(() => status);
   version++;
   emit();
 }
 
-let started = false;
-function start() {
-  if (started) return;
-  started = true;
-  refreshStudio();
+/** Starts following the library (called when the plugin activates). */
+export function startStore() {
   let timer: number | undefined;
-  listen("library-changed", () => {
+  refreshStudio();
+  library().onChange(() => {
     // Probing saves every few seconds; one refresh per burst is plenty.
     window.clearTimeout(timer);
     timer = window.setTimeout(refreshStudio, 300);
   });
-  listen<Progress>("library-progress", (e) => {
-    progress = e.payload;
+  library().onProgress((p) => {
+    progress = p;
     emit();
-    if (e.payload.phase === "idle") refreshStudio();
+    if (p.phase === "idle") refreshStudio();
   });
 }
 
-const subscribe = (l: () => void) => {
-  start();
-  listeners.add(l);
-  return () => listeners.delete(l);
-};
+export function resetStore() {
+  status = null;
+  progress = { phase: "idle" };
+  request = null;
+}
 
-/** Asks the Library to show a folder; the caller opens the Library tab. */
+/** Asks the Library to show a folder; the caller opens the Library. */
 export function showInLibrary(folder: string) {
   request = { folder, at: Date.now() };
   emit();
@@ -57,14 +57,7 @@ export function useStudio() {
   const s = useSyncExternalStore(subscribe, () => status);
   const p = useSyncExternalStore(subscribe, () => progress);
   const v = useSyncExternalStore(subscribe, () => version);
-  return { status: s, enabled: !!s?.settings.enabled, progress: p, version: v };
-}
-
-/** Reloads Creator Studio's state when the workspace changes. */
-export function useStudioWorkspace(workspace: string | undefined) {
-  useEffect(() => {
-    if (workspace) refreshStudio();
-  }, [workspace]);
+  return { status: s, progress: p, version: v };
 }
 
 export const KIND_LABELS: Record<AssetKind, string> = {
@@ -110,19 +103,3 @@ export function formatResolution(w: number | null, h: number | null) {
   if ([2160, 1440, 1080, 720, 480].includes(short)) return `${short}p`;
   return `${w}×${h}`;
 }
-
-// Thumbnails, loaded once per session and shared by every view.
-const thumbs = new Map<string, Promise<string | null>>();
-export function thumbnailUrl(id: string, modified: number): Promise<string | null> {
-  const key = `${id}@${modified}`;
-  let p = thumbs.get(key);
-  if (!p) {
-    p = api
-      .libraryThumbnail(id)
-      .then((buf) => (buf.byteLength ? URL.createObjectURL(new Blob([buf])) : null))
-      .catch(() => null);
-    thumbs.set(key, p);
-  }
-  return p;
-}
-export const forgetThumbnails = () => thumbs.clear();

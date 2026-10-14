@@ -1,5 +1,6 @@
 mod importer;
 mod library;
+mod plugin_store;
 mod plugins;
 mod seed;
 
@@ -23,7 +24,7 @@ struct Shared {
     pending: Mutex<Option<Instant>>,
     /// Idle time before auto-committing; `None` turns auto-commit off.
     autocommit: Mutex<Option<Duration>>,
-    /// Creator Studio's asset library.
+    /// The media library service (plugins use it through `ctx.library`).
     library: library::Shared,
 }
 
@@ -401,7 +402,7 @@ fn find_node() -> Option<String> {
     (out.status.success() && Path::new(&path).is_absolute()).then_some(path)
 }
 
-// Creator Studio: the asset library.
+// The media library service.
 
 #[tauri::command]
 fn library_status(app: AppHandle, state: State<AppState>) -> library::Status {
@@ -421,6 +422,12 @@ fn library_add_folder(app: AppHandle, state: State<AppState>, path: String) -> R
 #[tauri::command]
 fn library_remove_folder(app: AppHandle, state: State<AppState>, name: String) -> Result<(), String> {
     library::remove_root(&app, &state.library, &name)
+}
+
+/// Plugins that use the library turn it on while they run.
+#[tauri::command]
+fn library_set_active(app: AppHandle, state: State<AppState>, on: bool) {
+    library::set_active(&app, &state.library, on)
 }
 
 #[tauri::command]
@@ -537,6 +544,18 @@ fn plugin_data_set(app: AppHandle, state: State<AppState>, id: String, scope: St
     plugins::data_set(&app, &vault(&state)?, &id, &scope, value)
 }
 
+/// The plugin store's list of plugins (cached; `refresh` fetches it again).
+#[tauri::command]
+async fn plugin_store_index(app: AppHandle, refresh: bool) -> Result<plugin_store::Index, String> {
+    tauri::async_runtime::spawn_blocking(move || plugin_store::index(&app, refresh)).await.map_err(|e| e.to_string())?
+}
+
+/// Downloads, verifies and installs a plugin from the store; returns its id.
+#[tauri::command]
+async fn plugin_store_install(app: AppHandle, id: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || plugin_store::install(&app, &id)).await.map_err(|e| e.to_string())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state: AppState = Arc::default();
@@ -588,6 +607,7 @@ pub fn run() {
             library_set_settings,
             library_add_folder,
             library_remove_folder,
+            library_set_active,
             library_rescan,
             library_clear_cache,
             library_search,
@@ -607,7 +627,9 @@ pub fn run() {
             plugins_enabled,
             plugins_set_enabled,
             plugin_data_get,
-            plugin_data_set
+            plugin_data_set,
+            plugin_store_index,
+            plugin_store_install
         ])
         .run(tauri::generate_context!())
         .expect("error while running Betelgeuse");

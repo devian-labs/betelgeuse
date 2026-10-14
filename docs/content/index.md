@@ -30,7 +30,7 @@ These docs cover:
 ### Extend it
 
 - [Plugins](/docs/plugins/)
-- [Creator Studio](/docs/plugins/creator-studio/)
+- [Media Library](/docs/plugins/media-library/)
 - [Build a plugin](/docs/developers/plugins/)
 
 </div>
