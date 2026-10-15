@@ -88,7 +88,7 @@ fn limit_stalls() {
 fn throttled(report: OnProgress) -> impl FnMut(Progress) {
     let mut last = None;
     move |p: Progress| {
-        let step = (p.phase, if p.total > 0 { p.done * 100 / p.total } else { 0 }, p.bytes >> 20);
+        let step = (p.phase, (p.done * 100).checked_div(p.total).unwrap_or(0), p.bytes >> 20);
         if last != Some(step) {
             last = Some(step);
             report(p);
