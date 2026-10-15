@@ -63,6 +63,10 @@ The pages inside this one are a guide to everything Betelgeuse can do. Each guid
 - [[Connect your AI agents]]
 - [[What AI agents can see]]
 
+### 🧩 Add more
+
+- [[Plugins]]: Finance, Media Library and more
+
 </div>
 </div>
 

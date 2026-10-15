@@ -33,7 +33,7 @@ If `activate` throws, the plugin is marked as failed in Settings → Plugins wit
 | | |
 |---|---|
 | `ctx.manifest` | Your manifest, as read. |
-| `ctx.app` | `{ version, apiVersion, platform }`: the Betelgeuse version (`"0.4.0"`), `1`, and `"desktop"`. |
+| `ctx.app` | `{ version, apiVersion, platform }`: the Betelgeuse version (`"0.5.0"`), `1`, and `"desktop"` or `"mobile"` (the phone app). |
 | `ctx.log(...)` | Logs to the developer console, prefixed with your plugin's id. |
 
 ## Views

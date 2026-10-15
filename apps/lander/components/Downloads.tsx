@@ -5,7 +5,7 @@ import { REPO } from "@/lib/site";
 import type { Asset } from "@/lib/github";
 import { useRelease } from "./GitHub";
 
-type Platform = "macOS" | "Windows" | "Linux";
+type Platform = "macOS" | "Windows" | "Linux" | "Android";
 
 const platforms: { os: Platform; detail: string; files: { label: string; match: RegExp }[]; icon: React.ReactNode }[] = [
   {
@@ -39,6 +39,14 @@ const platforms: { os: Platform; detail: string; files: { label: string; match: 
       <path d="M12 2.5c-2.2 0-3.5 1.9-3.5 4.4 0 1.2.3 2-.4 3.2-1 1.6-2.9 3.6-2.9 6.2 0 1 .4 1.8 1 2.2-.4.6-.4 1.4.4 1.8 1 .5 2.4-.2 3.5.2.8.3 1.3.5 1.9.5s1.1-.2 1.9-.5c1.1-.4 2.5.3 3.5-.2.8-.4.8-1.2.4-1.8.6-.4 1-1.2 1-2.2 0-2.6-1.9-4.6-2.9-6.2-.7-1.2-.4-2-.4-3.2 0-2.5-1.3-4.4-3.5-4.4z" />
     ),
   },
+  {
+    os: "Android",
+    detail: "Android 8 and later · preview",
+    files: [{ label: ".apk", match: /android\.apk$/ }],
+    icon: (
+      <path d="M17.5 9.6l1.6-2.8a.4.4 0 0 0-.7-.4l-1.6 2.8a9.8 9.8 0 0 0-7.6 0L7.6 6.4a.4.4 0 0 0-.7.4l1.6 2.8C5.8 11 4 13.6 3.8 16.6h16.4c-.2-3-2-5.6-4.7-7zM8.5 14a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8zm7 0a.9.9 0 1 1 0-1.8.9.9 0 0 1 0 1.8z" />
+    ),
+  },
 ];
 
 function size(bytes: number) {
@@ -48,7 +56,8 @@ function size(bytes: number) {
 function detectOs(): Platform | null {
   const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
   const p = `${nav.userAgentData?.platform ?? ""} ${nav.platform} ${nav.userAgent}`;
-  if (/iPhone|iPad|Android/i.test(nav.userAgent)) return null;
+  if (/Android/i.test(nav.userAgent)) return "Android";
+  if (/iPhone|iPad/i.test(nav.userAgent)) return null;
   if (/mac/i.test(p)) return "macOS";
   if (/win/i.test(p)) return "Windows";
   if (/linux|x11/i.test(p)) return "Linux";
@@ -109,7 +118,8 @@ export function Downloads() {
       <div className="unsigned">
         <strong>Before you install:</strong> builds aren&apos;t code-signed yet, so your OS asks you to confirm the first
         time. On macOS, open <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em>. On Windows,
-        click <em>More info → Run anyway</em>. Building from source avoids both.{" "}
+        click <em>More info → Run anyway</em>. Building from source avoids both. On Android, allow installs from your browser
+        when asked.{" "}
         <a href={`${REPO}/releases`}>All releases</a>
       </div>
     </div>

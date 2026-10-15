@@ -8,12 +8,17 @@ pub(crate) use betelgeuse_core::{git, plugin_store, plugins, vault};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 /// Changes are committed once the vault has been quiet for this long.
 const AUTOCOMMIT_IDLE: Duration = Duration::from_secs(8);
+/// Syncs with the remote this often by default (Settings → Git & sync changes it).
+const AUTOSYNC_EVERY: Duration = Duration::from_secs(5 * 60);
+/// An automatic sync waits until pages have been left alone this long: never mid-typing.
+const SYNC_QUIET: Duration = Duration::from_secs(30);
 
 struct Shared {
     vault: Mutex<Option<PathBuf>>,
@@ -22,6 +27,16 @@ struct Shared {
     pending: Mutex<Option<Instant>>,
     /// Idle time before auto-committing; `None` turns auto-commit off.
     autocommit: Mutex<Option<Duration>>,
+    /// How often to sync with the remote unattended; `None` turns it off.
+    autosync: Mutex<Option<Duration>>,
+    /// The last time pages changed on disk (by anyone), and whether they did since the last sync.
+    last_change: Mutex<Option<Instant>>,
+    changed_since_sync: AtomicBool,
+    /// When the last sync ran (`None`: as soon as things are quiet, e.g. at start or on focus).
+    last_sync: Mutex<Option<Instant>>,
+    /// Held while a sync runs, so manual and automatic ones never overlap.
+    sync_lock: Mutex<()>,
+    syncing: AtomicBool,
     /// The media library service (plugins use it through `ctx.library`).
     library: library::Shared,
 }
@@ -33,6 +48,12 @@ impl Default for Shared {
             watcher: Mutex::default(),
             pending: Mutex::default(),
             autocommit: Mutex::new(Some(AUTOCOMMIT_IDLE)),
+            autosync: Mutex::new(Some(AUTOSYNC_EVERY)),
+            last_change: Mutex::default(),
+            changed_since_sync: AtomicBool::new(false),
+            last_sync: Mutex::default(),
+            sync_lock: Mutex::default(),
+            syncing: AtomicBool::new(false),
             library: Arc::default(),
         }
     }
@@ -140,6 +161,11 @@ fn activate(app: &AppHandle, state: &AppState, path: PathBuf, remember: bool) ->
             return;
         }
         *shared.pending.lock().unwrap() = Some(Instant::now());
+        *shared.last_change.lock().unwrap() = Some(Instant::now());
+        // What a sync itself brings in isn't a change to send back.
+        if !shared.syncing.load(Ordering::SeqCst) {
+            shared.changed_since_sync.store(true, Ordering::SeqCst);
+        }
         let _ = handle.emit("vault-changed", paths);
     })
     .map_err(|e| e.to_string())?;
@@ -152,6 +178,54 @@ fn activate(app: &AppHandle, state: &AppState, path: PathBuf, remember: bool) ->
     }
     library::load(app, &state.library, &path);
     Ok(info(&path))
+}
+
+/// Commits what changed, then pulls and pushes (see `git::sync_merging`): one sync at a time.
+fn run_sync(app: &AppHandle, state: &AppState, path: &Path) -> Result<betelgeuse_core::git_lib::Integrated, String> {
+    let _one = state.sync_lock.lock().unwrap_or_else(|e| e.into_inner());
+    state.syncing.store(true, Ordering::SeqCst);
+    state.changed_since_sync.store(false, Ordering::SeqCst);
+    *state.last_sync.lock().unwrap() = Some(Instant::now());
+    let result = (|| {
+        if let Some(m) = git::auto_message(path) {
+            git::commit_all(path, &m)?;
+        }
+        *state.pending.lock().unwrap() = None;
+        git::sync_merging(path)
+    })();
+    state.syncing.store(false, Ordering::SeqCst);
+    match &result {
+        Ok(done) => {
+            let _ = app.emit("git-synced", done);
+        }
+        Err(e) => {
+            let _ = app.emit("git-sync-failed", e);
+        }
+    }
+    result
+}
+
+/// Keeps every device in step without anyone pressing Sync: when the workspace has a remote and
+/// its pages have been left alone a while, syncs every so often, and soon after local changes.
+fn spawn_autosync(app: AppHandle, state: AppState) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(Duration::from_secs(5));
+        let Some(every) = *state.autosync.lock().unwrap() else { continue };
+        let quiet = state.last_change.lock().unwrap().is_none_or(|t| t.elapsed() >= SYNC_QUIET);
+        let since = *state.last_sync.lock().unwrap();
+        let due = since.is_none_or(|t| t.elapsed() >= every) || state.changed_since_sync.load(Ordering::SeqCst);
+        if !quiet || !due {
+            continue;
+        }
+        let Some(path) = state.vault.lock().unwrap().clone() else { continue };
+        if !git::has_remote(&path) {
+            // Nothing to sync with; look again next round.
+            *state.last_sync.lock().unwrap() = Some(Instant::now());
+            state.changed_since_sync.store(false, Ordering::SeqCst);
+            continue;
+        }
+        let _ = run_sync(&app, &state, &path);
+    });
 }
 
 fn spawn_autocommit(app: AppHandle, state: AppState) {
@@ -302,12 +376,30 @@ fn git_show(state: State<AppState>, rev: String, path: String) -> Result<String,
 }
 
 #[tauri::command]
-fn git_sync(state: State<AppState>) -> Result<String, String> {
+async fn git_sync(app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
     let path = vault(&state)?;
-    if let Some(m) = git::auto_message(&path) {
-        git::commit_all(&path, &m)?;
+    let state = state.inner().clone();
+    let done = tauri::async_runtime::spawn_blocking(move || run_sync(&app, &state, &path)).await.map_err(|e| e.to_string())??;
+    Ok(match done.conflicts.len() {
+        0 => "Synced".into(),
+        n => format!("Synced · {n} page{} changed here and elsewhere: both versions kept", if n == 1 { "" } else { "s" }),
+    })
+}
+
+/// How often to sync unattended, in seconds (0 turns it off).
+#[tauri::command]
+fn set_autosync(state: State<AppState>, seconds: u64) {
+    *state.autosync.lock().unwrap() = (seconds > 0).then(|| Duration::from_secs(seconds));
+}
+
+/// Syncs as soon as pages are quiet (the window came back to the front, say).
+#[tauri::command]
+fn git_sync_soon(state: State<AppState>) {
+    let mut last = state.last_sync.lock().unwrap();
+    // Not on every switch between windows: only when the last sync is a minute old.
+    if last.is_some_and(|t| t.elapsed() >= Duration::from_secs(60)) {
+        *last = None;
     }
-    git::sync(&path)
 }
 
 #[tauri::command]
@@ -571,7 +663,8 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(state.clone())
         .setup(move |app| {
-            spawn_autocommit(app.handle().clone(), state);
+            spawn_autocommit(app.handle().clone(), state.clone());
+            spawn_autosync(app.handle().clone(), state);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -604,6 +697,8 @@ pub fn run() {
             git_test_remote,
             git_publish,
             set_autocommit,
+            set_autosync,
+            git_sync_soon,
             get_ai_policy,
             ui_state_get,
             ui_state_set,

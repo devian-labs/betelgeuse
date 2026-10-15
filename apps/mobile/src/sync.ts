@@ -52,8 +52,10 @@ export function registerSaver(save: () => Promise<void>) {
 }
 const saveOpenPages = () => Promise.all([...savers].map((s) => s().catch(() => {})));
 
-/** Sync again on its own after this long with the app open. */
-const EVERY = 3 * 60_000;
+/** Sync again on its own after this long with the app open (to bring in other devices' changes). */
+const EVERY = 2 * 60_000;
+/** After an edit, sync once pages have been left alone this long (to send it to other devices). */
+const QUIET = 20_000;
 /** Coming back to the app syncs, unless the last sync was more recent than this. */
 const STALE = 30_000;
 
@@ -119,6 +121,22 @@ export function useSync({ onUpdated, onConflicts, onError }: { onUpdated: () => 
     reload().then(() => sync());
   }, [reload, sync]);
 
+  // Edits here go up soon after they stop; a sync's own changes don't count as edits.
+  const lastEdit = useRef(0);
+  useEffect(() => {
+    let timer: number | undefined;
+    const un = listen("vault-changed", () => {
+      if (running.current) return;
+      lastEdit.current = Date.now();
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void sync(), QUIET);
+    });
+    return () => {
+      window.clearTimeout(timer);
+      void un.then((f) => f());
+    };
+  }, [sync]);
+
   useEffect(() => {
     const onVisibility = () => {
       const last = statusRef.current?.last_sync ?? 0;
@@ -126,7 +144,8 @@ export function useSync({ onUpdated, onConflicts, onError }: { onUpdated: () => 
       else if (Date.now() - last > STALE) void sync();
     };
     document.addEventListener("visibilitychange", onVisibility);
-    const timer = window.setInterval(() => document.visibilityState === "visible" && void sync(), EVERY);
+    // Every so often while open, but never while someone's typing.
+    const timer = window.setInterval(() => document.visibilityState === "visible" && Date.now() - lastEdit.current > QUIET && void sync(), EVERY);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       window.clearInterval(timer);

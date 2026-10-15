@@ -98,7 +98,7 @@ function Connected() {
         )}
       </Group>
       <p className="px-1 pt-2 text-xs leading-relaxed text-faint">
-        Syncs when the app opens, when you come back to it, when you leave it, and every few minutes. A page changed on two devices keeps both versions.
+        Syncs when the app opens, when you come back to it and when you leave it, soon after you stop editing, and every couple of minutes while it's open. A page changed on two devices keeps both versions.
       </p>
 
       <button onClick={() => setDisconnecting(true)} className="mt-6 h-12 w-full rounded-2xl border border-line bg-raised text-[15px] font-medium text-[var(--c-red-text)] active:bg-hover">

@@ -13,7 +13,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 walkdir = "2"
 # Git without the `git` program, for the phone apps (see git_lib.rs). Desktop keeps the CLI.
-git2 = { version = "0.21", optional = true, default-features = false, features = ["https", "vendored-libgit2"] }
+git2 = { version = "0.21", optional = true, default-features = false, features = ["vendored-libgit2"] }
 # Installing plugins and the plugin store (desktop and mobile apps).
 ureq = { version = "3", optional = true }
 zip = { version = "8", default-features = false, features = ["deflate"], optional = true }
@@ -23,5 +23,8 @@ hex = { version = "0.4", optional = true }
 base64 = { version = "0.22", optional = true }
 
 [features]
+# Git through libgit2: merging and history (the desktop app merges this way, reaching remotes with
+# the `git` program); with -https, remotes over HTTPS too (the phone apps, which have no `git`).
 libgit2 = ["dep:git2"]
+libgit2-https = ["libgit2", "git2/https"]
 plugins = ["dep:ureq", "dep:zip", "dep:ed25519-dalek", "dep:sha2", "dep:hex", "dep:base64"]

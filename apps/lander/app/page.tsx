@@ -1,87 +1,65 @@
 import type { Metadata } from "next";
-import { Bot, FileText, GitFork, Heart, MessageSquarePlus, ShieldCheck, Wrench } from "lucide-react";
+import { Bot, EyeOff, FileText, FolderOpen, GitFork, Heart, History, ImageIcon, Lock, MessageSquarePlus, ShieldCheck, Store, Wallet, Wrench } from "lucide-react";
 import { Command } from "@/components/Command";
-import { Compare } from "@/components/Compare";
-import { BoardDemo, FilesDemo, FolderDemo, HistoryDemo, ImportDemo, PrivacyDemo, SlashDemo } from "@/components/Demos";
+import { PluginStoreDemo } from "@/components/Demos";
 import { DownloadButton } from "@/components/DownloadButton";
 import { Downloads } from "@/components/Downloads";
 import { CodeWindow } from "@/components/CodeWindow";
+import { Laptop, Phone } from "@/components/Devices";
+import { Features } from "@/components/Features";
 import { Contributors, GitHubProvider, RepoCard, StarButton } from "@/components/GitHub";
 import { Logo } from "@/components/Logo";
-import { ProductTour } from "@/components/ProductTour";
 import { RevealObserver } from "@/components/Reveal";
+import { Shot } from "@/components/Shot";
 import { Tabs } from "@/components/Tabs";
-import { TerminalDemo } from "@/components/TerminalDemo";
-import { Walkthrough } from "@/components/Walkthrough";
 import { getSnapshot } from "@/lib/github";
 import { ORG, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
 
 const description =
-  "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git on your computer, and AI agents read only the pages you share.";
+  "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git on your computer, AI agents read only the pages you share, and plugins add what else you need.";
 
 export const metadata: Metadata = pageMetadata({ title: "Open-Source Markdown Notes & Docs App | Betelgeuse", description, path: "/" });
 
-type Feature = { id: string; kicker: string; title: string; body: React.ReactNode; demo: React.ReactNode };
-
-function FeatureRows({ items, offset = 0 }: { items: Feature[]; offset?: number }) {
-  return (
-    <div className="wrap tour-rows">
-      {items.map((f, i) => (
-        <article key={f.id} className={`feature${(i + offset) % 2 ? " flip" : ""}`} data-reveal>
-          <div className="feature-copy">
-            <p className="kicker">{f.kicker}</p>
-            <h2>{f.title}</h2>
-            <p>{f.body}</p>
-          </div>
-          <div className="feature-visual">{f.demo}</div>
-        </article>
-      ))}
-    </div>
-  );
-}
-
-const workspace: Feature[] = [
-  {
-    id: "write",
-    kicker: "Write",
-    title: "Every block, one keystroke away.",
-    body: (
-      <>
-        Type <kbd>/</kbd> for headings, to-dos, callouts, code, tables and columns. Link pages with <kbd>[[</kbd>.
-      </>
-    ),
-    demo: <SlashDemo />,
-  },
-  {
-    id: "organise",
-    kicker: "Organise",
-    title: "Databases made of plain files.",
-    body: "Table, board, list, gallery and calendar views. Every row is a page, and every property lives in the file.",
-    demo: <BoardDemo />,
-  },
-  {
-    id: "remember",
-    kicker: "Remember",
-    title: "Every change saved. Every version back.",
-    body: "Your work is committed to git as you go. Restore any version in a click, including an agent's.",
-    demo: <HistoryDemo />,
-  },
+/** What connecting an agent gives you, next to the MCP illustration. */
+const agentPoints: { Icon: typeof FileText; title: string; body: string }[] = [
+  { Icon: Bot, title: "Copy-paste setup", body: "Claude Code, Claude Desktop, Cursor or any MCP client." },
+  { Icon: EyeOff, title: "You choose what they see", body: "Hidden pages stay out of every search and tool." },
+  { Icon: History, title: "Every change can be undone", body: "Each agent edit is its own git commit." },
+  { Icon: Lock, title: "Read-only if you like", body: "Let an agent read, but never write." },
 ];
 
-const agents: Feature[] = [
+/** An agent working in the workspace, as a terminal transcript. */
+const session: [kind: "you" | "tool" | "reply", text: string][] = [
+  ["you", "Mark the MCP server done and add a task to write its docs"],
+  ["tool", "query_database  Roadmap"],
+  ["tool", "update_note     Roadmap/Ship the MCP server.md"],
+  ["tool", "create_note     Roadmap/Write the MCP docs.md"],
+  ["reply", "Done. Both are commits you can undo."],
+];
+
+/** How plugins work, next to the store illustration. */
+const pluginPoints: { Icon: typeof FileText; title: string; body: string }[] = [
+  { Icon: Store, title: "One click from Settings", body: "Browse the store in Settings → Plugins and install. It's on straight away, and updates come on their own." },
+  { Icon: ShieldCheck, title: "Signed and checked", body: "Store plugins are built from source by the release pipeline and signed. The app refuses anything that doesn't match." },
+  { Icon: Lock, title: "Only what they ask for", body: "Each plugin lists its permissions and gets nothing else. Turn it off and everything it added goes, with no restart." },
+  { Icon: FolderOpen, title: "Your data stays in your pages", body: "What a plugin keeps lives in your workspace, synced with git, and stays if you ever remove the plugin." },
+];
+
+/** Plugins from Betelgeuse, each with its docs page. */
+const featured: { Icon: typeof FileText; name: string; body: string; where: string; href: string }[] = [
   {
-    id: "connect",
-    kicker: "Connect",
-    title: "A knowledge base for your agents.",
-    body: "Claude Code, Cursor and any MCP client can search, read and update your notes. Every edit is its own commit.",
-    demo: <TerminalDemo />,
+    Icon: Wallet,
+    name: "Finance",
+    body: "Accounts and credit cards, transactions, monthly budgets, investments and your net worth, with charts. Import bank statements. Your money stays in databases you own.",
+    where: "Desktop and phone",
+    href: "/docs/plugins/finance/",
   },
   {
-    id: "control",
-    kicker: "Control",
-    title: "You decide what AI can see.",
-    body: "Hide any page with one switch, or share only the pages you pick. Hidden pages are left out of every agent search, listing and tool.",
-    demo: <PrivacyDemo />,
+    Icon: ImageIcon,
+    name: "Media Library",
+    body: "Browse and search your footage, audio, photos and project files where they already are, with previews, and link project folders to the pages that plan them.",
+    where: "Desktop",
+    href: "/docs/plugins/media-library/",
   },
 ];
 
@@ -101,14 +79,21 @@ const faqs: [string, React.ReactNode, string?][] = [
     "Only what you share. Pages you hide are left out of agent searches, listings and every MCP tool. That boundary covers agents connected through Betelgeuse's MCP server. An agent you separately give access to the folder itself can read the files.",
   ],
   ["Which AI tools work with it?", "Any MCP client: Claude Code, Claude Desktop, Cursor and others. The app gives you copy-paste setup for each."],
-  ["Can I use it on more than one computer?", "Yes, with git. Connect the workspace to a private repository you control and Betelgeuse pulls and pushes when you sync."],
+  [
+    "What are plugins, and are they safe?",
+    "Plugins add features such as Finance or Media Library. Store plugins are built from source by Betelgeuse's release pipeline and signed, the app checks the signature before installing, and each plugin only gets the permissions it lists.",
+  ],
+  [
+    "Can I use it on my phone, or on more than one computer?",
+    "Yes, with git. Connect your workspace to a private repository you control, and Betelgeuse syncs in the background on each computer and in the Android app (a preview). A page changed in two places between syncs keeps both versions, so nothing is lost.",
+  ],
   [
     "Why does my computer warn me when I open it?",
     "The builds aren't code-signed yet (certificates cost money). Confirm once and it opens normally, or build from source to skip the warning entirely.",
   ],
   [
     "What doesn't it do yet?",
-    "It's an early preview. Search is basic, databases don't have formulas or relations, there's no sharing or comments, and if you and an agent edit the same page at the same moment the last save wins (git keeps both).",
+    "It's an early preview. Search is basic, databases don't have formulas yet, there's no sharing or comments, the iOS app isn't distributed yet, and if you and an agent edit the same page at the same moment the last save wins (git keeps both).",
   ],
 ];
 
@@ -125,7 +110,7 @@ export default async function Home() {
         url: `${SITE_URL}/`,
         applicationCategory: "BusinessApplication",
         applicationSubCategory: "Notes, documents and databases",
-        operatingSystem: "macOS, Windows, Linux",
+        operatingSystem: "macOS, Windows, Linux, Android",
         ...(github.release ? { softwareVersion: github.release.version.replace(/^v/, "") } : {}),
         downloadUrl: RELEASES,
         installUrl: RELEASES,
@@ -167,10 +152,9 @@ export default async function Home() {
             Betelgeuse
           </a>
           <nav className="nav-links" aria-label="Sections">
-            <a className="optional" href="#files">Your files</a>
             <a className="optional" href="#features">Features</a>
+            <a className="optional" href="#plugins">Plugins</a>
             <a className="optional" href="#agents">AI agents</a>
-            <a className="optional" href="#import">Import</a>
             <a className="optional" href="#open-source">Open source</a>
             <a href="/docs/">Docs</a>
           </nav>
@@ -192,34 +176,21 @@ export default async function Home() {
               Your knowledge deserves a home, <em>not a subscription.</em>
             </h1>
             <p className="lede">
-              The freedom of Markdown with the power of a modern workspace. Write documents, organise databases and
-              connect AI agents, all on your own files, with git keeping your history.
+              Notes, docs and databases as Markdown files you own, synced with git across all your devices.
             </p>
             <div className="cta">
               <DownloadButton suffix=" — free" />
               <StarButton className="button ghost" label="Explore on GitHub" />
             </div>
-            <p className="fineprint">macOS · Windows · Linux · MIT licensed · No account required</p>
+            <p className="fineprint">macOS · Windows · Linux · Android preview · MIT licensed · No account required</p>
 
             <div className="hero-visual">
-              <ProductTour />
-              <div className="float float-file" aria-hidden>
-                <span className="float-icon">
-                  <FileText size={17} />
-                </span>
-                <span>
-                  <strong>Welcome.md</strong>
-                  <small>Saved · committed to git</small>
-                </span>
-              </div>
-              <div className="float float-agent" aria-hidden>
-                <span className="float-icon accent">
-                  <Bot size={18} />
-                </span>
-                <span>
-                  <strong>Claude Code read 3 pages</strong>
-                  <small>2 hidden from agents</small>
-                </span>
+              <div className="devices hero-devices">
+                <Laptop>
+                  <Shot name="editor" theme="dark" priority alt="The Betelgeuse editor on a computer, with the Welcome guide open" />
+                </Laptop>
+                <Phone kind="android" name="board" theme="dark" eager alt="A roadmap database as a board on an Android phone" className="device-left" />
+                <Phone kind="ios" name="welcome" theme="dark" eager alt="The Welcome page on an iPhone" className="device-right" />
               </div>
             </div>
           </div>
@@ -235,114 +206,144 @@ export default async function Home() {
           <li>git</li>
         </ul>
 
-        {/* ---------- Problem ---------- */}
-        <section id="problem">
+        {/* ---------- Features ---------- */}
+        <section id="features">
           <div className="wrap center" data-reveal>
-            <p className="kicker">The problem</p>
+            <p className="kicker">Features</p>
             <h2 className="center">
-              Our notes got beautiful.
-              <br />
-              Then they stopped being ours.
+              If you know Notion, <em>you know this.</em>
             </h2>
             <p className="intro center">
-              Modern tools made writing easier than ever, but our notes ended up tied to proprietary storage,
-              subscriptions and AI ecosystems. Local tools give us ownership, but ask us to give up the polish.{" "}
-              <strong>Betelgeuse brings both together.</strong>
+              The blocks and databases you&apos;re used to, without the cloud: your pages are files on your own devices, and git
+              keeps them in sync.
             </p>
           </div>
-          <div className="wrap narrow-wide" data-reveal>
-            <Compare />
+          <div data-reveal>
+            <Features />
           </div>
         </section>
 
-        {/* ---------- Walkthrough ---------- */}
-        <section id="demo">
+        {/* ---------- Plugins ---------- */}
+        <div className="night band" id="plugins">
           <div className="wrap center" data-reveal>
-            <p className="kicker">See it in action</p>
-            <h2 className="center">From a blank page to your first agent.</h2>
-          </div>
-          <div className="wrap" data-reveal>
-            <Walkthrough />
-          </div>
-        </section>
-
-        {/* ---------- Own everything ---------- */}
-        <div className="night band" id="files">
-          <div className="wrap center" data-reveal>
-            <p className="kicker">Own everything</p>
-            <h2 className="center">Your workspace is just a folder.</h2>
-            <p className="intro center">No proprietary database. No account. No export ritual.</p>
-          </div>
-          <div className="wrap own" data-reveal>
-            <FolderDemo />
-            <FilesDemo />
-          </div>
-          <div className="wrap center" data-reveal>
-            <p className="open-with">
-              Open it in <span>Obsidian</span> <span>VS Code</span> <span>Zed</span> <span>any Markdown editor</span> or{" "}
-              <span>git</span>
+            <p className="kicker">Plugins</p>
+            <h2 className="center">
+              Make it <em>yours.</em>
+            </h2>
+            <p className="intro center">
+              Betelgeuse stays small. Add what you need from the plugin store, from personal finance to a library for your
+              project files, or build your own.
             </p>
+          </div>
+          <div className="wrap plugins" data-reveal>
+            <PluginStoreDemo />
+            <ul className="plugin-points">
+              {pluginPoints.map(({ Icon, title, body }) => (
+                <li key={title}>
+                  <Icon className="plugin-point-icon" />
+                  <span>
+                    <strong>{title}</strong>
+                    <span>{body}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="wrap plugin-cards" data-reveal>
+            {featured.map(({ Icon, name, body, where, href }) => (
+              <a key={name} className="oss-card plugin-card" href={href}>
+                <Icon className="oss-icon" />
+                <strong>{name}</strong>
+                <span>{body}</span>
+                <span className="plugin-meta">
+                  <span className="plugin-where">{where}</span>
+                  <span className="plugin-more">Read more →</span>
+                </span>
+              </a>
+            ))}
+            <div className="oss-card plugin-build">
+              <div className="plugin-build-head">
+                <div>
+                  <p className="oss-label">Build your own</p>
+                  <strong>TypeScript and React, a few files.</strong>
+                </div>
+                <a href="/docs/developers/plugins/">Build a plugin →</a>
+              </div>
+              <CodeWindow
+                code
+                title="src/main.tsx"
+                lines={[
+                  [`import { definePlugin } from "@betelgeuse/plugin-api";`],
+                  [""],
+                  ["export const { activate } = definePlugin({"],
+                  ["  activate(ctx) {"],
+                  ["    ctx.commands.register({"],
+                  [`      id: "hello",`],
+                  [`      title: "Say hello", // in ⌘K`],
+                  ["      run: () => ctx.ui.toast(\"Hello!\"),"],
+                  ["    });"],
+                  ["  },"],
+                  ["});"],
+                ]}
+              />
+            </div>
           </div>
         </div>
 
-        {/* ---------- Workspace features ---------- */}
-        <section id="features">
-          <div className="wrap center" data-reveal>
-            <p className="kicker">Write beautifully</p>
-            <h2 className="center">A workspace that feels complete.</h2>
-          </div>
-          <FeatureRows items={workspace} />
-        </section>
-
-        {/* ---------- AI ---------- */}
+        {/* ---------- AI agents ---------- */}
         <section id="agents">
-          <div className="wrap center" data-reveal>
-            <p className="kicker">Connect anything</p>
-            <h2 className="center">
-              AI on <em>your</em> terms.
-            </h2>
-            <p className="intro center">
-              Bring the agents you already use. They work inside the permissions you set, and you can undo anything they
-              change.
-            </p>
-          </div>
-          <FeatureRows items={agents} offset={1} />
-          <p className="wrap fine-note" data-reveal>
-            Visibility rules apply to agents connected through the Betelgeuse MCP server. An agent you separately give
-            access to the folder can read the files directly.
-          </p>
-        </section>
-
-        {/* ---------- Import ---------- */}
-        <section id="import">
-          <div className="wrap import" data-reveal>
-            <div className="feature-copy">
-              <p className="kicker">Bring your notes</p>
-              <h2>Easy to migrate.</h2>
-              <p>
-                Import from Notion or Obsidian. Your pages, databases, links and images come with you, as a single git
-                commit.
+          <div className="wrap agents" data-reveal>
+            <div>
+              <p className="kicker">MCP</p>
+              <h2>
+                Your AI agents, <em>on your terms.</em>
+              </h2>
+              <p className="intro">
+                A built-in MCP server lets your agents search, read and update the pages you share.
               </p>
-              <ol className="steps">
-                <li>
-                  <span>
-                    <strong>Export</strong> from Notion as <em>HTML</em> (keeps icons and colours) or <em>Markdown &amp; CSV</em>, or pick your Obsidian vault.
-                  </span>
-                </li>
-                <li>
-                  <span>
-                    <strong>Import</strong> it from the sidebar in Betelgeuse.
-                  </span>
-                </li>
-                <li>
-                  <span>
-                    <strong>Done.</strong> Databases come with table views, plus board and calendar views where they fit.
-                  </span>
-                </li>
-              </ol>
+              <ul className="plugin-points">
+                {agentPoints.map(({ Icon, title, body }) => (
+                  <li key={title}>
+                    <Icon className="plugin-point-icon" />
+                    <span>
+                      <strong>{title}</strong>
+                      <span>{body}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ImportDemo />
+            <div className="agents-visual">
+              <Shot name="ai-settings" alt="Settings that choose which pages AI agents can see" />
+              <div className="code-window agents-session" aria-label="An agent updating the Roadmap through Betelgeuse">
+                <div className="code-bar">
+                  <span className="lights">
+                    <i />
+                    <i />
+                    <i />
+                  </span>
+                  <span className="code-title">Claude Code</span>
+                </div>
+                <pre>
+                  {session.map(([kind, text]) => (
+                    <div key={text} className={`session-line session-${kind}`}>
+                      <span className="session-mark" aria-hidden>
+                        {kind === "you" ? ">" : kind === "tool" ? "⏺" : "✓"}
+                      </span>
+                      <span>
+                        {kind === "tool" && <span className="session-server">betelgeuse · </span>}
+                        {text}
+                      </span>
+                    </div>
+                  ))}
+                </pre>
+              </div>
+            </div>
           </div>
+          <p className="wrap fine-note" data-reveal>
+            Agents see only what you share when they connect through the Betelgeuse MCP server. An agent you separately
+            give access to the folder can read the files directly.
+          </p>
         </section>
 
         {/* ---------- Open source ---------- */}
@@ -389,8 +390,10 @@ export default async function Home() {
               <p className="oss-label">Up next</p>
               <ul>
                 <li>Faster full-text search</li>
-                <li>Formulas and relations in databases</li>
+                <li>Formulas in databases</li>
+                <li>More plugins in the store</li>
                 <li>Signed builds for macOS and Windows</li>
+                <li>The iPhone app</li>
                 <li>Handling edits from you and an agent at the same time</li>
                 <li>
                   <span>
@@ -493,8 +496,8 @@ export default async function Home() {
           <nav aria-label="Product">
             <strong>Product</strong>
             <a href="#features">Features</a>
+            <a href="#plugins">Plugins</a>
             <a href="#agents">AI agents</a>
-            <a href="#import">Import</a>
             <a href="/docs/">Docs</a>
             <a href="/docs/developers/plugins/">Build a plugin</a>
             <a href="#download">Download</a>

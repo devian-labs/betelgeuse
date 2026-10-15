@@ -23,6 +23,7 @@ const SEED: &[(&str, &str)] = seed_pages![
     "Welcome/Keyboard shortcuts.md",
     "Welcome/Links and backlinks.md",
     "Welcome/Pages and sub-pages.md",
+    "Welcome/Plugins.md",
     "Welcome/Trash.md",
     "Welcome/What AI agents can see.md",
     "Welcome/Writing and blocks.md",

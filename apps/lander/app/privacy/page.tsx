@@ -25,17 +25,22 @@ export default function Privacy() {
         <a href="/">← Betelgeuse</a>
       </p>
       <h1>Privacy</h1>
-      <p className="doc-meta">Last updated October 4, 2026</p>
+      <p className="doc-meta">Last updated October 15, 2026</p>
 
       <h2>The app</h2>
       <p>
         Betelgeuse collects nothing. There is no account, no telemetry and no analytics. Your workspace is a folder of Markdown files on your
         computer, and it stays there.
       </p>
-      <p>The app connects to the internet only when you ask it to:</p>
+      <p>The app connects to the internet only for these:</p>
       <ul>
         <li>
-          <strong>Sync</strong> pushes to and pulls from the git remote you set up (for example a private GitHub repository).
+          <strong>Sync</strong> pushes to and pulls from the git remote you set up (for example a private GitHub repository). Once you&apos;ve set one up,
+          it does this in the background every few minutes; turn that off under <em>Settings → Git &amp; sync</em>. The phone app keeps its access
+          token on the phone.
+        </li>
+        <li>
+          <strong>Plugins</strong>: the plugin store, plugin downloads and their updates come from GitHub Releases.
         </li>
         <li>
           <strong>Import from Notion</strong> downloads the images your pages show from where they are hosted (such as Notion&apos;s cover gallery),

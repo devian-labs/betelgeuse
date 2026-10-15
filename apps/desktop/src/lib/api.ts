@@ -57,6 +57,10 @@ export const api = {
   gitTestRemote: () => invoke<string>("git_test_remote"),
   gitPublish: () => invoke<string>("git_publish"),
   setAutocommit: (seconds: number) => invoke<void>("set_autocommit", { seconds }),
+  /** How often to sync with the remote unattended (0 turns it off). */
+  setAutosync: (seconds: number) => invoke<void>("set_autosync", { seconds }),
+  /** Syncs as soon as pages are quiet. */
+  gitSyncSoon: () => invoke<void>("git_sync_soon"),
   getAiPolicy: () => invoke<AiPolicy>("get_ai_policy"),
   setAiPolicy: (policy: AiPolicy) => invoke<void>("set_ai_policy", { policy }),
   importPages: (source: "notion" | "obsidian", path: string) => invoke<ImportReport>("import_pages", { source, path }),

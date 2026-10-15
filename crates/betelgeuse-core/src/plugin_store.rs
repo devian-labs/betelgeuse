@@ -97,7 +97,11 @@ fn fetch(url: &str, limit: u64) -> Result<Vec<u8>, String> {
         let bytes = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
         return if bytes.len() as u64 > limit { Err("too large".into()) } else { Ok(bytes) };
     }
-    let mut res = AGENT.get(url).call().map_err(|e| format!("Couldn't reach the plugin store: {e}"))?;
+    let mut res = AGENT.get(url).call().map_err(|e| match e {
+        // No release has published a store yet (or this one was removed).
+        ureq::Error::StatusCode(404) => "The plugin store isn't published yet: plugins appear here after the next release.".to_string(),
+        e => format!("Couldn't reach the plugin store: {e}"),
+    })?;
     res.body_mut().with_config().limit(limit).read_to_vec().map_err(|e| e.to_string())
 }
 

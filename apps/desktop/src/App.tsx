@@ -96,6 +96,13 @@ export default function App() {
     const t = window.setTimeout(() => void loadIcons(), 1500);
     return () => window.clearTimeout(t);
   }, []);
+  const lastSyncError = useRef<string | null>(null);
+  // Back at the window after a while: catch up with the other devices.
+  useEffect(() => {
+    const onFocus = () => void api.gitSyncSoon().catch(() => {});
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
   const notesRef = useRef(notes);
   notesRef.current = notes;
   const vaultRef = useRef(vault);
@@ -165,6 +172,19 @@ export default function App() {
         );
       }),
       listen("git-committed", () => refresh()),
+      // A background sync: pages it brought in show straight away; trouble is said once, not every round.
+      listen<{ updated: boolean; conflicts: string[] }>("git-synced", (e) => {
+        lastSyncError.current = null;
+        refresh();
+        if (e.payload.updated) setRefreshKey((k) => k + 1);
+        const n = e.payload.conflicts.length;
+        if (n) setToast({ message: n === 1 ? `“${e.payload.conflicts[0].replace(/^.*\//, "").replace(/\.md$/, "")}” changed here and elsewhere: both versions kept` : `${n} pages changed here and elsewhere: both versions kept` });
+      }),
+      listen<string>("git-sync-failed", (e) => {
+        if (lastSyncError.current === e.payload) return;
+        lastSyncError.current = e.payload;
+        setToast({ message: `Couldn't sync: ${e.payload.split("\n")[0]}` });
+      }),
     ];
     return () => unlisten.forEach((u) => u.then((f) => f()));
   }, [refresh]);

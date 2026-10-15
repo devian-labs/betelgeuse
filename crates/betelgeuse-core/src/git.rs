@@ -183,6 +183,28 @@ pub fn show(vault: &Path, rev: &str, path: &str) -> Result<String, String> {
     run(vault, &["show", &format!("{hash}:{name_then}")])
 }
 
+/// Whether the workspace has a remote to sync with.
+pub fn has_remote(vault: &Path) -> bool {
+    run(vault, &["remote"]).is_ok_and(|s| !s.trim().is_empty())
+}
+
+/// Syncs without ever stopping half way: fetches and pushes with the `git` program (the person's
+/// own credentials and SSH keys), but merges with libgit2 the way the phone apps do, so a page
+/// changed both here and elsewhere is kept twice ("(conflicted copy)") instead of leaving a rebase
+/// stopped with conflict markers in it. Safe to run unattended.
+#[cfg(feature = "libgit2")]
+pub fn sync_merging(vault: &Path) -> Result<crate::git_lib::Integrated, String> {
+    let branch = run(vault, &["branch", "--show-current"])?.trim().to_string();
+    if branch.is_empty() {
+        return Err("Not on a branch: sync from a terminal".into());
+    }
+    run(vault, &["fetch", "--quiet", "origin"])?;
+    let done = crate::git_lib::integrate(vault)?;
+    // Sets the upstream the first time (a fresh, empty remote).
+    run(vault, &["push", "--quiet", "--set-upstream", "origin", &branch])?;
+    Ok(done)
+}
+
 pub fn sync(vault: &Path) -> Result<String, String> {
     // Nothing to pull from until the branch has an upstream (e.g. a fresh, empty remote).
     if run(vault, &["rev-parse", "--abbrev-ref", "@{upstream}"]).is_err() {
@@ -252,4 +274,46 @@ pub fn test_remote(vault: &Path) -> Result<String, String> {
 pub fn publish(vault: &Path) -> Result<String, String> {
     let branch = run(vault, &["branch", "--show-current"])?.trim().to_string();
     run(vault, &["push", "-u", "origin", &branch]).map(|_| format!("Pushed {branch} to origin"))
+}
+
+#[cfg(all(test, feature = "libgit2"))]
+mod sync_tests {
+    use super::*;
+
+    #[test]
+    fn sync_merging_never_stops_half_way() {
+        let root = std::env::temp_dir().join(format!("bg-sync-merging-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (remote, a, b) = (root.join("remote.git"), root.join("a"), root.join("b"));
+        std::fs::create_dir_all(&remote).unwrap();
+        run(&remote, &["init", "--quiet", "--bare", "-b", "main"]).unwrap();
+        let ident = |dir: &Path| {
+            run(dir, &["config", "user.name", "T"]).unwrap();
+            run(dir, &["config", "user.email", "t@t"]).unwrap();
+        };
+        std::fs::create_dir_all(&a).unwrap();
+        ensure_repo(&a).unwrap();
+        ident(&a);
+        set_remote(&a, remote.to_str().unwrap()).unwrap();
+        std::fs::write(a.join("Plan.md"), "v1\n").unwrap();
+        // A fresh, empty remote: the first sync publishes.
+        sync_merging(&a).unwrap();
+
+        std::process::Command::new("git").args(["clone", "--quiet"]).arg(&remote).arg(&b).status().unwrap();
+        ident(&b);
+        assert_eq!(std::fs::read_to_string(b.join("Plan.md")).unwrap(), "v1\n");
+
+        // The same page changed on both: both kept, nothing left half done.
+        std::fs::write(a.join("Plan.md"), "from a\n").unwrap();
+        sync_merging(&a).unwrap();
+        std::fs::write(b.join("Plan.md"), "from b\n").unwrap();
+        let got = sync_merging(&b).unwrap();
+        assert_eq!(got.conflicts, vec!["Plan.md".to_string()]);
+        assert_eq!(std::fs::read_to_string(b.join("Plan.md")).unwrap(), "from a\n");
+        assert_eq!(std::fs::read_to_string(b.join("Plan (conflicted copy).md")).unwrap(), "from b\n");
+        assert!(!b.join(".git/rebase-merge").exists() && status(&b).unwrap().changes.is_empty());
+        sync_merging(&a).unwrap();
+        assert!(a.join("Plan (conflicted copy).md").exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }

@@ -26,15 +26,31 @@ Click the clock in a page's top bar to open its history: every commit that chang
 
 ## Syncing with GitHub, GitLab or any git server
 
-1. Create an empty repository on GitHub, GitLab or another git host.
+Sync keeps your workspace the same on every computer and phone you use, through a private git repository you control.
+
+1. Create an empty, private repository on GitHub, GitLab or another git host.
 2. Open **Settings → Git &amp; sync**, paste the repository's HTTPS or SSH address under **Remote repository** and click **Save**.
 3. Click **Test connection**, then **Push** to upload your workspace.
-4. From then on, click the sync button at the bottom of the sidebar, or **Sync (pull + push)** in Settings, to pull and push.
+
+From then on, Betelgeuse **syncs on its own**: once you've stopped editing for a moment, it pulls what changed elsewhere and pushes your changes, every 5 minutes and whenever you come back to the window. Change how often, or turn it off, with **Sync automatically** in **Settings → Git &amp; sync**. To sync right away, click the sync button at the bottom of the sidebar, or **Sync (pull + push)** in Settings.
 
 Betelgeuse uses the git installed on your computer and its credentials, such as SSH keys, a credential helper or the GitHub CLI.
 
+### On your phone
+
+The Betelgeuse phone app syncs with the same repository:
+
+1. On your phone, open **Settings → Sync** and paste the repository's HTTPS address.
+2. Paste an access token from your git host (the app links to the page that makes one) and tap **Connect**.
+
+Your pages download, and from then on the phone syncs every couple of minutes while it's open, and soon after you change something.
+
+### When a page changed in two places
+
+If a page was edited on two devices between syncs, sync never stops half-way and nothing is lost: the other device's version takes the page's place, and yours is kept beside it as "*Page* (conflicted copy)". Betelgeuse tells you when that happens. Copy what you need across, then delete the copy.
+
 > [!orange] ⚠️
-> There's no conflict view yet. If you and an agent edit the same page at the same moment, the last save wins, but git keeps both versions.
+> On one computer, if you and an agent edit the same page at the same moment, the last save wins, but git keeps both versions.
 
 ## Using git yourself
 

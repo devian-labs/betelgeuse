@@ -13,6 +13,8 @@ export type Settings = {
   textSize: TextSize;
   /** Seconds of quiet before auto-committing; 0 turns it off. */
   autocommit: number;
+  /** Seconds between automatic syncs with the remote; 0 turns it off. */
+  autosync: number;
   /** Mark pages hidden from (or, in share-only mode, not shared with) AI agents in the sidebar. */
   sidebarAiBadges: boolean;
   /** How many Recents rows the sidebar shows; its height stays fixed at this many. */
@@ -36,7 +38,7 @@ export const PALETTES: { id: Palette; label: string; hint: string; swatch: [stri
   { id: "midnight", label: "Midnight", hint: "Cool blue slate", swatch: ["#13161d", "#191d26", "#5b7cfa"] },
 ];
 
-const DEFAULTS: Settings = { mode: "system", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8, sidebarAiBadges: false, recentRows: 5, unsplashKey: "" };
+const DEFAULTS: Settings = { mode: "system", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8, autosync: 300, sidebarAiBadges: false, recentRows: 5, unsplashKey: "" };
 const KEY = "betelgeuse-settings";
 
 function load(): Settings {
@@ -59,6 +61,7 @@ export function updateSettings(patch: Partial<Settings>) {
   }
   apply();
   if ("autocommit" in patch) api.setAutocommit(current.autocommit).catch(() => {});
+  if ("autosync" in patch) api.setAutosync(current.autosync).catch(() => {});
   listeners.forEach((l) => l());
 }
 
@@ -89,6 +92,7 @@ export function useApplySettings() {
   useEffect(() => {
     apply();
     api.setAutocommit(current.autocommit).catch(() => {});
+    api.setAutosync(current.autosync).catch(() => {});
     const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
     const onChange = () => current.mode === "system" && apply();
     mq?.addEventListener("change", onChange);

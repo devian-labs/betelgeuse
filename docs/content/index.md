@@ -2,7 +2,7 @@
 title: Betelgeuse documentation
 description: How to use Betelgeuse, connect AI agents, add plugins, and build your own plugins.
 ---
-Betelgeuse is a workspace for notes, docs and databases that stays yours. Every page is a plain Markdown file in a folder on your computer, saved to git as you go, and AI agents can read and write only the pages you share with them.
+Betelgeuse is a workspace for notes, docs and databases that stays yours. Every page is a plain Markdown file in a folder on your computer, saved to git as you go and synced to your other computers and phone, and AI agents can read and write only the pages you share with them. Plugins add the rest, such as personal finance, when you want it.
 
 These docs cover:
 
@@ -30,6 +30,7 @@ These docs cover:
 ### Extend it
 
 - [Plugins](/docs/plugins/)
+- [Finance](/docs/plugins/finance/)
 - [Media Library](/docs/plugins/media-library/)
 - [Build a plugin](/docs/developers/plugins/)
 
@@ -42,6 +43,7 @@ These docs cover:
 - **Press `⌘K`** (Ctrl K on Windows and Linux) to find any page.
 - **Your files are on your disk.** Each page is a `.md` file; a page's sub-pages live in a folder with the same name. Open them in any editor.
 - **Every change is saved to git**, so a page's history is one click away and nothing is ever lost.
+- **Connect a git repository** and your computers and phone sync on their own.
 
 The **Using Betelgeuse** pages here are the same guide the app opens with in every new workspace, so you can read them in the app too.
 

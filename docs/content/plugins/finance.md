@@ -42,7 +42,7 @@ On **Transactions**, click **Import** and choose a CSV export from your bank or 
 
 The **Finance** page holds six databases: **Accounts**, **Transactions**, **Categories** (with monthly budgets), **Investments**, **Assets and liabilities** and **Net worth** (the monthly history). Each transaction is a page, so syncing between computers and your phone never conflicts, and AI agents connected over MCP can read and add to them ("log ₹450 for lunch on my Amex").
 
-You can rename and move the Finance page and add your own columns and views; Finance finds its databases again. On your phone, where plugins don't run, open the databases to add transactions on the go.
+You can rename and move the Finance page and add your own columns and views; Finance finds its databases again. Finance runs on your phone too: install it from **Settings → Plugins** in the mobile app. Without it, you can still open the databases there to add transactions on the go.
 
 ## Settings
 

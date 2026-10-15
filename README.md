@@ -18,7 +18,9 @@ A beautiful workspace for notes, docs and databases that stays yours. Every page
 
 - **Easy to use.** Type `/` for any block: headings, to-dos, callouts, tables, columns and more. Build databases with table, board and calendar views.
 - **Your files, on your disk.** Pages are Markdown files in a folder you own, saved to git as you go. Open them in any editor, any time.
+- **On every device.** Connect a private git repository and your computers and phone sync on their own in the background. A page changed in two places keeps both versions.
 - **AI on your terms.** Connect Claude, Cursor or any MCP client and they can search, read and update your notes. You choose which pages they see, and you can undo anything they change.
+- **Plugins for the rest.** Install what you need from the plugin store, on your computer or phone: [Finance](docs/content/plugins/finance.md) for budgets, investments and net worth, or [Media Library](docs/content/plugins/media-library.md) for your project files. Store plugins are signed, and their data stays in your pages. [Build your own](docs/content/developers/plugins.md) in TypeScript and React.
 
 ## Install
 
@@ -27,6 +29,8 @@ The builds aren't code-signed yet, so the first time you open the app, your OS a
 
 - **macOS:** System Settings → Privacy & Security → **Open Anyway**
 - **Windows:** **More info** → **Run anyway**
+
+**Android** (preview): install `Betelgeuse_*_android.apk` from the same release. Your phone may ask you to allow installs from your browser or files app. Then open **Settings → Sync** to connect the repository your workspace syncs with. The iOS app builds, but isn't distributed yet.
 
 **Or build it yourself.** You need [git](https://git-scm.com), [Node.js 20+](https://nodejs.org) and [Rust](https://rustup.rs). The script checks for anything else it needs.
 
@@ -55,12 +59,13 @@ Betelgeuse opens with a Welcome guide that explains every feature. You can also 
 [History and sync](apps/desktop/src-tauri/seed/Welcome/History%20and%20sync.md) ·
 [What AI agents can see](apps/desktop/src-tauri/seed/Welcome/What%20AI%20agents%20can%20see.md) ·
 [Import](apps/desktop/src-tauri/seed/Welcome/Import.md) ·
+[Plugins](apps/desktop/src-tauri/seed/Welcome/Plugins.md) ·
 [Your files on disk](apps/desktop/src-tauri/seed/Welcome/Your%20files%20on%20disk.md) ·
 [Keyboard shortcuts](apps/desktop/src-tauri/seed/Welcome/Keyboard%20shortcuts.md)
 
 ## Status
 
-Betelgeuse is an early preview. Search is basic, databases don't have formulas or relations yet, and there's no sharing or comments. [Ideas and bug reports](https://github.com/devian-labs/betelgeuse/issues) are very welcome.
+Betelgeuse is an early preview. Search is basic, databases don't have formulas yet, and there's no sharing or comments. [Ideas and bug reports](https://github.com/devian-labs/betelgeuse/issues) are very welcome.
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 ---
 title: Install Betelgeuse
-description: Download Betelgeuse for macOS, Windows or Linux, or build it from source.
+description: Download Betelgeuse for macOS, Windows, Linux or Android, or build it from source.
 ---
 ## Download
 
@@ -11,6 +11,12 @@ The builds aren't code-signed yet, so the first time you open the app your syste
 - **macOS:** open the app once, then go to System Settings → Privacy & Security and click **Open Anyway**.
 - **Windows:** click **More info**, then **Run anyway**.
 - **Linux:** use the AppImage, or the `.deb`/`.rpm` package for your distribution.
+
+## On your phone
+
+The Android app is a preview: install `Betelgeuse_*_android.apk` from the [releases page](https://github.com/devian-labs/betelgeuse/releases/latest). Your phone may ask you to allow installs from your browser or files app.
+
+It has your pages, databases and plugins that support phones, such as [Finance](/docs/plugins/finance/). To have the same workspace on your phone and computer, connect both to one git repository: see [History and sync](/docs/guide/history-and-sync/#on-your-phone). The iOS app builds, but isn't distributed yet: that needs an Apple Developer account.
 
 ## Build it yourself
 

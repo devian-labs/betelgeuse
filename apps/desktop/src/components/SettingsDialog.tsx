@@ -270,6 +270,14 @@ function ThemePreview({ mode, selected }: { mode: Mode; selected: boolean }) {
   );
 }
 
+const AUTOSYNC_OPTIONS: [number, string][] = [
+  [0, "Off"],
+  [120, "Every 2 minutes"],
+  [300, "Every 5 minutes"],
+  [900, "Every 15 minutes"],
+  [1800, "Every 30 minutes"],
+];
+
 const AUTOCOMMIT_OPTIONS: [number, string][] = [
   [0, "Off"],
   [5, "After 5 seconds of quiet"],
@@ -383,6 +391,19 @@ function GitSection({ status, onChanged }: { status: RepoStatus | null; onChange
             className="h-8 rounded-md border border-line bg-[var(--search-bg)] px-2 text-sm text-ink outline-none"
           >
             {AUTOCOMMIT_OPTIONS.map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </Row>
+        <Row label="Sync automatically" hint="Pull and push in the background once you've stopped editing, so your other computers and phone stay in step. A page changed in two places keeps both versions.">
+          <select
+            value={s.autosync}
+            onChange={(e) => updateSettings({ autosync: Number(e.target.value) })}
+            className="h-8 rounded-md border border-line bg-[var(--search-bg)] px-2 text-sm text-ink outline-none"
+          >
+            {AUTOSYNC_OPTIONS.map(([v, l]) => (
               <option key={v} value={v}>
                 {l}
               </option>

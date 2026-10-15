@@ -1,35 +1,6 @@
-import {
-  Bot,
-  Check,
-  ChevronRight,
-  CircleCheck,
-  Compass,
-  Database,
-  FileArchive,
-  FileText,
-  Folder,
-  FolderOpen,
-  GitBranch,
-  Heading1,
-  ImageIcon,
-  Lightbulb,
-  Link2,
-  ListTodo,
-  Lock,
-  MapIcon,
-  NotebookPen,
-  Plug,
-  Rocket,
-  Ruler,
-  Type,
-  Wallet,
-  type LucideIcon,
-} from "lucide-react";
+import { Check, ImageIcon, Plug, ShieldCheck, Wallet, type LucideIcon } from "lucide-react";
 
-/**
- * Animated illustrations of the app. They're plain HTML and CSS (keyframes in globals.css), loop on
- * their own, and settle on a still frame when the visitor prefers reduced motion.
- */
+/** Illustrations of the app, in plain HTML and CSS (styles in globals.css). */
 
 function Chrome({ title }: { title: string }) {
   return (
@@ -44,398 +15,54 @@ function Chrome({ title }: { title: string }) {
   );
 }
 
-/* ---------- Write: type "/call", pick Callout, the block appears ---------- */
+/* ---------- Plugins: the store in Settings ---------- */
 
-const menu: [LucideIcon, string, string][] = [
-  [Type, "Text", ""],
-  [Heading1, "Heading 1", "#"],
-  [ListTodo, "To-do list", "[]"],
-  [Lightbulb, "Callout", ">"],
-  [ChevronRight, "Toggle list", ""],
+const storePlugins: { Icon: LucideIcon; name: string; what: string; where: string; installed: boolean }[] = [
+  { Icon: Wallet, name: "Finance", what: "Budgets, investments and net worth", where: "Desktop · Phone", installed: true },
+  { Icon: ImageIcon, name: "Media Library", what: "Your project files, searchable", where: "Desktop", installed: false },
 ];
 
-export function SlashDemo() {
+export function PluginStoreDemo() {
   return (
-    <div className="demo slash-demo" aria-hidden>
-      <Chrome title="Launch plan" />
-      <div className="sd-page">
-        <div className="sd-title">
-          <Rocket className="ic-title" />
-          Launch plan
+    <div className="demo store-demo" aria-hidden>
+      <Chrome title="Settings · Plugins" />
+      <div className="ps-body">
+        <div className="ps-tabs">
+          <span>Installed</span>
+          <span className="on">Browse</span>
         </div>
-        <p className="sd-text">Everything we need before the public beta.</p>
-        <div className="sd-todo done">
-          <span className="box">
-            <Check size={11} strokeWidth={3} />
-          </span>Write the announcement
-        </div>
-        <div className="sd-todo">
-          <span className="box" />
-          Record the demo video
-        </div>
-        <div className="sd-slot">
-          <div className="sd-line">
-            <span className="sd-typed">/call</span>
-            <span className="caret" />
-          </div>
-          <div className="sd-callout">
-            <Lightbulb size={17} className="ic-callout" />
-            <span>
-              <strong>Beta ships Friday.</strong> Agents can read this page.
+        {storePlugins.map(({ Icon, name, what, where, installed }) => (
+          <div key={name} className="ps-row">
+            <span className="ps-icon">
+              <Icon size={18} />
             </span>
-          </div>
-          <div className="sd-menu">
-            <div className="sd-menu-label">Basic blocks</div>
-            {menu.map(([Icon, name, key], i) => (
-              <div key={name} className={`sd-item${i === 3 ? " match" : ""}`}>
-                <span className="sd-icon">
-                  <Icon size={13} />
+            <span className="ps-text">
+              <strong>{name}</strong>
+              <small>{what}</small>
+              <span className="ps-tags">
+                <span className="ps-tag signed">
+                  <ShieldCheck size={12} /> Signed
                 </span>
-                {name}
-                <kbd>{key}</kbd>
-              </div>
-            ))}
-            <div className="sd-hl" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Organise: drag a card from In progress to Done ---------- */
-
-function Card({ title, tag, date, status }: { title: string; tag: string; date: string; status?: [string, string] }) {
-  return (
-    <div className="bd-card">
-      <div className="bd-card-title">
-        <FileText size={13} />
-        {title}
-      </div>
-      <div className="bd-meta">
-        {status && <span className={`chip ${status[1]}`}>{status[0]}</span>}
-        <span className="chip tag">{tag}</span>
-        <span className="bd-date">{date}</span>
-      </div>
-    </div>
-  );
-}
-
-export function BoardDemo() {
-  return (
-    <div className="demo board-demo" aria-hidden>
-      <Chrome title="Roadmap · Board" />
-      <div className="bd-cols">
-        <div className="bd-col gray">
-          <div className="bd-head">
-            <span className="status gray">Not started</span>
-            <span className="bd-count">2</span>
-          </div>
-          <Card title="Sync vault to GitHub" tag="git" date="Oct 16" />
-          <Card title="Search index" tag="app" date="Oct 30" />
-        </div>
-        <div className="bd-col blue">
-          <div className="bd-head">
-            <span className="status blue">In progress</span>
-            <span className="bd-count swap">
-              <span>2</span>
-              <span>1</span>
-            </span>
-          </div>
-          <div className="bd-slot">
-            <div className="bd-mover">
-              <div className="bd-card lifted">
-                <div className="bd-card-title">
-                  <FileText size={13} />
-                  Ship the MCP server
-                </div>
-                <div className="bd-meta">
-                  <span className="chip swap-chip">
-                    <span className="chip blue">In progress</span>
-                    <span className="chip green">Done</span>
-                  </span>
-                  <span className="bd-date">Oct 9</span>
-                </div>
-              </div>
-              <svg className="bd-cursor" viewBox="0 0 24 24" width="22" height="22">
-                <path d="M5 3l14 8-6 1.5L10 19z" fill="#fff" stroke="#1b0d07" strokeWidth="1.5" strokeLinejoin="round" />
-              </svg>
-            </div>
-          </div>
-          <Card title="Write the docs" tag="docs" date="Oct 12" />
-        </div>
-        <div className="bd-col green">
-          <div className="bd-head">
-            <span className="status green">Done</span>
-            <span className="bd-count swap">
-              <span>1</span>
-              <span>2</span>
-            </span>
-          </div>
-          <Card title="Database views" tag="app" date="Oct 2" />
-          <div className="bd-drop" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Remember: an agent's commit slides into the history ---------- */
-
-const history = [
-  { who: "You", what: "Edit Roadmap", when: "4 min ago" },
-  { who: "You", what: "Create “Launch plan”", when: "1 hour ago" },
-  { who: "Cursor via Betelgeuse MCP", what: "Append to “Decisions”", when: "yesterday", bot: true },
-  { who: "You", what: "Rename “Specs”", when: "yesterday" },
-];
-
-function Row({ who, what, when, bot, fresh }: { who: string; what: string; when: string; bot?: boolean; fresh?: boolean }) {
-  return (
-    <div className={`hd-row${fresh ? " fresh" : ""}`}>
-      <span className={`avatar${bot ? " bot" : ""}`}>{bot ? <Bot size={16} /> : "Y"}</span>
-      <span className="hd-commit">
-        <strong>{what}</strong>
-        <span>
-          {who}
-          {bot && <em className="bot-badge">agent</em>}
-        </span>
-      </span>
-      <span className="hd-when">{fresh ? <span className="hd-restore">Restore</span> : when}</span>
-    </div>
-  );
-}
-
-export function HistoryDemo() {
-  return (
-    <div className="demo history-demo" aria-hidden>
-      <Chrome title="History · Launch plan.md" />
-      <div className="hd-list">
-        <div className="hd-new">
-          <Row fresh bot who="Claude Code via Betelgeuse MCP" what="Update “Launch plan”" when="just now" />
-        </div>
-        {history.map((h) => (
-          <Row key={h.what} {...h} />
-        ))}
-      </div>
-      <div className="hd-toast">
-        <span className="hd-dot" />
-        Committed to git · 3f9c2a1
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Control: hide a page, and it disappears for agents ---------- */
-
-const pages: [LucideIcon, string][] = [
-  [Ruler, "Product specs"],
-  [MapIcon, "Roadmap"],
-  [NotebookPen, "Journal"],
-  [Compass, "Decisions"],
-];
-
-export function PrivacyDemo() {
-  return (
-    <div className="demo privacy-demo" aria-hidden>
-      <div className="pv-panel">
-        <div className="pv-head">Your workspace</div>
-        {pages.map(([Icon, name]) => (
-          <div key={name} className={`pv-row${name === "Journal" ? " target" : ""}`}>
-            <Icon size={15} className="pv-icon" />
-            <span className="pv-name">{name}</span>
-            <span className="switch">
-              <i />
-            </span>
-          </div>
-        ))}
-        <div className="pv-row locked">
-          <Wallet size={15} className="pv-icon" />
-          <span className="pv-name">Finances</span>
-          <span className="switch off">
-            <i />
-          </span>
-        </div>
-      </div>
-      <div className="pv-arrow">
-        <span />
-      </div>
-      <div className="pv-panel agent">
-        <div className="pv-head">
-          <Bot size={14} className="pv-bot" /> What your agent sees
-        </div>
-        {pages.map(([Icon, name]) => (
-          <div key={name} className={`pv-seen${name === "Journal" ? " target" : ""}`}>
-            <Icon size={15} className="pv-icon" />
-            {name}
-          </div>
-        ))}
-        <div className="pv-hidden">
-          <Lock size={13} className="pv-lock" />
-          <span className="pv-hidden-count">
-            <span>1 page hidden</span>
-            <span>2 pages hidden</span>
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Plain files: the same page, as you see it and as it's stored ---------- */
-
-export function FilesDemo() {
-  return (
-    <div className="demo files-demo" aria-hidden>
-      <div className="fd-bar">
-        <span className="lights">
-          <i />
-          <i />
-          <i />
-        </span>
-        <div className="fd-switch">
-          <span className="fd-pill" />
-          <span className="fd-opt a">In Betelgeuse</span>
-          <span className="fd-opt b">On disk</span>
-        </div>
-        <span className="demo-title">Ship the MCP server.md</span>
-      </div>
-      <div className="fd-stage">
-        <div className="fd-face fd-rendered">
-          <div className="fd-h">
-            <Plug className="ic-title" />
-            Ship the MCP server
-          </div>
-          <div className="fd-props">
-            <span className="fd-prop">Status</span>
-            <span className="chip blue">In progress</span>
-            <span className="fd-prop">Due</span>
-            <span>Oct 9, 2026</span>
-            <span className="fd-prop">Tags</span>
-            <span className="chip tag">agents</span>
-          </div>
-          <div className="fd-callout">
-            <Lightbulb size={16} className="ic-callout" />
-            Every agent write is its own git commit.
-          </div>
-          <div className="sd-todo done">
-            <span className="box">
-            <Check size={11} strokeWidth={3} />
-          </span>Bundle the server
-          </div>
-          <div className="sd-todo">
-            <span className="box" />
-            Publish to the registry
-          </div>
-        </div>
-        <pre className="fd-face fd-source">
-          <span className="k-dim">---</span>
-          {"\n"}
-          <span className="k-key">Status</span>: <span className="k-str">In progress</span>
-          {"\n"}
-          <span className="k-key">Due</span>: 2026-10-09
-          {"\n"}
-          <span className="k-key">Tags</span>: [agents]
-          {"\n"}
-          <span className="k-dim">---</span>
-          {"\n"}
-          <span className="k-dim">&gt; [!yellow] 💡</span>
-          {"\n"}
-          <span className="k-dim">&gt;</span> Every agent write is its own git commit.
-          {"\n\n"}
-          <span className="k-key">- [x]</span> Bundle the server
-          {"\n"}
-          <span className="k-key">- [ ]</span> Publish to the registry
-        </pre>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Own everything: the workspace is a folder ---------- */
-
-const tree: { name: string; depth: number; kind: "dir" | "md" | "git"; note?: string; fresh?: boolean }[] = [
-  { name: ".git", depth: 0, kind: "git", note: "full history" },
-  { name: "Journal.md", depth: 0, kind: "md", note: "hidden from AI" },
-  { name: "Projects", depth: 0, kind: "dir" },
-  { name: "Betelgeuse.md", depth: 1, kind: "md" },
-  { name: "Launch plan.md", depth: 1, kind: "md", fresh: true },
-  { name: "Roadmap.md", depth: 0, kind: "md", note: "database" },
-  { name: "Roadmap", depth: 0, kind: "dir" },
-  { name: "Ship the MCP server.md", depth: 1, kind: "md" },
-  { name: "Welcome.md", depth: 0, kind: "md" },
-];
-
-export function FolderDemo() {
-  return (
-    <div className="demo folder-demo" aria-hidden>
-      <Chrome title="~/Betelgeuse" />
-      <div className="fo-list">
-        {tree.map((f) => (
-          <div key={f.name + f.depth} className={`fo-row ${f.kind}${f.fresh ? " fresh" : ""}`} style={{ paddingLeft: 16 + f.depth * 22 }}>
-            <span className="fo-icon">{f.kind === "md" ? <FileText size={15} /> : f.kind === "git" ? <GitBranch size={15} /> : <Folder size={15} />}</span>
-            <span className="fo-name">{f.name}</span>
-            {f.note && <span className="fo-note">{f.note}</span>}
-            {f.fresh && (
-              <span className="fo-status">
-                <span>saved</span>
-                <span>
-                  committed <Check size={12} strokeWidth={3} />
-                </span>
+                <span className="ps-tag">{where}</span>
               </span>
+            </span>
+            {installed ? (
+              <span className="ps-button done">
+                <Check size={13} /> Installed
+              </span>
+            ) : (
+              <span className="ps-button">Install</span>
             )}
           </div>
         ))}
-      </div>
-      <div className="fo-foot">
-        <span>9 items</span>
-        <span>Plain Markdown · git</span>
-      </div>
-    </div>
-  );
-}
-
-/* ---------- Import: an export goes in, a workspace comes out ---------- */
-
-const imported: [LucideIcon, string, string][] = [
-  [FileText, "128 pages", "with folders kept"],
-  [Database, "6 databases", "views and property types"],
-  [Link2, "412 links", "turned into [[wikilinks]]"],
-  [ImageIcon, "57 images", "copied to .assets/"],
-];
-
-export function ImportDemo() {
-  return (
-    <div className="demo import-demo" aria-hidden>
-      <div className="im-sources">
-        <div className="im-source a">
-          <FileArchive size={22} className="im-file" />
-          <span>
-            <strong>Notion export.zip</strong>
-            <small>HTML or Markdown &amp; CSV</small>
+        <div className="ps-row ps-yours">
+          <span className="ps-icon">
+            <Plug size={18} />
           </span>
-        </div>
-        <div className="im-source b">
-          <FolderOpen size={22} className="im-file" />
-          <span>
-            <strong>Obsidian vault</strong>
-            <small>Any vault folder</small>
+          <span className="ps-text">
+            <strong>Your plugin</strong>
+            <small>TypeScript and React, a few files</small>
           </span>
-        </div>
-      </div>
-      <div className="im-pipe">
-        <span className="im-bar" />
-      </div>
-      <div className="im-result">
-        <div className="im-head">Imported into Betelgeuse</div>
-        {imported.map(([Icon, what, how], i) => (
-          <div key={what} className={`im-item i${i}`}>
-            <Icon size={15} className="im-icon" />
-            <strong>{what}</strong>
-            <small>{how}</small>
-          </div>
-        ))}
-        <div className="im-done">
-          <CircleCheck size={15} /> Committed to git as one change
         </div>
       </div>
     </div>

@@ -3,8 +3,11 @@
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
-/** A small terminal window: one command per line, optional comments, and a copy button for the commands. */
-export function CodeWindow({ title, lines }: { title: string; lines: [command: string, comment?: string][] }) {
+/**
+ * A small terminal window: one command per line, optional comments, and a copy button for the commands.
+ * With `code`, it shows source code instead: no prompt, and `//` comments.
+ */
+export function CodeWindow({ title, lines, code = false }: { title: string; lines: [command: string, comment?: string][]; code?: boolean }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -24,19 +27,21 @@ export function CodeWindow({ title, lines }: { title: string; lines: [command: s
           <i />
         </span>
         <span className="code-title">{title}</span>
-        <button type="button" className="copy" onClick={copy} aria-label="Copy commands">
+        <button type="button" className="copy" onClick={copy} aria-label={code ? "Copy code" : "Copy commands"}>
           {copied ? <Check size={13} /> : <Copy size={13} />}
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
       <pre>
-        {lines.map(([cmd, comment]) => (
-          <div key={cmd} className="code-line">
-            <span className="prompt" aria-hidden>
-              $
-            </span>
+        {lines.map(([cmd, comment], i) => (
+          <div key={i} className="code-line">
+            {!code && (
+              <span className="prompt" aria-hidden>
+                $
+              </span>
+            )}
             <span>{cmd}</span>
-            {comment && <span className="code-comment"># {comment}</span>}
+            {comment && <span className="code-comment">{code ? "//" : "#"} {comment}</span>}
           </div>
         ))}
       </pre>

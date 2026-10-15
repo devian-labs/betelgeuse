@@ -203,7 +203,7 @@ export function PluginsScreen() {
               <LoaderCircle size={16} className="animate-spin" /> Loading…
             </div>
           )}
-          {error && !index && <p className="px-4 py-4 text-[14px] text-muted">Couldn't reach the plugin store: {error}</p>}
+          {error && !index && <p className="px-4 py-4 text-[14px] text-muted">{error}</p>}
           {index && phoneStore.length === 0 && <p className="px-4 py-4 text-[14px] text-muted">You have every plugin made for the phone.</p>}
           {phoneStore.map((e) => (
             <StoreRow key={e.id} e={e} busy={busy === e.id} onInstall={() => install(e)} />

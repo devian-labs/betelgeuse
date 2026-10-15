@@ -131,7 +131,7 @@ jobs:
             - **Linux** (`amd64` or `arm64`): `.AppImage` (make it executable and run it), `.deb` (`sudo apt install ./betelgeuse_*.deb`) or `.rpm`.
 
             - **Android** (preview): install `Betelgeuse_*_android.apk`. Your phone may ask you to allow installs from your browser or files app.
-              Pages live on the phone for now; syncing with your desktop workspace is coming.
+              To have your desktop workspace on it, open **Settings → Sync** and connect the same git repository. Phone plugins, such as Finance, install from **Settings → Plugins**.
 
             The MCP server for AI agents needs **Node.js 20+**.
 
