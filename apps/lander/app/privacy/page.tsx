@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PlainPage } from "@/components/PlainPage";
 import { ORG, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
 
 export const metadata: Metadata = pageMetadata({
@@ -19,11 +20,8 @@ const breadcrumbs = {
 /** What the website and the app process. Keep it in step with the code: no claim here may outrun it. */
 export default function Privacy() {
   return (
-    <main className="wrap narrow doc">
+    <PlainPage title="Privacy">
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbs)} />
-      <p>
-        <a href="/">← Betelgeuse</a>
-      </p>
       <h1>Privacy</h1>
       <p className="doc-meta">Last updated October 15, 2026</p>
 
@@ -76,6 +74,6 @@ export default function Privacy() {
         <a href={`${REPO}/discussions`}>GitHub Discussions</a>, or privately through a{" "}
         <a href={`${REPO}/security/advisories/new`}>security advisory</a>.
       </p>
-    </main>
+    </PlainPage>
   );
 }

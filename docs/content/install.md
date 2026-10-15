@@ -32,4 +32,6 @@ git clone https://github.com/devian-labs/betelgeuse && cd betelgeuse
 
 On first launch, Betelgeuse creates a workspace (a folder of Markdown files, kept in git) and opens the Welcome guide. To use another folder, including an existing Obsidian vault, choose **Open another…** in Settings → Workspace.
 
+Coming from another app? See [Move from Notion](/docs/migrate/notion/) and [Move from Obsidian](/docs/migrate/obsidian/).
+
 Next: [Writing and blocks](/docs/guide/writing-and-blocks/).

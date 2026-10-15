@@ -1,3 +1,5 @@
+import { Download } from "lucide-react";
+import { Logo } from "@/components/Logo";
 import { REPO } from "@/lib/site";
 import { href, loadDoc, navTitles, neighbours, sourcePath } from "@/lib/docs";
 
@@ -10,8 +12,10 @@ export function DocPage({ slug }: { slug: string }) {
   return (
     <div className="docs">
       <aside className="docs-nav" aria-label="Documentation">
-        <a href="/" className="docs-home">
-          ← Betelgeuse
+        <a href="/" className="docs-brand">
+          <Logo size={18} />
+          Betelgeuse
+          <span className="docs-brand-tag">Docs</span>
         </a>
         {nav.map((s) => (
           <nav key={s.title}>
@@ -25,34 +29,44 @@ export function DocPage({ slug }: { slug: string }) {
         ))}
       </aside>
 
-      <main className="docs-main doc">
-        <p className="docs-section">{doc.section}</p>
-        <h1>{doc.title}</h1>
-        <div dangerouslySetInnerHTML={{ __html: doc.html }} />
-        <footer className="docs-footer">
-          <div className="docs-pager">
-            {prev ? (
-              <a href={href(prev.slug)}>
-                <span>Previous</span>
-                {prev.title}
+      <div className="docs-body">
+        <div className="docs-topbar">
+          <span>{doc.section}</span>
+          <span aria-hidden>/</span>
+          <span className="docs-topbar-page">{doc.title}</span>
+          <a href="/#download" className="docs-topbar-site docs-download">
+            <Download size={14} />
+            Download
+          </a>
+        </div>
+        <main className="docs-main doc">
+          <h1>{doc.title}</h1>
+          <div dangerouslySetInnerHTML={{ __html: doc.html }} />
+          <footer className="docs-footer">
+            <div className="docs-pager">
+              {prev ? (
+                <a href={href(prev.slug)}>
+                  <span>Previous</span>
+                  {prev.title}
+                </a>
+              ) : (
+                <span />
+              )}
+              {next && (
+                <a href={href(next.slug)} className="next">
+                  <span>Next</span>
+                  {next.title}
+                </a>
+              )}
+            </div>
+            {source && (
+              <a className="docs-edit" href={`${REPO}/edit/main/${source}`}>
+                Edit this page on GitHub
               </a>
-            ) : (
-              <span />
             )}
-            {next && (
-              <a href={href(next.slug)} className="next">
-                <span>Next</span>
-                {next.title}
-              </a>
-            )}
-          </div>
-          {source && (
-            <a className="docs-edit" href={`${REPO}/edit/main/${source}`}>
-              Edit this page on GitHub
-            </a>
-          )}
-        </footer>
-      </main>
+          </footer>
+        </main>
+      </div>
 
       {doc.headings.length > 1 && (
         <aside className="docs-toc" aria-label="On this page">

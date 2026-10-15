@@ -12,6 +12,8 @@ These docs cover:
 ### Use it
 
 - [Install Betelgeuse](/docs/install/)
+- [Move from Notion](/docs/migrate/notion/)
+- [Move from Obsidian](/docs/migrate/obsidian/)
 - [Writing and blocks](/docs/guide/writing-and-blocks/)
 - [Databases](/docs/guide/databases/)
 - [History and sync](/docs/guide/history-and-sync/)

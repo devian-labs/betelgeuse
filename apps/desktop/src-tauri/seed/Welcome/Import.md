@@ -4,6 +4,8 @@ tags: [guide]
 ---
 Bring pages in from Notion or Obsidian. Click **Import** at the bottom of the sidebar, or go to **Settings → Import**.
 
+Step-by-step guides, with what comes across and what doesn't: [Move from Notion](https://betelgeuse.devianlabs.com/docs/migrate/notion/) and [Move from Obsidian](https://betelgeuse.devianlabs.com/docs/migrate/obsidian/).
+
 Everything you import lands under one new page and is committed to git as a single change, so it's easy to undo. When it's done, Betelgeuse says how many pages, databases and files it imported, with a button to open them.
 
 ## From Notion

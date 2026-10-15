@@ -1,5 +1,8 @@
 /* The Betelgeuse palette from the app (src/index.css): warm, ember-tinted neutrals. */
 :root {
+  /* The app's own type: the system font (SF on Apple devices, Segoe on Windows). */
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", Arial,
+    sans-serif;
   --bg: #fffdfb;
   --bg-2: #f7f3ef;
   --raised: #ffffff;
@@ -27,9 +30,9 @@
   color-scheme: light;
 }
 
-/* Dark tokens: the visitor's dark mode, and the always-dark .night bands (hero, How it works). */
+/* Dark tokens: the visitor's dark mode on every page but the home page, which is always light. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(:has(.landing)) {
     --bg: #141110;
     --bg-2: #1b1715;
     --raised: #221d1a;
@@ -58,33 +61,6 @@
   }
 }
 
-.night {
-  --bg: #0e0b0a;
-  --bg-2: #171311;
-  --raised: #1d1816;
-  --ink: rgba(255, 246, 238, 0.95);
-  --muted: rgba(255, 240, 228, 0.66);
-  --faint: rgba(255, 240, 228, 0.42);
-  --line: rgba(255, 228, 210, 0.09);
-  --line-strong: rgba(255, 228, 210, 0.18);
-  --accent: #f0663a;
-  --accent-ink: #1b0d07;
-  --accent-soft: rgba(240, 102, 58, 0.14);
-  --code-bg: rgba(255, 228, 210, 0.05);
-  --glow: rgba(240, 90, 40, 0.18);
-  --c-blue: #86bdf5;
-  --c-blue-bg: rgba(35, 131, 226, 0.22);
-  --c-green: #7fd29a;
-  --c-green-bg: rgba(47, 138, 76, 0.25);
-  --c-purple: #c4a0f0;
-  --c-purple-bg: rgba(140, 90, 200, 0.24);
-  --c-gray-bg: rgba(255, 240, 228, 0.08);
-  --c-yellow-bg: rgba(240, 180, 40, 0.13);
-  --shadow: 0 0 0 1px rgba(255, 228, 210, 0.06), 0 30px 80px -30px rgba(0, 0, 0, 0.85);
-  background: var(--bg);
-  color: var(--ink);
-  color-scheme: dark;
-}
 
 * {
   box-sizing: border-box;
@@ -99,7 +75,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 17px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -160,26 +136,27 @@ kbd {
 
 h1,
 h2 {
-  font-family: var(--font-serif), Georgia, serif;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 
 h1 {
-  font-size: clamp(48px, 8vw, 96px);
-  line-height: 0.98;
+  font-size: clamp(42px, 6.4vw, 76px);
+  line-height: 1.04;
   margin: 28px auto 24px;
 }
 
 h2 {
-  font-size: clamp(36px, 5vw, 58px);
-  line-height: 1.04;
-  margin: 0 0 20px;
+  font-size: clamp(32px, 4.2vw, 48px);
+  line-height: 1.1;
+  margin: 0 0 18px;
 }
 
 h1 em,
 h2 em {
+  font-style: normal;
   color: var(--accent);
 }
 
@@ -320,7 +297,10 @@ section {
 
 .hero {
   position: relative;
-  padding: 96px 0 0;
+  padding: 104px 0 0;
+  background:
+    radial-gradient(900px 520px at 50% -8%, rgba(255, 196, 160, 0.38), transparent 70%),
+    linear-gradient(to bottom, #fff8f3, var(--bg) 640px);
   text-align: center;
   overflow: hidden;
   isolation: isolate;
@@ -348,26 +328,6 @@ section {
   background: linear-gradient(to bottom, transparent, var(--page-bg));
   z-index: 1;
   pointer-events: none;
-}
-
-.stars {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  opacity: 0.55;
-  background-image:
-    radial-gradient(1px 1px at 12% 18%, #fff 50%, transparent 51%),
-    radial-gradient(1px 1px at 27% 62%, #fff 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 41% 11%, #ffd9bf 50%, transparent 51%),
-    radial-gradient(1px 1px at 58% 34%, #fff 50%, transparent 51%),
-    radial-gradient(1px 1px at 73% 14%, #fff 50%, transparent 51%),
-    radial-gradient(1.5px 1.5px at 86% 44%, #ffe4cc 50%, transparent 51%),
-    radial-gradient(1px 1px at 92% 22%, #fff 50%, transparent 51%),
-    radial-gradient(1px 1px at 6% 48%, #fff 50%, transparent 51%),
-    radial-gradient(1px 1px at 19% 36%, #fff 50%, transparent 51%),
-    radial-gradient(1px 1px at 67% 52%, #fff 50%, transparent 51%),
-    radial-gradient(1px 1px at 81% 8%, #fff 50%, transparent 51%),
-    radial-gradient(1px 1px at 35% 28%, #fff 50%, transparent 51%);
 }
 
 .pill {
@@ -1183,10 +1143,19 @@ a.oss-card:hover {
 /* ---------- Plugins ---------- */
 
 .plugins {
+  /* The plugin cards' grid, so the store spans exactly the two cards under it. */
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 56px;
+  grid-template-columns: 1fr 1fr 1.6fr;
+  gap: 16px;
   align-items: center;
+}
+
+.plugins > .store-demo {
+  grid-column: span 2;
+}
+
+.plugins > .plugin-points {
+  padding-left: 40px;
 }
 
 .plugin-points {
@@ -1309,6 +1278,12 @@ a.oss-card:hover {
   .plugins {
     grid-template-columns: 1fr;
     gap: 40px;
+  }
+  .plugins > .store-demo {
+    grid-column: auto;
+  }
+  .plugins > .plugin-points {
+    padding-left: 0;
   }
   .wrap.plugin-cards {
     grid-template-columns: 1fr 1fr;
@@ -1815,14 +1790,13 @@ a.oss-card:hover {
 }
 .doc h1 {
   margin: 28px 0 4px;
-  font-family: var(--font-serif), serif;
   font-size: clamp(36px, 6vw, 52px);
-  font-weight: 400;
+  font-weight: 700;
   color: var(--ink);
 }
 .doc h2 {
   margin: 40px 0 8px;
-  font-family: var(--font-sans), sans-serif;
+  font-family: var(--font-sans);
   font-size: 19px;
   font-weight: 600;
   letter-spacing: -0.01em;
@@ -1852,76 +1826,6 @@ a.oss-card:hover {
   color: var(--faint);
 }
 
-/* ---------- Documentation (/docs) ---------- */
-
-.docs {
-  display: grid;
-  grid-template-columns: 250px minmax(0, 1fr) 210px;
-  gap: 48px;
-  max-width: 1320px;
-  margin: 0 auto;
-  padding: 0 28px;
-}
-.docs-nav,
-.docs-toc {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  max-height: 100vh;
-  overflow-y: auto;
-  padding: 40px 0 48px;
-  font-size: 14px;
-}
-.docs-nav a,
-.docs-toc a {
-  display: block;
-  padding: 4px 10px;
-  border-radius: 6px;
-  color: var(--muted);
-  text-decoration: none;
-}
-.docs-nav a:hover,
-.docs-toc a:hover {
-  color: var(--ink);
-  background: var(--bg-2);
-}
-.docs-nav a[aria-current="page"] {
-  color: var(--ink);
-  font-weight: 600;
-  background: var(--accent-soft);
-}
-.docs-nav nav + nav {
-  margin-top: 18px;
-}
-.docs-nav-title {
-  padding: 0 10px 6px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-.docs-home {
-  margin-bottom: 22px;
-  font-weight: 500;
-}
-.docs-toc a.sub {
-  padding-left: 22px;
-  font-size: 13px;
-}
-.docs-main {
-  min-width: 0;
-  padding-top: 40px;
-}
-.docs-main h1 {
-  margin-top: 4px;
-}
-.docs-section {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-}
 .doc h3 {
   margin: 28px 0 6px;
   font-size: 16.5px;
@@ -2032,57 +1936,490 @@ a.oss-card:hover {
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 24px;
 }
-.docs-footer {
-  margin-top: 64px;
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
+/* ---------- Documentation (/docs): laid out and set like the app itself ---------- */
+
+/* The app's "Betelgeuse" palette and fonts, so the docs read like a page in the app. */
+.docs {
+  --d-surface: #fffdfb;
+  --d-side: #f7f3ef;
+  --d-hover: rgba(80, 52, 36, 0.06);
+  --d-active: rgba(80, 52, 36, 0.09);
+  --d-line: rgba(80, 52, 36, 0.1);
+  --d-ink: #2d2622;
+  --d-muted: rgba(45, 38, 34, 0.66);
+  --d-faint: rgba(45, 38, 34, 0.45);
+  --d-code-bg: rgba(135, 131, 120, 0.15);
+  --d-code-ink: #eb5757;
+  --d-codeblock: #f6f1ec;
+  --d-gray-bg: rgb(243, 240, 237);
+  --d-blue-bg: rgb(232, 242, 248);
+  --d-green-bg: rgb(237, 243, 237);
+  --d-yellow-bg: rgb(248, 244, 222);
+  --d-orange-bg: rgb(248, 237, 222);
+  --d-purple-bg: rgba(244, 240, 246, 0.8);
+  --d-red-bg: rgb(252, 236, 235);
+  --app-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", Arial,
+    sans-serif;
+  --app-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr) 220px;
+  min-height: 100vh;
+  background: var(--d-surface);
+  color: var(--d-ink);
+  font-family: var(--app-sans);
 }
+
+@media (prefers-color-scheme: dark) {
+  .docs {
+    --d-surface: #1b1715;
+    --d-side: #221d1a;
+    --d-hover: rgba(255, 228, 210, 0.06);
+    --d-active: rgba(255, 228, 210, 0.09);
+    --d-line: rgba(255, 228, 210, 0.09);
+    --d-ink: rgba(255, 246, 238, 0.86);
+    --d-muted: rgba(255, 240, 228, 0.56);
+    --d-faint: rgba(255, 240, 228, 0.36);
+    --d-code-ink: #ff7369;
+    --d-codeblock: rgba(255, 228, 210, 0.04);
+    --d-gray-bg: rgb(49, 47, 44);
+    --d-blue-bg: rgb(29, 57, 77);
+    --d-green-bg: rgb(36, 61, 51);
+    --d-yellow-bg: rgb(82, 69, 43);
+    --d-orange-bg: rgb(88, 61, 36);
+    --d-purple-bg: rgb(62, 45, 69);
+    --d-red-bg: rgb(80, 48, 40);
+  }
+}
+
+/* Sidebar: the app's, row for row. */
+.docs-nav {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
+  padding: 10px 8px 32px;
+  background: var(--d-side);
+  border-right: 1px solid var(--d-line);
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.docs-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  margin-bottom: 10px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  color: var(--d-ink);
+  text-decoration: none;
+}
+
+.docs-brand:hover {
+  background: var(--d-hover);
+}
+
+.docs-brand-tag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--d-hover);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--d-faint);
+}
+
+.docs-nav nav + nav {
+  margin-top: 14px;
+}
+
+.docs-nav-title {
+  padding: 0 8px 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--d-faint);
+}
+
+.docs-nav nav a {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--d-muted);
+  text-decoration: none;
+}
+
+.docs-nav nav a:hover {
+  background: var(--d-hover);
+  color: var(--d-ink);
+}
+
+.docs-nav nav a[aria-current="page"] {
+  background: var(--d-active);
+  color: var(--d-ink);
+  font-weight: 500;
+}
+
+/* The page: a top bar with where you are, then the page at the app's reading width. */
+.docs-body {
+  min-width: 0;
+}
+
+.docs-topbar > span {
+  white-space: nowrap;
+}
+
+.docs-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 16px 0 20px;
+  background: color-mix(in srgb, var(--d-surface) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: 14px;
+  color: var(--d-faint);
+}
+
+.docs-topbar-page {
+  overflow: hidden;
+  color: var(--d-ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.docs-topbar-site {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: var(--d-muted);
+  text-decoration: none;
+}
+
+.docs-topbar-site + .docs-topbar-site {
+  margin-left: 0;
+}
+
+.docs-topbar-site:hover {
+  background: var(--d-hover);
+  color: var(--d-ink);
+}
+
+.docs-topbar .docs-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  margin-left: 8px;
+  padding: 0 12px;
+  border-radius: 7px;
+  background: var(--accent);
+  font-weight: 600;
+  color: var(--accent-ink);
+  box-shadow: 0 2px 8px -4px color-mix(in srgb, var(--accent) 70%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.docs-topbar .docs-download:hover {
+  background: color-mix(in srgb, var(--accent) 88%, white);
+  color: var(--accent-ink);
+}
+
+/* With no other links before it (the docs), it goes to the right on its own. */
+.docs-topbar > .docs-topbar-site:first-of-type.docs-download {
+  margin-left: auto;
+}
+
+.docs .docs-main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 56px 48px 96px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--d-ink);
+}
+
+.docs .docs-main h1 {
+  margin: 0 0 12px;
+  font-family: var(--app-sans);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--d-ink);
+}
+
+.docs .docs-main h2,
+.docs .docs-main h3 {
+  font-family: var(--app-sans);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0;
+  color: var(--d-ink);
+}
+
+.docs .docs-main h2 {
+  margin: 36px 0 6px;
+  font-size: 24px;
+}
+
+.docs .docs-main h3 {
+  margin: 24px 0 4px;
+  font-size: 20px;
+}
+
+.docs .docs-main p {
+  margin: 6px 0;
+}
+
+.docs .docs-main ul,
+.docs .docs-main ol {
+  margin: 6px 0;
+  padding-left: 24px;
+}
+
+.docs .docs-main li + li {
+  margin-top: 3px;
+}
+
+.docs .docs-main strong {
+  font-weight: 600;
+}
+
+.docs .docs-main a {
+  color: inherit;
+  text-decoration-color: var(--d-line);
+  text-underline-offset: 2px;
+}
+
+.docs .docs-main a:hover {
+  text-decoration-color: currentColor;
+}
+
+.docs .docs-main h2 a.anchor,
+.docs .docs-main h3 a.anchor {
+  text-decoration: none;
+}
+
+.docs .docs-main code {
+  padding: 0.2em 0.4em;
+  border: 0;
+  border-radius: 4px;
+  background: var(--d-code-bg);
+  font-family: var(--app-mono);
+  font-size: 85%;
+  color: var(--d-code-ink);
+}
+
+.docs .docs-main pre {
+  margin: 8px 0;
+  padding: 16px 20px;
+  border: 0;
+  border-radius: 4px;
+  background: var(--d-codeblock);
+  font-size: 14px;
+}
+
+.docs .docs-main pre code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+  color: var(--d-ink);
+}
+
+.docs .docs-main table {
+  margin: 12px 0;
+  font-size: 14.5px;
+}
+
+.docs .docs-main th,
+.docs .docs-main td {
+  padding: 7px 10px;
+  border-color: var(--d-line);
+}
+
+.docs .docs-main th {
+  background: var(--d-hover);
+  font-weight: 600;
+  color: var(--d-muted);
+}
+
+.docs .docs-main .callout {
+  gap: 10px;
+  margin: 10px 0;
+  padding: 16px 16px 16px 12px;
+  border-radius: 4px;
+  background: var(--d-gray-bg);
+}
+
+.docs .docs-main .callout-blue {
+  background: var(--d-blue-bg);
+}
+
+.docs .docs-main .callout-green {
+  background: var(--d-green-bg);
+}
+
+.docs .docs-main .callout-yellow {
+  background: var(--d-yellow-bg);
+}
+
+.docs .docs-main .callout-orange {
+  background: var(--d-orange-bg);
+}
+
+.docs .docs-main .callout-purple {
+  background: var(--d-purple-bg);
+}
+
+.docs .docs-main .callout-red {
+  background: var(--d-red-bg);
+}
+
+.docs .docs-main blockquote {
+  border-left: 3px solid currentColor;
+  padding: 0 14px;
+}
+
+.docs .docs-main hr {
+  border-top-color: var(--d-line);
+}
+
+.docs-footer {
+  margin-top: 56px;
+  padding-top: 20px;
+  border-top: 1px solid var(--d-line);
+}
+
 .docs-pager {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
-.docs-pager a {
+
+.docs .docs-pager a {
   display: flex;
   flex-direction: column;
   padding: 10px 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  border: 1px solid var(--d-line);
+  border-radius: 8px;
+  font-size: 15px;
   text-decoration: none;
 }
+
+.docs .docs-pager a:hover {
+  background: var(--d-hover);
+}
+
 .docs-pager a.next {
   margin-left: auto;
   text-align: right;
 }
+
 .docs-pager a span {
   font-size: 12px;
-  color: var(--faint);
+  color: var(--d-faint);
 }
-.docs-edit {
+
+.docs .docs-edit {
   display: inline-block;
-  margin-top: 18px;
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--d-muted);
+}
+
+/* Plain pages (Privacy, 404): the top bar and the page, without the sidebar. */
+.docs.docs-plain {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.docs-topbar .docs-brand {
+  height: 30px;
+  margin: 0 0 0 -8px;
   font-size: 14px;
 }
-@media (max-width: 1100px) {
+
+.docs .doc-meta {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: var(--d-faint);
+}
+
+/* On this page: small and quiet, like the app's outline. */
+.docs-toc {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: 100vh;
+  overflow-y: auto;
+  padding: 100px 20px 32px 0;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.docs-toc .docs-nav-title {
+  padding: 0 0 6px 10px;
+}
+
+.docs-toc a {
+  display: block;
+  padding: 4px 10px;
+  border-left: 1px solid var(--d-line);
+  color: var(--d-faint);
+  text-decoration: none;
+}
+
+.docs-toc a:hover {
+  border-left-color: var(--d-muted);
+  color: var(--d-ink);
+}
+
+.docs-toc a.sub {
+  padding-left: 20px;
+}
+
+@media (max-width: 1180px) {
   .docs {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 248px minmax(0, 1fr);
   }
   .docs-toc {
     display: none;
   }
 }
+
 @media (max-width: 760px) {
   .docs {
     display: block;
-    padding: 0 20px;
   }
   .docs-nav {
     position: static;
-    max-height: none;
-    padding: 24px 0 0;
-    border-bottom: 1px solid var(--line);
+    height: auto;
+    padding-bottom: 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--d-line);
+  }
+  .docs .docs-main {
+    padding: 28px 16px 72px;
+  }
+  .docs-topbar {
+    padding: 0 8px 0 16px;
+    background: var(--d-surface);
+  }
+  .docs-topbar > span:not(.docs-topbar-page) {
+    display: none;
+  }
+  .docs .docs-main h1 {
+    font-size: 32px;
   }
 }
+
 /* Two-column reference tables written with empty headers (`| | |`): no blank header row. */
 .doc thead:not(:has(th:not(:empty))) {
   display: none;
@@ -2567,3 +2904,22 @@ a.oss-card:hover {
   }
 }
 
+/* ---------- The home page: always light ---------- */
+
+.landing {
+  background: var(--bg);
+}
+
+/* The bands between sections: a warm tint instead of night. */
+.landing .band {
+  background: var(--bg-2);
+  border-block: 1px solid var(--line);
+}
+
+.landing .band::before {
+  opacity: 0.6;
+}
+
+.landing .oss-main {
+  background: linear-gradient(160deg, #fff4ec, var(--raised) 55%);
+}

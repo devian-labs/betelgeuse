@@ -18,7 +18,7 @@ const features: { id: string; Icon: LucideIcon; title: string; body: ReactNode; 
         Type <kbd>/</kbd> for every block you need in your daily driver.
       </>
     ),
-    visual: <Shot name="slash" alt="The slash menu, listing blocks to add to a page" />,
+    visual: <Shot theme="light" name="slash" alt="The slash menu, listing blocks to add to a page" />,
   },
   {
     id: "databases",
@@ -27,8 +27,8 @@ const features: { id: string; Icon: LucideIcon; title: string; body: ReactNode; 
     body: "Table, board, list, gallery and calendar. Every row is a page.",
     visual: (
       <>
-        <Shot name="table" alt="A roadmap database as a table with totals" />
-        <Phone kind="android" name="board" alt="The same roadmap as a board on an Android phone" className="feature-phone" />
+        <Shot theme="light" name="table" alt="A roadmap database as a table with totals" />
+        <Phone theme="light" kind="android" name="board" alt="The same roadmap as a board on an Android phone" className="feature-phone" />
       </>
     ),
   },
@@ -39,7 +39,7 @@ const features: { id: string; Icon: LucideIcon; title: string; body: ReactNode; 
     body: "Every page is a .md file you own. Every change is a git commit.",
     visual: (
       <>
-        <Shot name="history" alt="A page's history, with a version ready to restore" />
+        <Shot theme="light" name="history" alt="A page's history, with a version ready to restore" />
         <div className="feature-file">
           <CodeWindow
             code
@@ -67,10 +67,10 @@ const features: { id: string; Icon: LucideIcon; title: string; body: ReactNode; 
     visual: (
       <div className="devices feature-devices">
         <Laptop>
-          <Shot name="editor" alt="The Betelgeuse editor on a computer" />
+          <Shot theme="light" name="editor" alt="The Betelgeuse editor on a computer" />
         </Laptop>
-        <Phone kind="android" name="sync" alt="Sync settings on an Android phone" className="device-left" />
-        <Phone kind="ios" name="welcome" alt="The Welcome page on an iPhone" className="device-right" />
+        <Phone theme="light" kind="android" name="sync" alt="Sync settings on an Android phone" className="device-left" />
+        <Phone theme="light" kind="ios" name="welcome" alt="The Welcome page on an iPhone" className="device-right" />
       </div>
     ),
   },

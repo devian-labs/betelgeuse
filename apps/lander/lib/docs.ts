@@ -30,6 +30,10 @@ export const NAV: Section[] = [
     pages: [{ slug: "", file: path.join(CONTENT, "index.md") }, content("install"), { slug: "guide", file: path.join(GUIDE, "Welcome.md"), title: "The Welcome guide" }],
   },
   {
+    title: "Move to Betelgeuse",
+    pages: [content("migrate/notion"), content("migrate/obsidian")],
+  },
+  {
     title: "Using Betelgeuse",
     pages: [
       guide("writing-and-blocks", "Writing and blocks"),
@@ -67,6 +71,12 @@ export const NAV: Section[] = [
 ];
 
 export const ALL = NAV.flatMap((s) => s.pages);
+
+/** Inline HTML's entities as text (headings go into the table of contents as plain text). */
+const decodeEntities = (s: string) =>
+  s.replace(/&(#\d+|#x[\da-f]+|amp|lt|gt|quot|apos);/gi, (m, e: string) =>
+    e[0] === "#" ? String.fromCodePoint(e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : +e.slice(1)) : ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" } as Record<string, string>)[e.toLowerCase()] ?? m,
+  );
 
 export type Doc = { slug: string; title: string; description: string; html: string; headings: { id: string; text: string; level: number }[]; section: string };
 
@@ -139,8 +149,9 @@ export function loadDoc(slug: string): Doc | null {
     renderer: {
       heading({ tokens, depth }) {
         const text = this.parser.parseInline(tokens);
-        const id = slugify(text);
-        if (depth === 2 || depth === 3) headings.push({ id, text: text.replace(/<[^>]+>/g, ""), level: depth });
+        const plain = decodeEntities(text.replace(/<[^>]+>/g, ""));
+        const id = slugify(plain);
+        if (depth === 2 || depth === 3) headings.push({ id, text: plain, level: depth });
         return `<h${depth} id="${id}"><a class="anchor" href="#${id}">${text}</a></h${depth}>\n`;
       },
       link({ href: url, title: t, tokens }) {

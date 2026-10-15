@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PlainPage } from "@/components/PlainPage";
 
 export const metadata: Metadata = {
   title: { absolute: "Page Not Found | Betelgeuse" },
@@ -8,15 +9,12 @@ export const metadata: Metadata = {
 /** Exported as 404.html. */
 export default function NotFound() {
   return (
-    <main className="wrap narrow doc">
-      <p>
-        <a href="/">← Betelgeuse</a>
-      </p>
+    <PlainPage title="Page not found">
       <h1>Page not found</h1>
       <p>There&apos;s nothing at this address. It may have moved, or the link may be mistyped.</p>
       <p>
         <a href="/">Go to the Betelgeuse home page</a>
       </p>
-    </main>
+    </PlainPage>
   );
 }
