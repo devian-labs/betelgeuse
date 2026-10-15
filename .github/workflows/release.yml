@@ -168,8 +168,9 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" > /dev/null
           echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
       - run: npm ci
+      # Through the wrapper: it points OpenSSL's build (git sync) at the NDK's llvm-ranlib.
       - name: Build the APK
-        run: npm run tauri -w @betelgeuse/mobile -- android build --apk
+        run: npm run android:build -w @betelgeuse/mobile -- --apk
       - name: Sign the APK
         env:
           ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
