@@ -32,10 +32,14 @@ export const relationTitles = (v: unknown): string[] => asList(v).map(linkTarget
 
 export const isComputed = (p: Property) => p.type === "rollup" || (p.type === "relation" && !!p.synced);
 
-/** Whether a link target names a row, by title or by path. */
+/**
+ * Whether a link target names a row: by its file name (unique in its database, where its title
+ * may be shared, two rows both called "Salary") or by its path.
+ */
 export function linksTo(target: string, row: { path: string; title: string }): boolean {
   const t = target.replace(/\.md$/, "").toLowerCase();
-  return t === row.title.toLowerCase() || t === row.path.replace(/\.md$/, "").toLowerCase();
+  const stem = row.path.replace(/^.*\//, "").replace(/\.md$/, "");
+  return t === stem.toLowerCase() || t === row.path.replace(/\.md$/, "").toLowerCase();
 }
 
 const num = (v: unknown): number | null => {

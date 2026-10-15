@@ -7,4 +7,4 @@ This is your Betelgeuse workspace on this phone. Every page is a Markdown file, 
 - Type `[[` to link to another page, and `/` for headings, lists, to-dos, callouts and more.
 - Search finds pages by title and by what's in them.
 
-Pages stay on this phone for now. Syncing with your desktop workspace through git is coming next.
+To have the same pages here and on your computer, connect the git repository your desktop workspace syncs with: **Settings → Sync**.

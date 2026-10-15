@@ -101,9 +101,15 @@ jobs:
           # Built into the app for Unsplash cover search (Settings: repository secret UNSPLASH_ACCESS_KEY).
           # Without it the app still builds; people then add their own key in the cover picker.
           VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          # Signs the in-app update bundles (repository secret: the contents of the key made by
+          # `npx tauri signer generate`; its public half is in tauri.conf.json). With it, the release
+          # also gets the latest.json that installed apps check for updates.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop
-          args: ${{ matrix.args }}
+          # Without the signing key, build without update bundles rather than fail.
+          args: ${{ matrix.args }} ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' && format('--config {0}/apps/desktop/src-tauri/tauri.updater.conf.json', github.workspace) || '' }}
           # A tag makes (or adds to) the draft release; a dry run has no tag and only uploads artifacts.
           tagName: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '' }}
           releaseName: ${{ startsWith(github.ref, 'refs/tags/v') && format('Betelgeuse {0}', github.ref_name) || '' }}
@@ -128,6 +134,8 @@ jobs:
               Pages live on the phone for now; syncing with your desktop workspace is coming.
 
             The MCP server for AI agents needs **Node.js 20+**.
+
+            Already using Betelgeuse 0.5 or later? It offers this update itself, in the sidebar.
 
   android:
     name: Build (Android)

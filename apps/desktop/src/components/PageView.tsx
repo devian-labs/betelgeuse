@@ -33,7 +33,7 @@ import type { Editor as TiptapEditor } from "@tiptap/react";
 import { Editor } from "../editor/Editor";
 import { PageContext } from "../editor/blocks";
 import { api, type NoteMeta } from "../lib/api";
-import { frontmatterTags, joinNote, patchFrontmatter, readFrontmatter, splitNote } from "../lib/frontmatter";
+import { fileTitle, frontmatterTags, joinNote, pageTitle, patchFrontmatter, readFrontmatter, splitNote } from "../lib/frontmatter";
 import { labelColor, tagColor } from "../lib/colors";
 import { timeAgo } from "../lib/time";
 import { ancestorKeys, resolveWikiLink } from "../lib/tree";
@@ -61,14 +61,15 @@ type Props = {
 
 type Doc = { frontmatter: string; body: string };
 
-const titleOf = (path: string) => path.split("/").pop()!.replace(/\.md$/, "");
+/** The file name: what `[[links]]` to the page say (its name may be shared, its file name isn't). */
+const titleOf = fileTitle;
 const parentOf = (path: string) => (path.includes("/") ? `${path.slice(0, path.lastIndexOf("/"))}.md` : null);
 
 export function PageView(p: Props) {
-  const { notes, refreshKey, openPage, peek, createPage, aiPolicy } = useVault();
+  const { notes, refreshKey, openPage, peek, createPage, refresh, aiPolicy } = useVault();
   const [doc, setDoc] = useState<Doc | "missing" | null>(null);
   const [editorKey, setEditorKey] = useState(0);
-  const [title, setTitleState] = useState(titleOf(p.path));
+  const [title, setTitleState] = useState(() => notes.find((n) => n.path === p.path)?.title ?? titleOf(p.path));
   // Read on commit, so a title changed in the same tick (Enter splitting it) is the one saved.
   const titleRef = useRef(title);
   const setTitle = (v: string) => {
@@ -169,7 +170,7 @@ export function PageView(p: Props) {
         pathRef.current = path; // saves go to this page from now on
         setShownPath(path);
         scroller.current?.scrollTo({ top: 0 }); // a new page starts at its top
-        setTitle(titleOf(path));
+        setTitle(pageTitle(path, splitNote(content).frontmatter));
         setBacklinks(links);
         load(content);
       })
@@ -219,11 +220,22 @@ export function PageView(p: Props) {
 
   const commitTitle = async () => {
     const next = titleRef.current.trim();
-    if (!next || next === titleOf(path)) return setTitle(titleOf(path));
+    const current = pageTitle(path, fm.current);
+    if (!next || next === current) return setTitle(current);
     await flush();
     const oldPath = path;
     const newPath = await api.renameNote(oldPath, next);
-    setTitle(titleOf(newPath));
+    if (newPath === oldPath) {
+      // Only the name in the frontmatter changed (the file name was taken): take it in, so the
+      // next save doesn't write the old one back.
+      const content = await api.readNote(path);
+      lastWritten.current = content;
+      fm.current = splitNote(content).frontmatter;
+      setDoc({ frontmatter: fm.current, body: body.current });
+      setTitle(pageTitle(path, fm.current));
+      await refresh();
+      return;
+    }
     p.onRenamed(oldPath, newPath);
   };
 
@@ -523,7 +535,10 @@ function HeadButton({ icon, label, onClick }: { icon: React.ReactNode; label: st
 
 function TopBar(p: Props & { meta?: NoteMeta; saving: boolean; onMenu: (el: HTMLElement) => void; hiddenFromAi?: boolean }) {
   const { notes, openPage } = useVault();
-  const crumbs = ancestorKeys(p.path).map((key) => ({ key, title: key.split("/").pop()!, note: notes.find((n) => n.path === `${key}.md`) }));
+  const crumbs = ancestorKeys(p.path).map((key) => {
+    const note = notes.find((n) => n.path === `${key}.md`);
+    return { key, title: note?.title ?? key.split("/").pop()!, note };
+  });
   const peekMode = p.mode === "peek";
 
   return (
@@ -557,7 +572,7 @@ function TopBar(p: Props & { meta?: NoteMeta; saving: boolean; onMenu: (el: HTML
           ))}
           <span className="flex min-w-0 items-center gap-1 px-1.5">
             {p.meta?.icon && <PageIcon icon={p.meta.icon} size={16} />}
-            <span className="truncate">{titleOf(p.path)}</span>
+            <span className="truncate">{p.meta?.title ?? titleOf(p.path)}</span>
           </span>
         </div>
       )}

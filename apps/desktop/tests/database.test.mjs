@@ -226,3 +226,16 @@ test("moves a property before another or to the end", () => {
   assert.equal(names(moveProperty(schema.properties, "Status", "Tags")), "Estimate,Due,Status,Tags,Shipped");
   assert.equal(names(moveProperty(schema.properties, "Status", null)), "Estimate,Due,Tags,Shipped,Status");
 });
+
+test("relations link rows by file name, so rows can share a title", async () => {
+  const { linksTo, rowKey } = await import("../src/database/model.ts");
+  const { pageTitle } = await import("../src/lib/frontmatter.ts");
+  const a = { path: "Budget/Salary.md", title: "Salary" };
+  const b = { path: "Budget/Salary 2.md", title: pageTitle("Budget/Salary 2.md", 'title: "Salary"') };
+  assert.equal(b.title, "Salary");
+  assert.equal(rowKey(b), "Salary 2");
+  assert.ok(linksTo(rowKey(a), a) && !linksTo(rowKey(a), b));
+  assert.ok(linksTo(rowKey(b), b) && !linksTo(rowKey(b), a));
+  assert.ok(linksTo("Budget/Salary 2", b), "by path too");
+  assert.equal(pageTitle("Budget/Plan.md", ""), "Plan");
+});

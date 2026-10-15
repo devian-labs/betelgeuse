@@ -1,0 +1,56 @@
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+@import "@betelgeuse/plugin-api/theme.css";
+@source "./";
+
+/*
+ * Chart colors. Series slots in a fixed order (checked for color-blind separation, light and dark
+ * stepped separately); a series keeps its slot whatever else is shown. Status colors are kept for
+ * budget and card warnings, always with an icon and words beside them.
+ */
+.fin {
+  --fin-1: #2a78d6;
+  --fin-2: #eb6834;
+  --fin-3: #1baf7a;
+  --fin-4: #eda100;
+  --fin-5: #e87ba4;
+  --fin-6: #008300;
+  --fin-7: #6250d6;
+  --fin-8: #e34948;
+  --fin-other: #898781;
+  --fin-track: color-mix(in srgb, var(--fin-1) 14%, transparent);
+  --fin-warning: #fab219;
+  --fin-critical: #d03b3b;
+  --fin-up: #006300;
+  --fin-down: #d03b3b;
+}
+:root[data-theme="dark"] .fin {
+  --fin-1: #3987e5;
+  --fin-2: #d95926;
+  --fin-3: #199e70;
+  --fin-4: #c98500;
+  --fin-5: #d55181;
+  --fin-6: #008300;
+  --fin-7: #9085e9;
+  --fin-8: #e66767;
+  --fin-track: color-mix(in srgb, var(--fin-1) 22%, transparent);
+  --fin-up: #0ca30c;
+  --fin-down: #e66767;
+}
+
+/* Number inputs without spinners: amounts are typed, not nudged. */
+.fin input[type="number"]::-webkit-inner-spin-button,
+.fin input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.fin-dialog {
+  animation: fin-rise 140ms ease-out;
+}
+@keyframes fin-rise {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+}

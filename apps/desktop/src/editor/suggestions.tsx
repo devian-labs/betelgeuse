@@ -30,7 +30,9 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { NoteMeta } from "../lib/api";
+import { visibleBottom } from "../lib/viewport";
 import { COLORS, bgColor, colorLabel, textColor } from "../lib/colors";
+import { searchCommands } from "./commandSearch";
 import { SuggestionMenu, type MenuHandle, type MenuItem } from "./SuggestionMenu";
 
 type Action = {
@@ -56,7 +58,7 @@ function popup(empty: string): SuggestionOptions<Action>["render"] {
 
     const place = (rect?: DOMRect | null) => {
       if (!rect) return;
-      const below = window.innerHeight - rect.bottom > 380;
+      const below = visibleBottom() - rect.bottom > 380;
       host.style.left = `${Math.min(rect.left, window.innerWidth - 340)}px`;
       host.style.top = below ? `${rect.bottom + 6}px` : "";
       host.style.bottom = below ? "" : `${window.innerHeight - rect.top + 6}px`;
@@ -270,7 +272,7 @@ export const SlashCommand = Extension.create<{ page: PageActions }>({
         items: ({ query }) => {
           const q = query.toLowerCase().trim();
           if (!q) return all.filter((a) => a.section !== "Colors" || a.id === "color-red" || a.id === "bg-yellow");
-          return all.filter((b) => `${b.title} ${b.keywords ?? ""} ${b.section}`.toLowerCase().includes(q)).slice(0, 30);
+          return searchCommands(all, q).slice(0, 30);
         },
         command: ({ editor, range, props }) => props.action(editor, range),
         render: popup("No results"),

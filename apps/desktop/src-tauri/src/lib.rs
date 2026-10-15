@@ -1,11 +1,9 @@
 mod importer;
 mod library;
-mod plugin_store;
-mod plugins;
 mod seed;
 
 // The workspace engine lives in the shared core crate; these keep `crate::vault` / `crate::git` paths working.
-pub(crate) use betelgeuse_core::{git, vault};
+pub(crate) use betelgeuse_core::{git, plugin_store, plugins, vault};
 
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
@@ -503,25 +501,32 @@ fn library_reveal(app: AppHandle, state: State<AppState>, id: String) -> Result<
 
 // Plugins.
 
+/// Where this app keeps plugins: its data, cache and config folders.
+fn plugin_dirs(app: &AppHandle) -> plugins::Dirs {
+    let path = app.path();
+    let or_temp = |r: tauri::Result<PathBuf>| r.unwrap_or_else(|_| std::env::temp_dir().join("betelgeuse"));
+    plugins::Dirs { data: or_temp(path.app_data_dir()), cache: or_temp(path.app_cache_dir()), config: or_temp(path.app_config_dir()) }
+}
+
 #[tauri::command]
 fn plugins_list(app: AppHandle) -> Vec<plugins::PluginInfo> {
-    plugins::list(&app)
+    plugins::list(&plugin_dirs(&app))
 }
 
 /// A file from a plugin's folder (its code or styles).
 #[tauri::command]
 fn plugin_file(app: AppHandle, id: String, file: String) -> Result<String, String> {
-    plugins::read_file(&app, &id, &file)
+    plugins::read_file(&plugin_dirs(&app), &id, &file)
 }
 
 #[tauri::command]
 fn plugin_install_folder(app: AppHandle, path: String) -> Result<String, String> {
-    plugins::install_folder(&app, Path::new(&path))
+    plugins::install_folder(&plugin_dirs(&app), Path::new(&path))
 }
 
 #[tauri::command]
 fn plugin_uninstall(app: AppHandle, id: String) -> Result<(), String> {
-    plugins::uninstall(&app, &id)
+    plugins::uninstall(&plugin_dirs(&app), &id)
 }
 
 #[tauri::command]
@@ -536,24 +541,24 @@ fn plugins_set_enabled(state: State<AppState>, ids: Vec<String>) -> Result<(), S
 
 #[tauri::command]
 fn plugin_data_get(app: AppHandle, state: State<AppState>, id: String, scope: String) -> Result<serde_json::Value, String> {
-    plugins::data_get(&app, &vault(&state)?, &id, &scope)
+    plugins::data_get(&plugin_dirs(&app), &vault(&state)?, &id, &scope)
 }
 
 #[tauri::command]
 fn plugin_data_set(app: AppHandle, state: State<AppState>, id: String, scope: String, value: serde_json::Value) -> Result<(), String> {
-    plugins::data_set(&app, &vault(&state)?, &id, &scope, value)
+    plugins::data_set(&plugin_dirs(&app), &vault(&state)?, &id, &scope, value)
 }
 
 /// The plugin store's list of plugins (cached; `refresh` fetches it again).
 #[tauri::command]
 async fn plugin_store_index(app: AppHandle, refresh: bool) -> Result<plugin_store::Index, String> {
-    tauri::async_runtime::spawn_blocking(move || plugin_store::index(&app, refresh)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || plugin_store::index(&plugin_dirs(&app), refresh)).await.map_err(|e| e.to_string())?
 }
 
 /// Downloads, verifies and installs a plugin from the store; returns its id.
 #[tauri::command]
 async fn plugin_store_install(app: AppHandle, id: String) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || plugin_store::install(&app, &id)).await.map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || plugin_store::install(&plugin_dirs(&app), &id)).await.map_err(|e| e.to_string())?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -562,6 +567,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(state.clone())
         .setup(move |app| {
             spawn_autocommit(app.handle().clone(), state);

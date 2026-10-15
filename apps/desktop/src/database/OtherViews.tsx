@@ -193,7 +193,7 @@ export function BoardView(vp: ViewProps) {
   };
 
   return (
-    <div className="flex gap-3 overflow-x-auto pb-4">
+    <div className="board-lanes flex gap-3 overflow-x-auto pb-4">
       {groups.map((g) => {
         const items = rowsIn(g);
         if (g === NONE && items.length === 0) return null;
@@ -220,7 +220,7 @@ export function BoardView(vp: ViewProps) {
                   : `color-mix(in srgb, var(--c-${option?.color && option.color !== "default" ? option.color : "gray"}-bg) ${over === g ? 90 : 45}%, transparent)`,
             }}
             // Capped in height: a long column scrolls its cards instead of stretching the page.
-            className={`group/col flex max-h-[70vh] w-72 shrink-0 flex-col gap-2 self-start rounded-xl p-2 transition-colors ${g === NONE ? "bg-[var(--row-hover)]" : ""}`}
+            className={`board-lane group/col flex max-h-[70vh] w-72 shrink-0 flex-col gap-2 self-start rounded-xl p-2 transition-colors ${g === NONE ? "bg-[var(--row-hover)]" : ""}`}
           >
             <div className="flex h-7 items-center gap-2 px-1.5">
               {g === NONE ? (
@@ -426,7 +426,13 @@ export function CalendarView(vp: ViewProps) {
                   {day.getDate() === 1 ? day.toLocaleDateString(undefined, { month: "short", day: "numeric" }) : day.getDate()}
                 </span>
               </div>
-              <div className="space-y-1">
+              {/* On a phone the cells are too narrow for titles: dots here, titles in the agenda below. */}
+              <div className="calendar-dots hidden flex-wrap justify-center gap-1">
+                {(byDay.get(key) ?? []).map((row) => (
+                  <span key={row.path} className="size-1.5 rounded-full bg-[var(--blue)]" />
+                ))}
+              </div>
+              <div className="calendar-chips space-y-1">
                 {(byDay.get(key) ?? []).map((row) => (
                   <div
                     key={row.path}
@@ -442,6 +448,24 @@ export function CalendarView(vp: ViewProps) {
             </div>
           );
         })}
+      </div>
+      <div className="calendar-agenda mt-3 hidden space-y-px">
+        {days
+          .filter((day) => day.getMonth() === month.getMonth() && byDay.has(isoDay(day)))
+          .map((day) => (
+            <div key={isoDay(day)} className="flex gap-3 border-b border-line py-2 last:border-b-0">
+              <span className={`w-11 shrink-0 pt-1 text-xs ${isoDay(day) === isoDay(today) ? "font-semibold text-[var(--c-red-text)]" : "text-faint"}`}>
+                {day.toLocaleDateString(undefined, { weekday: "short", day: "numeric" })}
+              </span>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                {byDay.get(isoDay(day))!.map((row) => (
+                  <button key={row.path} onClick={(e) => openRow(row.path, e)} className="flex w-full min-w-0 rounded-md px-1.5 py-1 text-left hover:bg-hover">
+                    <RowTitle row={row} className="text-sm" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
       </div>
     </div>
   );

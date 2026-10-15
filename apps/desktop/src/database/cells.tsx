@@ -25,6 +25,7 @@ import {
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { COLORS, colorLabel, tagColor, type Color } from "../lib/colors";
 import { MenuDivider, MenuItem, MenuSection, Popover } from "../components/Popover";
+import { Calendar as DayPicker } from "../components/Calendar";
 import { PageIcon } from "../components/PageIcon";
 import { api } from "../lib/api";
 import { useOpenRow, useVault } from "../lib/vault";
@@ -41,6 +42,7 @@ import {
   relationDatabase,
   relationPage,
   relationTitles,
+  rowKey,
   toLink,
   toRow,
   withOption,
@@ -136,11 +138,11 @@ export function ValueView({ prop, value, wrap, limit }: { prop: Property; value:
     case "url":
     case "email": {
       const s = asList(value)[0];
-      return s ? <span className="truncate text-ink underline decoration-[var(--line)] underline-offset-2">{s}</span> : null;
+      return s ? <span className="min-w-0 truncate text-ink underline decoration-[var(--line)] underline-offset-2">{s}</span> : null;
     }
     default: {
       const s = asList(value).join(", ");
-      return s ? <span className={wrap ? "break-words whitespace-pre-wrap" : "truncate"}>{s}</span> : null;
+      return s ? <span className={wrap ? "min-w-0 whitespace-pre-wrap [overflow-wrap:anywhere]" : "truncate"}>{s}</span> : null;
     }
   }
 }
@@ -173,7 +175,7 @@ function RelationChips({ prop, value, wrap, limit }: { prop: Property; value: un
             title={page ? page.path : `No page named “${t}”`}
           >
             {page?.icon ? <PageIcon icon={page.icon} size={14} /> : <FileText size={13} className="shrink-0 text-faint" />}
-            <span className="truncate">{t}</span>
+            <span className="truncate">{page?.title ?? t}</span>
           </span>
         );
       })}
@@ -274,84 +276,30 @@ function TextEditor({ prop, value, anchor, onChange, onClose }: EditorProps) {
 
 function DateEditor({ value, anchor, onChange, onClose }: EditorProps) {
   const d = asDate(value);
-  const today = new Date();
-  const [month, setMonth] = useState(() => new Date((d ?? today).getFullYear(), (d ?? today).getMonth(), 1));
   const selected = d ? isoDay(d) : null;
-  const days = monthGrid(month);
-
+  const pick = (day: string | null) => {
+    onChange(day);
+    onClose();
+  };
   return (
-    <Popover anchor={anchor} onClose={onClose} className="w-64 p-2">
+    <Popover anchor={anchor} onClose={onClose} className="p-3">
       <input
         key={selected ?? ""}
         defaultValue={selected ?? ""}
-        placeholder="YYYY-MM-DD"
+        placeholder="Type a date: 2026-10-15, 15 Oct…"
         onKeyDown={(e) => {
           if (e.key !== "Enter") return;
           const v = e.currentTarget.value.trim();
-          if (!v) onChange(null);
-          else if (asDate(v)) onChange(isoDay(asDate(v)!));
-          onClose();
+          if (!v) pick(null);
+          else if (asDate(v)) pick(isoDay(asDate(v)!));
         }}
-        className="mb-2 h-8 w-full rounded-md border border-line bg-side px-2 text-sm text-ink outline-none focus:border-[var(--blue)]"
+        className="mb-3 h-8 w-full rounded-md border border-line bg-side px-2.5 text-sm text-ink outline-none placeholder:text-faint focus:border-[var(--blue)]"
       />
-      <div className="mb-1 flex items-center justify-between px-1">
-        <span className="text-sm font-medium text-ink">
-          {month.toLocaleDateString(undefined, { month: "short", year: "numeric" })}
-        </span>
-        <span className="flex gap-0.5 text-muted">
-          <button onClick={() => setMonth(new Date(today.getFullYear(), today.getMonth(), 1))} className="rounded px-1.5 text-xs hover:bg-hover">
-            Today
-          </button>
-          <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} className="rounded px-1.5 hover:bg-hover">
-            ‹
-          </button>
-          <button onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} className="rounded px-1.5 hover:bg-hover">
-            ›
-          </button>
-        </span>
-      </div>
-      <div className="grid grid-cols-7 text-center text-[11px] text-faint">
-        {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((w) => (
-          <span key={w} className="py-1">
-            {w}
-          </span>
-        ))}
-        {days.map((day) => {
-          const iso = isoDay(day);
-          const inMonth = day.getMonth() === month.getMonth();
-          return (
-            <button
-              key={iso}
-              onClick={() => {
-                onChange(iso);
-                onClose();
-              }}
-              className={`m-px grid h-7 place-items-center rounded-md text-[13px] ${
-                iso === selected
-                  ? "bg-[var(--blue)] text-white"
-                  : iso === isoDay(today)
-                    ? "font-semibold text-[var(--c-red-text)] hover:bg-hover"
-                    : inMonth
-                      ? "text-ink hover:bg-hover"
-                      : "text-faint hover:bg-hover"
-              }`}
-            >
-              {day.getDate()}
-            </button>
-          );
-        })}
-      </div>
+      <DayPicker value={selected} onPick={pick} />
       {selected && (
         <>
           <MenuDivider />
-          <MenuItem
-            icon={<X size={14} />}
-            label="Clear"
-            onClick={() => {
-              onChange(null);
-              onClose();
-            }}
-          />
+          <MenuItem icon={<X size={14} />} label="Clear" onClick={() => pick(null)} />
         </>
       )}
     </Popover>
@@ -546,6 +494,8 @@ function RelationEditor({ prop, value, anchor, onChange, onPropChange, onClose }
 
   const q = query.trim();
   const isSelected = (r: Row) => selected.some((t) => linksTo(t, r));
+  /** The linked row's name, for a link (which names its file). */
+  const nameOf = (link: string) => rows?.find((r) => linksTo(link, r))?.title ?? link;
   const shown = (rows ?? []).filter((r) => r.title.toLowerCase().includes(q.toLowerCase()));
   const canCreate = !!q && !(rows ?? []).some((r) => r.title.toLowerCase() === q.toLowerCase());
 
@@ -553,20 +503,21 @@ function RelationEditor({ prop, value, anchor, onChange, onPropChange, onClose }
     setSelected(titles);
     onChange(titles.length ? titles.map(toLink) : null);
   };
-  const toggle = (title: string) => {
-    const has = selected.some((t) => t.toLowerCase() === title.toLowerCase());
+  /** Links or unlinks `row` (by its file name: rows may share a name). */
+  const toggle = (row: { path: string; title: string }) => {
+    const has = selected.some((t) => linksTo(t, row));
     if (single) {
-      commit(has ? [] : [title]);
+      commit(has ? [] : [rowKey(row)]);
       onClose();
-    } else commit(has ? selected.filter((t) => t.toLowerCase() !== title.toLowerCase()) : [...selected, title]);
+    } else commit(has ? selected.filter((t) => !linksTo(t, row)) : [...selected, rowKey(row)]);
     setQuery("");
   };
   const create = async () => {
     const path = await api.createNote(dbPath, q);
     await refresh();
-    const title = path.replace(/^.*\//, "").replace(/\.md$/, "");
-    setRows((rs) => [...(rs ?? []), { path, title, frontmatter: "", values: {}, body: "", created: Date.now(), modified: Date.now() }]);
-    toggle(title);
+    const row = { path, title: q, frontmatter: "", values: {}, body: "", created: Date.now(), modified: Date.now() };
+    setRows((rs) => [...(rs ?? []), row]);
+    toggle(row);
   };
   const items = shown.length + (canCreate ? 1 : 0);
 
@@ -574,7 +525,7 @@ function RelationEditor({ prop, value, anchor, onChange, onPropChange, onClose }
     <Popover anchor={anchor} onClose={onClose} className="w-80 overflow-hidden">
       <div className="flex min-h-9 flex-wrap items-center gap-1 border-b border-line bg-side px-2 py-1.5">
         {selected.map((t) => (
-          <Tag key={t} name={t} onRemove={() => commit(selected.filter((s) => s !== t))} />
+          <Tag key={t} name={nameOf(t)} onRemove={() => commit(selected.filter((s) => s !== t))} />
         ))}
         <input
           autoFocus
@@ -585,7 +536,7 @@ function RelationEditor({ prop, value, anchor, onChange, onPropChange, onClose }
             if (e.key === "ArrowUp") (e.preventDefault(), setActive((a) => Math.max(a - 1, 0)));
             if (e.key === "Enter") {
               e.preventDefault();
-              if (active < shown.length) toggle(shown[active].title);
+              if (active < shown.length) toggle(shown[active]);
               else if (canCreate) create();
             }
             if (e.key === "Backspace" && !query && selected.length) commit(selected.slice(0, -1));
@@ -604,7 +555,7 @@ function RelationEditor({ prop, value, anchor, onChange, onPropChange, onClose }
           <div
             key={r.path}
             onMouseEnter={() => setActive(i)}
-            onClick={() => toggle(r.title)}
+            onClick={() => toggle(r)}
             className={`flex h-8 cursor-pointer items-center gap-2 rounded-md px-2 text-sm text-ink ${active === i ? "bg-hover" : ""}`}
           >
             {r.icon ? <PageIcon icon={r.icon} size={15} /> : <FileText size={14} className="shrink-0 text-faint" />}

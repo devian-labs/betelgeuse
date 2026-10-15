@@ -55,5 +55,13 @@
       "signingIdentity": "-",
       "minimumSystemVersion": "11.0"
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFBQjg0QUQ3RUIxRjFBQUMKUldTc0doL3IxMHE0cW5iRGVMQkdhRTNMeGplcWJCRVhMQ21hL0x3dVhFeHA3NnpDU3ZBZ2JoSEIK",
+      "endpoints": [
+        "https://github.com/devian-labs/betelgeuse/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

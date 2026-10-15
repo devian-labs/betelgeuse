@@ -280,7 +280,7 @@ export default function App() {
   // Deleting moves to the Trash right away, with an Undo toast.
   const deletePage = useCallback(
     async (path: string) => {
-      const title = path.split("/").pop()!.replace(/\.md$/, "");
+      const title = notesRef.current.find((n) => n.path === path)?.title ?? path.split("/").pop()!.replace(/\.md$/, "");
       const id = await api.deleteNote(path);
       const n = await refresh();
       setFavorites((f) => f.filter((x) => x !== path && !x.startsWith(path.replace(/\.md$/, "/"))));

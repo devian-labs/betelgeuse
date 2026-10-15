@@ -79,8 +79,18 @@ export function wikilinks(text: string): string[] {
   return [...text.matchAll(/\[\[([^\]\n|#]+)(?:#[^\]\n|]*)?(?:\|[^\]\n]*)?\]\]/g)].map((m) => m[1].trim());
 }
 
+/** A page's file name: its id among its siblings, and what `[[links]]` name. */
 export const titleOf = (rel: string) => path.posix.basename(rel, ".md");
+
+/**
+ * A page's name: its `title` frontmatter when it has one (pages in one place may share a name,
+ * their files numbered "Salary 2.md"), else its file name.
+ */
+export const pageTitle = (rel: string, fm: Frontmatter) => (typeof fm.title === "string" && fm.title.trim() ? fm.title.trim() : titleOf(rel));
 const childrenDir = (rel: string) => rel.replace(/\.md$/, "");
+
+/** The name a page is given: trimmed, and "Untitled" when there's nothing left. */
+const nameFrom = (title: string) => title.replace(/\s+/g, " ").trim() || "Untitled";
 
 function sanitizeTitle(title: string): string {
   const t = title.replace(/[/\\:*?"<>|#^[\]\p{Cc}]/gu, " ").replace(/\s+/g, " ").trim();
@@ -157,7 +167,7 @@ export class Vault {
     const tags = fm.tags ?? [];
     return {
       path: rel,
-      title: titleOf(rel),
+      title: pageTitle(rel, fm),
       icon: typeof fm.icon === "string" ? fm.icon : undefined,
       type: typeof fm.type === "string" ? fm.type : undefined,
       order: orderOf(fm.order),
@@ -177,7 +187,8 @@ export class Vault {
     const key = ref.replace(/\.md$/, "").toLowerCase();
     const hit =
       files.find((f) => f.replace(/\.md$/, "").toLowerCase() === key) ??
-      files.find((f) => titleOf(f).toLowerCase() === key);
+      files.find((f) => titleOf(f).toLowerCase() === key) ??
+      (await this.list()).find((n) => n.title.toLowerCase() === key)?.path;
     // Hidden pages are indistinguishable from missing ones, so agents can't probe for them.
     if (!hit) throw new Error(`No note matches "${ref}". Use list_notes or search_notes to find it.`);
     return hit;
@@ -225,14 +236,14 @@ export class Vault {
       const fm = parseFrontmatter(frontmatter);
       const tags = ([] as unknown[]).concat(fm.tags ?? []).map((t) => String(t).toLowerCase());
       const score =
-        lower.split(q).length - 1 + (titleOf(f).toLowerCase().includes(q) ? 100 : 0) + (tags.includes(q.replace(/^#/, "")) ? 50 : 0);
+        lower.split(q).length - 1 + (pageTitle(f, fm).toLowerCase().includes(q) ? 100 : 0) + (tags.includes(q.replace(/^#/, "")) ? 50 : 0);
       if (!score) continue;
       const i = lower.indexOf(q);
       const snippet =
         i < 0
           ? body.trim().slice(0, 160)
           : `${i > 60 ? "…" : ""}${body.slice(Math.max(0, i - 60), i + q.length + 100).replace(/\s+/g, " ").trim()}…`;
-      hits.push({ path: f, title: titleOf(f), score, snippet });
+      hits.push({ path: f, title: pageTitle(f, fm), score, snippet });
     }
     return hits.sort((a, b) => b.score - a.score).slice(0, limit);
   }
@@ -250,13 +261,25 @@ export class Vault {
     return candidate;
   }
 
+  /** Its name needn't be free: the file is numbered instead ("Salary 2.md") and keeps the name in `title`. */
   async create(title: string, body: string, opts: { parent?: string; frontmatter?: FrontmatterPatch }): Promise<string> {
     const dir = opts.parent ? childrenDir(await this.find(opts.parent)) : "";
-    const rel = this.uniquePath(dir, sanitizeTitle(title));
+    const name = nameFrom(title);
+    const rel = this.uniquePath(dir, sanitizeTitle(name));
     // In "only shared pages" mode, pages an agent creates are shared with agents.
     const shared = (await this.aiPolicy()) === "shared" ? { ai: true } : {};
-    await this.write(rel, joinNote(patchFrontmatter("", { ...shared, ...(opts.frontmatter ?? {}) }), body));
+    const named = titleOf(rel) !== name ? { title: name } : {};
+    await this.write(rel, joinNote(patchFrontmatter("", { ...named, ...shared, ...(opts.frontmatter ?? {}) }), body));
     return rel;
+  }
+
+  /** Keeps the page at `rel` called `name`: in `title` frontmatter when its file name says otherwise. */
+  private async keepName(rel: string, name: string) {
+    const text = await readFile(this.resolve(rel), "utf8");
+    const { frontmatter, body } = splitNote(text);
+    const want = titleOf(rel) !== name ? name : null;
+    const has = parseFrontmatter(frontmatter).title;
+    if ((has ?? null) !== want) await writeFile(this.resolve(rel), joinNote(patchFrontmatter(frontmatter, { title: want }), body));
   }
 
   async write(rel: string, content: string) {
@@ -279,8 +302,15 @@ export class Vault {
   /** Renames a note and its sub-page folder, rewriting `[[Old]]` links. Returns every path touched. */
   async rename(rel: string, newTitle: string): Promise<{ path: string; touched: string[] }> {
     const dir = path.posix.dirname(rel) === "." ? "" : path.posix.dirname(rel);
-    const next = this.uniquePath(dir, sanitizeTitle(newTitle), rel);
-    if (next === rel) return { path: rel, touched: [] };
+    const name = nameFrom(newTitle);
+    if (name === (await this.meta(rel)).title) return { path: rel, touched: [] };
+    const stem = sanitizeTitle(name);
+    const next = stem === titleOf(rel) ? rel : this.uniquePath(dir, stem, rel);
+    if (next === rel) {
+      // The file name is taken (or already right): only the name in the frontmatter changes.
+      await this.keepName(rel, name);
+      return { path: rel, touched: [rel] };
+    }
     const touched = [rel, next];
     await rename(this.resolve(rel), this.resolve(next));
     const oldChildren = path.join(this.root, childrenDir(rel));
@@ -306,6 +336,7 @@ export class Vault {
         touched.push(f);
       }
     }
+    await this.keepName(next, name);
     return { path: next, touched };
   }
 
@@ -319,6 +350,7 @@ export class Vault {
     if (destDir === own || destDir.startsWith(`${own}/`)) throw new Error("A page can't be moved inside itself.");
     const dir = path.posix.dirname(rel) === "." ? "" : path.posix.dirname(rel);
     if (dir === destDir) return { path: rel, touched: [] };
+    const name = (await this.meta(rel)).title;
     const next = this.uniquePath(destDir, titleOf(rel));
     const nextOwn = childrenDir(next);
     await mkdir(path.dirname(this.resolve(next)), { recursive: true });
@@ -345,6 +377,8 @@ export class Vault {
         touched.push(f);
       }
     }
+    // Numbered to fit in ("Plan 2.md"), it's still called what it was.
+    await this.keepName(next, name);
     return { path: next, touched };
   }
 
@@ -450,9 +484,12 @@ export class Vault {
       const related = await this.rawDatabase(db);
       const key = typeof related.schema.title === "string" && related.schema.title.trim() ? related.schema.title : "Name";
       const links = titles.map((t) => {
-        const hit = related.rows.find((r) => linksTo(t, { path: r.path, title: String(r[key]) }));
+        // By file name or path, else by name (stored by file name: rows may share a name).
+        const hit =
+          related.rows.find((r) => linksTo(t, { path: r.path, title: String(r[key]) })) ??
+          related.rows.find((r) => String(r[key]).toLowerCase() === t.toLowerCase());
         if (!hit) throw new Error(`"${t}" is not a page in ${titleOf(db)}. Create it there first, or use an existing title.`);
-        return `[[${String(hit[key])}]]`;
+        return `[[${titleOf(String(hit.path))}]]`;
       });
       if (p.limit === "one" && links.length > 1) throw new Error(`"${p.name}" links to one page only.`);
       out[p.name] = links.length ? links : null;
@@ -478,7 +515,9 @@ export class Vault {
         if (!visible.has(rowRel)) continue;
         const text = await readFile(this.resolve(rowRel), "utf8");
         const { frontmatter: rfm, body: rbody } = splitNote(text);
-        rows.push({ path: rowRel, [titleKey]: titleOf(rowRel), ...parseFrontmatter(rfm), _body: rbody.trim().slice(0, 200) });
+        // The row's name (`title`, where rows share one) fills the title column, not a column of its own.
+        const { title: name, ...values } = parseFrontmatter(rfm);
+        rows.push({ path: rowRel, ...values, [titleKey]: pageTitle(rowRel, { title: name }), _body: rbody.trim().slice(0, 200) });
       }
     }
     // The app's row order: by `order` (e.g. Notion's, from an import), then the rest A–Z.

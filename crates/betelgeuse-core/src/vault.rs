@@ -76,9 +76,58 @@ pub fn markdown_files(vault: &Path) -> impl Iterator<Item = PathBuf> {
         .map(|e| e.into_path())
 }
 
+/// A page's file name without `.md`: its id among its sibling pages (and what `[[links]]` name).
 pub fn title_of(rel: &str) -> String {
     let file = rel.rsplit('/').next().unwrap_or(rel);
     file.strip_suffix(".md").unwrap_or(file).to_string()
+}
+
+/// A page's name: its `title` frontmatter when it has one, else its file name. Pages in the same
+/// place may share a name ("Salary" every month): their files are numbered ("Salary 2.md") and the
+/// name is kept in `title`.
+pub fn page_title(rel: &str, fm: &str) -> String {
+    fm_string(fm, "title").filter(|t| !t.trim().is_empty()).unwrap_or_else(|| title_of(rel))
+}
+
+/// A top-level string value, reading the double-quoted (JSON-escaped) form `set_fm_string` writes.
+fn fm_string(fm: &str, key: &str) -> Option<String> {
+    fm.lines().find_map(|l| {
+        let (k, v) = l.split_once(':')?;
+        if l.starts_with([' ', '\t']) || k.trim() != key {
+            return None;
+        }
+        let v = v.trim();
+        (!v.is_empty()).then(|| serde_json::from_str::<String>(v).unwrap_or_else(|_| unquote(v)))
+    })
+}
+
+/// `content` with top-level frontmatter `key` set to the string `value`, or removed (`None`). An
+/// emptied frontmatter block goes too.
+pub fn set_fm_string(content: &str, key: &str, value: Option<&str>) -> String {
+    let (fm, body) = split_frontmatter(content);
+    let mut lines: Vec<String> = fm
+        .lines()
+        .filter(|l| l.starts_with([' ', '\t']) || l.split_once(':').is_none_or(|(k, _)| k.trim() != key))
+        .map(str::to_string)
+        .collect();
+    if let Some(v) = value {
+        lines.insert(0, format!("{key}: {}", serde_json::to_string(v).unwrap_or_default()));
+    }
+    if lines.iter().all(|l| l.trim().is_empty()) {
+        return body.to_string();
+    }
+    format!("---\n{}\n---\n{body}", lines.join("\n"))
+}
+
+/// Keeps the page at `rel` named `name`: `title` frontmatter when its file name says otherwise.
+fn keep_name(vault: &Path, rel: &str, name: &str) -> Result<(), String> {
+    let content = read_note(vault, rel)?;
+    let want = (title_of(rel) != name).then_some(name);
+    let current = fm_string(split_frontmatter(&content).0, "title");
+    if current.as_deref() != want {
+        write_note(vault, rel, &set_fm_string(&content, "title", want))?;
+    }
+    Ok(())
 }
 
 /// Splits `---\n...\n---` frontmatter from the body. Returns ("", content) when absent.
@@ -155,7 +204,7 @@ fn meta_for(vault: &Path, abs: &Path) -> NoteMeta {
     let (fm, _) = split_frontmatter(&content);
     let (modified, created) = times(abs);
     NoteMeta {
-        title: title_of(&rel),
+        title: page_title(&rel, fm),
         icon: fm_value(fm, "icon"),
         tags: fm_list(fm, "tags"),
         kind: fm_value(fm, "type"),
@@ -189,7 +238,8 @@ pub fn database_rows(vault: &Path, rel: &str) -> Result<Vec<Row>, String> {
         .map(|p| {
             let path = rel_string(vault, &p);
             let (modified, created) = times(&p);
-            Row { title: title_of(&path), content: fs::read_to_string(&p).unwrap_or_default(), path, modified, created }
+            let content = fs::read_to_string(&p).unwrap_or_default();
+            Row { title: page_title(&path, split_frontmatter(&content).0), content, path, modified, created }
         })
         .collect();
     // Rows with an `order` (e.g. imported in Notion's order) come first by it; the rest follow
@@ -206,11 +256,13 @@ pub fn database_rows(vault: &Path, rel: &str) -> Result<Vec<Row>, String> {
     Ok(rows)
 }
 
-/// Copies a note next to itself as "Title copy". Sub-pages are not copied.
+/// Copies a note next to itself as "Name copy". Sub-pages are not copied.
 pub fn duplicate_note(vault: &Path, rel: &str) -> Result<String, String> {
     let dir = rel.rsplit_once('/').map_or("", |(d, _)| d);
-    let copy = unique_path(vault, dir, &format!("{} copy", title_of(rel)), None);
+    let name = format!("{} copy", page_title(rel, split_frontmatter(&read_note(vault, rel)?).0));
+    let copy = unique_path(vault, dir, &sanitize_title(&name), None);
     fs::copy(resolve(vault, rel)?, resolve(vault, &copy)?).map_err(|e| e.to_string())?;
+    keep_name(vault, &copy, &name)?;
     Ok(copy)
 }
 
@@ -261,22 +313,39 @@ pub fn unique_path(vault: &Path, dir: &str, title: &str, except: Option<&str>) -
     candidate
 }
 
+/// The name a page is given: trimmed, and "Untitled" when there's nothing left.
+fn name_from(title: &str) -> String {
+    let t = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    if t.is_empty() { "Untitled".into() } else { t }
+}
+
+/// Creates an empty page named `title`. Its name needn't be free: the file is numbered instead
+/// ("Salary 2.md") and keeps the name in its frontmatter.
 pub fn create_note(vault: &Path, parent: Option<&str>, title: &str) -> Result<String, String> {
     let dir = parent.map(children_dir).unwrap_or("");
-    let rel = unique_path(vault, dir, &sanitize_title(title), None);
+    let name = name_from(title);
+    let rel = unique_path(vault, dir, &sanitize_title(&name), None);
     write_note(vault, &rel, "")?;
+    keep_name(vault, &rel, &name)?;
     Ok(rel)
 }
 
-/// Renames a note (and its sub-page folder) and rewrites `[[Old]]` links vault-wide.
+/// Renames a note: its file (and sub-page folder) takes the new name where that's free, links
+/// to it follow, and the name goes in its frontmatter where the file had to be numbered.
 pub fn rename_note(vault: &Path, rel: &str, new_title: &str) -> Result<String, String> {
-    let old_title = title_of(rel);
-    let new_title = sanitize_title(new_title);
-    if new_title == old_title {
+    let name = name_from(new_title);
+    let current = page_title(rel, split_frontmatter(&read_note(vault, rel)?).0);
+    if name == current {
         return Ok(rel.to_string());
     }
+    let old_title = title_of(rel);
     let dir = rel.rsplit_once('/').map_or("", |(d, _)| d);
-    let new_rel = unique_path(vault, dir, &new_title, Some(rel));
+    let stem = sanitize_title(&name);
+    let new_rel = if stem == old_title { rel.to_string() } else { unique_path(vault, dir, &stem, Some(rel)) };
+    if new_rel == rel {
+        keep_name(vault, rel, &name)?;
+        return Ok(new_rel);
+    }
     let final_title = title_of(&new_rel);
     fs::rename(resolve(vault, rel)?, resolve(vault, &new_rel)?).map_err(|e| e.to_string())?;
     let old_children = vault.join(children_dir(rel));
@@ -292,6 +361,7 @@ pub fn rename_note(vault: &Path, rel: &str, new_title: &str) -> Result<String, S
             let _ = fs::write(&file, updated);
         }
     }
+    keep_name(vault, &new_rel, &name)?;
     Ok(new_rel)
 }
 
@@ -312,6 +382,7 @@ pub fn move_note(vault: &Path, rel: &str, dest_dir: &str) -> Result<String, Stri
         resolve(vault, dest_dir)?;
     }
     let title = title_of(rel);
+    let name = page_title(rel, split_frontmatter(&read_note(vault, rel)?).0);
     let new_rel = unique_path(vault, dest_dir, &title, None);
     let to = resolve(vault, &new_rel)?;
     fs::create_dir_all(to.parent().unwrap()).map_err(|e| e.to_string())?;
@@ -336,6 +407,8 @@ pub fn move_note(vault: &Path, rel: &str, dest_dir: &str) -> Result<String, Stri
             let _ = fs::write(&file, updated);
         }
     }
+    // Numbered to fit in ("Plan 2.md"), it's still called what it was.
+    keep_name(vault, &new_rel, &name)?;
     Ok(new_rel)
 }
 
@@ -411,7 +484,7 @@ pub fn list_trash(vault: &Path) -> Vec<TrashItem> {
             let pages = WalkDir::new(&dir).into_iter().filter_map(Result::ok).filter(|f| f.path().extension().is_some_and(|x| x == "md")).count();
             Some(TrashItem {
                 id: e.file_name().to_string_lossy().into_owned(),
-                title: title_of(&original),
+                title: page_title(&original, split_frontmatter(&content).0),
                 icon: fm_value(split_frontmatter(&content).0, "icon"),
                 original,
                 deleted,
@@ -438,8 +511,10 @@ pub fn restore_trash(vault: &Path, id: &str) -> Result<String, String> {
     let parent = original.rsplit_once('/').map_or("", |(d, _)| d);
     let dest = unique_path(vault, parent, &title_of(&original), None);
     let abs = resolve(vault, &dest)?;
+    let name = page_title(&original, split_frontmatter(&fs::read_to_string(dir.join(&file)).unwrap_or_default()).0);
     fs::create_dir_all(abs.parent().unwrap()).map_err(|e| e.to_string())?;
     fs::rename(dir.join(&file), &abs).map_err(|e| e.to_string())?;
+    keep_name(vault, &dest, &name)?;
     let children = dir.join(children_dir(&file));
     if children.is_dir() {
         fs::rename(children, vault.join(children_dir(&dest))).map_err(|e| e.to_string())?;
@@ -793,6 +868,66 @@ mod tests {
         assert!(list_trash(&dir).is_empty());
         assert!(trash_dir(&dir, "../x").is_err());
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn pages_in_one_place_can_share_a_name() {
+        let dir = std::env::temp_dir().join(format!("bg-names-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        write_note(&dir, "Budget.md", "---\ntype: database\n---\n").unwrap();
+        let names = |dir: &Path| database_rows(dir, "Budget.md").unwrap().into_iter().map(|r| (r.path, r.title)).collect::<Vec<_>>();
+
+        // Three rows called "Salary": numbered files, one name.
+        let a = create_note(&dir, Some("Budget.md"), "Salary").unwrap();
+        let b = create_note(&dir, Some("Budget.md"), "Salary").unwrap();
+        let c = create_note(&dir, Some("Budget.md"), "Salary").unwrap();
+        assert_eq!((a.as_str(), b.as_str(), c.as_str()), ("Budget/Salary.md", "Budget/Salary 2.md", "Budget/Salary 3.md"));
+        assert!(names(&dir).iter().all(|(_, t)| t == "Salary"));
+        assert_eq!(read_note(&dir, &a).unwrap(), "", "a name that fits its file needs no frontmatter");
+        assert_eq!(read_note(&dir, &b).unwrap(), "---\ntitle: \"Salary\"\n---\n");
+
+        // Renamed to a name that's free, the file follows and the frontmatter goes.
+        write_note(&dir, &b, "---\ntitle: \"Salary\"\nAmount: 10\n---\nBody\n").unwrap();
+        let bonus = rename_note(&dir, &b, "Bonus").unwrap();
+        assert_eq!(bonus, "Budget/Bonus.md");
+        assert_eq!(read_note(&dir, &bonus).unwrap(), "---\nAmount: 10\n---\nBody\n");
+        // Renamed to a name that's taken, it keeps the name anyway.
+        let back = rename_note(&dir, &bonus, "Salary").unwrap();
+        assert_eq!(back, "Budget/Salary 2.md");
+        assert_eq!(page_title(&back, split_frontmatter(&read_note(&dir, &back).unwrap()).0), "Salary");
+        assert_eq!(rename_note(&dir, &back, "Salary").unwrap(), back, "same name: nothing to do");
+        // A name a file can't hold (a slash) is kept whole.
+        let odd = rename_note(&dir, &c, "Rent: Jan/Feb \"paid\"").unwrap();
+        assert_eq!(odd, "Budget/Rent Jan Feb paid.md");
+        assert_eq!(list_notes(&dir).into_iter().find(|n| n.path == odd).unwrap().title, "Rent: Jan/Feb \"paid\"");
+
+        // Duplicates, moves and restores keep names.
+        let copy = duplicate_note(&dir, &back).unwrap();
+        assert_eq!(page_title(&copy, split_frontmatter(&read_note(&dir, &copy).unwrap()).0), "Salary copy");
+        write_note(&dir, "Plan.md", "").unwrap();
+        write_note(&dir, "Work/Plan.md", "x").unwrap();
+        let moved = move_note(&dir, "Work/Plan.md", "").unwrap();
+        assert_eq!(moved, "Plan 2.md");
+        assert_eq!(list_notes(&dir).into_iter().find(|n| n.path == moved).unwrap().title, "Plan");
+        let id = delete_note(&dir, &a).unwrap();
+        create_note(&dir, Some("Budget.md"), "Salary").unwrap(); // takes Salary.md meanwhile
+        assert_eq!(list_trash(&dir)[0].title, "Salary");
+        let restored = restore_trash(&dir, &id).unwrap();
+        assert_ne!(restored, a);
+        assert_eq!(list_notes(&dir).into_iter().find(|n| n.path == restored).unwrap().title, "Salary");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn sets_and_removes_frontmatter_strings() {
+        assert_eq!(set_fm_string("Body", "title", Some("A")), "---\ntitle: \"A\"\n---\nBody");
+        assert_eq!(set_fm_string("---\ntitle: \"A\"\nicon: x\n---\nBody", "title", None), "---\nicon: x\n---\nBody");
+        assert_eq!(set_fm_string("---\ntitle: A\n---\nBody", "title", None), "Body");
+        // Nested keys of the same name stay.
+        let nested = "---\nmeta:\n  title: inner\n---\n";
+        assert_eq!(set_fm_string(nested, "title", None), nested);
+        assert_eq!(fm_string("title: \"a \\\"b\\\" c\"", "title").as_deref(), Some("a \"b\" c"));
+        assert_eq!(fm_string("title: plain", "title").as_deref(), Some("plain"));
     }
 
     #[test]

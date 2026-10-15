@@ -11,11 +11,14 @@
     "typecheck": "tsc --noEmit",
     "tauri": "tauri",
     "ios": "tauri ios dev",
-    "android": "tauri android dev"
+    "android": "node scripts/tauri-android.mjs dev",
+    "android:build": "node scripts/tauri-android.mjs build"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
     "@tauri-apps/api": "^2.12.1",
+    "@tauri-apps/plugin-dialog": "^2.8.1",
+    "@tauri-apps/plugin-opener": "^2.7.0",
     "@tiptap/extension-code-block-lowlight": "^3.31.4",
     "@tiptap/extension-collaboration": "^3.31.4",
     "@tiptap/extension-details": "^3.31.4",

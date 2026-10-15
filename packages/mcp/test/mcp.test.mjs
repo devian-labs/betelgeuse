@@ -109,6 +109,20 @@ test("queries a database and adds a row with typed properties", async () => {
   assert.deepEqual(done.rows.map((r) => r.Name).sort(), ["Review", "Write tests"]);
 });
 
+test("rows of a database can share a title; their files are numbered", async () => {
+  const first = JSON.parse(await call("create_note", { title: "Payday", parent: "Tasks" }));
+  const second = JSON.parse(await call("create_note", { title: "Payday", parent: "Tasks", frontmatter: { Estimate: 3 } }));
+  assert.deepEqual([first.path, second.path], ["Tasks/Payday.md", "Tasks/Payday 2.md"]);
+  assert.equal(readFileSync(path.join(vault, "Tasks/Payday 2.md"), "utf8"), "---\ntitle: Payday\nEstimate: 3\n---\n");
+  const rows = JSON.parse(await call("query_database", { database: "Tasks" })).rows.filter((r) => r.path.includes("Payday"));
+  assert.deepEqual(rows.map((r) => [r.Name, r.title]), [["Payday", undefined], ["Payday", undefined]]);
+  // Renamed to a free name, the file follows and the stored title goes.
+  const renamed = JSON.parse(await call("rename_note", { note: "Tasks/Payday 2", title: "Bonus" }));
+  assert.equal(renamed.path, "Tasks/Bonus.md");
+  assert.equal(readFileSync(path.join(vault, "Tasks/Bonus.md"), "utf8"), "---\nEstimate: 3\n---\n");
+  for (const p of ["Payday", "Bonus"]) await call("delete_note", { note: `Tasks/${p}` });
+});
+
 test("updating a row with malformed frontmatter repairs it instead of failing", async () => {
   writeFileSync(path.join(vault, "Tasks/Trailer.md"), '---\nStatus: Todo\nIdea: "Wrong video": on a call\n---\nbody\n');
   await call("update_note", { note: "Tasks/Trailer", frontmatter: { Status: "Done" } });

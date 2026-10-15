@@ -112,7 +112,7 @@ export function RowProperties({
           </span>
           <button
             onClick={(e) => setMenu({ prop: p, el: e.currentTarget })}
-            className="flex h-[34px] w-40 shrink-0 items-center gap-2 rounded-md px-1.5 text-muted hover:bg-hover"
+            className="prop-label flex h-[34px] w-40 shrink-0 items-center gap-2 rounded-md px-1.5 text-muted hover:bg-hover"
           >
             <span className="text-faint">
               <PropIcon type={p.type} />

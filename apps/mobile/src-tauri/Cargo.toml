@@ -17,10 +17,22 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-betelgeuse-core = { path = "../../../crates/betelgeuse-core" }
+betelgeuse-core = { path = "../../../crates/betelgeuse-core", features = ["libgit2", "plugins"] }
 tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# OpenSSL, built in: Android has none libgit2 can use for HTTPS. (On iOS libgit2 uses the system's
+# TLS, but git2 still asks for OpenSSL there, so it's built for both.)
+git2 = { version = "0.21", default-features = false, features = ["vendored-openssl"] }
 
 # iOS only: one native call to let the page use the whole screen (see fill_screen in src/lib.rs).
 [target.'cfg(target_os = "ios")'.dependencies]
 objc2 = "0.6"
+
+# Android: the system's certificate authorities, parsed and handed to libgit2 (see sync.rs).
+[target.'cfg(target_os = "android")'.dependencies]
+openssl = "0.10"
+libgit2-sys = "0.18"
+foreign-types-shared = "0.1"

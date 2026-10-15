@@ -156,6 +156,8 @@ Present with the `workspace:read` permission (`ctx.workspace` is `undefined` oth
 | `createPage(parent, title)` | Creates a page (inside `parent`'s sub-pages, or at the top level for `null`); returns its path. Needs `workspace:write`. |
 | `writePage(path, body)` | Replaces a page's Markdown, keeping its properties. Needs `workspace:write`. |
 | `setProperties(path, patch)` | Sets or (with `null`) removes properties. Needs `workspace:write`. |
+| `renamePage(path, title)` | Renames a page; links to it follow. Returns its path, which may change. Needs `workspace:write`. Since 0.4.1, so check it exists. |
+| `deletePage(path)` | Moves a page and its sub-pages to the Trash. Needs `workspace:write`. Since 0.4.1, so check it exists. |
 
 Pages are Markdown files, and other editors open them too: write content that reads well as plain Markdown.
 

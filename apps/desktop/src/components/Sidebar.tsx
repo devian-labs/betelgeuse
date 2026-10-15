@@ -25,6 +25,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { PageIcon } from "./PageIcon";
+import { UpdateBanner } from "./UpdateBanner";
 import { TrashPanel } from "./TrashPanel";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -286,6 +287,8 @@ export function Sidebar(p: Props) {
         </button>
       </div>
       {trash && <TrashPanel anchor={trash} onClose={() => setTrash(null)} />}
+
+      <UpdateBanner />
 
       <div className="flex h-12 shrink-0 items-center gap-1 border-t border-line px-2">
         <button

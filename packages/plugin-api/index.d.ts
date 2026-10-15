@@ -266,9 +266,17 @@ export interface Workspace {
   onChange(listener: () => void): Disposable;
 
   // These need "workspace:write".
+  /** Creates an empty page; returns its path. Pages may share a title (the file is numbered). */
   createPage(parent: string | null, title: string): Promise<string>;
   writePage(path: string, body: string): Promise<void>;
   setProperties(path: string, patch: Record<string, unknown>): Promise<void>;
+  /**
+   * Renames a page (links to it follow); returns its path, which may change. Since Betelgeuse
+   * 0.4.1: check it exists before calling it from a plugin that supports older versions.
+   */
+  renamePage?(path: string, title: string): Promise<string>;
+  /** Moves a page (and its sub-pages) to the Trash, where it can be restored. Since Betelgeuse 0.4.1. */
+  deletePage?(path: string): Promise<void>;
 }
 
 export interface Shell {

@@ -1,0 +1,25 @@
+{
+  "name": "@betelgeuse/plugin-finance",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Finance: accounts, transactions, budgets, investments and net worth in Betelgeuse",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite build --watch --mode development",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^1.52.0"
+  },
+  "devDependencies": {
+    "@betelgeuse/plugin-api": "*",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "typescript": "^5.9.3"
+  }
+}

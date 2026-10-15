@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { visibleBottom } from "../lib/viewport";
 
 type Props = {
   anchor: HTMLElement | DOMRect | null;
@@ -20,7 +21,7 @@ export function Popover({ anchor, onClose, children, placement = "bottom-start",
     const { width, height } = ref.current.getBoundingClientRect();
     let left = placement === "bottom-end" ? a.right - width : placement === "right-start" ? a.right + 4 : a.left;
     let top = placement === "right-start" ? a.top : a.bottom + 4;
-    if (top + height > window.innerHeight - 8) top = Math.max(8, (placement === "right-start" ? a.bottom : a.top - 4) - height);
+    if (top + height > visibleBottom() - 8) top = Math.max(8, (placement === "right-start" ? a.bottom : a.top - 4) - height);
     if (left + width > window.innerWidth - 8) left = placement === "right-start" ? a.left - width - 4 : window.innerWidth - width - 8;
     setPos({ left: Math.max(8, left), top });
   }, [anchor, placement, children]);

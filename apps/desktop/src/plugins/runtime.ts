@@ -86,6 +86,11 @@ let plugins: PluginState[] = [];
 let contributions: Contributions = { views: [], sidebar: [], settings: [], pagePanels: [], commands: [], search: [] };
 let host: Host | null = null;
 let appVersion = "0.0.0";
+
+/** Which app this runtime is in. Plugins say where they run (`platforms`, desktop by default). */
+let platform: "desktop" | "mobile" = "desktop";
+export const setPlatform = (p: "desktop" | "mobile") => void (platform = p);
+export const currentPlatform = () => platform;
 const disposers = new Map<string, Disposable[]>();
 const deactivators = new Map<string, () => void | Promise<void>>();
 const listeners = new Set<() => void>();
@@ -161,7 +166,7 @@ export function incompatibility(m: PluginManifest, version = appVersion): string
   if (!m.id || !m.name || !m.version) return "Its manifest is missing an id, name or version.";
   if (String(m.engines?.api ?? "") !== String(API_VERSION)) return `It's made for plugin API ${m.engines?.api ?? "?"}; this app has API ${API_VERSION}.`;
   if (m.engines?.betelgeuse && !satisfies(version, m.engines.betelgeuse)) return `It needs Betelgeuse ${m.engines.betelgeuse}; this is ${version}.`;
-  if (m.platforms && !m.platforms.includes("desktop")) return "It isn't made for the desktop app.";
+  if (!(m.platforms ?? ["desktop"]).includes(platform)) return platform === "mobile" ? "It's for the desktop app only." : "It isn't made for the desktop app.";
   return null;
 }
 
@@ -257,7 +262,9 @@ async function unloadAll() {
 }
 
 export async function setEnabled(id: string, on: boolean) {
-  const ids = plugins.filter((p) => (p.id === id ? on : p.enabled)).map((p) => p.id);
+  // Plugins this workspace uses that this device doesn't have (a desktop-only one, on a phone)
+  // stay on the list: the workspace's other devices still use them.
+  const ids = [...missing.filter((m) => m !== id), ...plugins.filter((p) => (p.id === id ? on : p.enabled)).map((p) => p.id)];
   await invoke("plugins_set_enabled", { ids });
   setPlugin(id, { enabled: on });
   if (on) await activate(id);
@@ -562,6 +569,11 @@ function makeContext(p: PluginState): PluginContext {
           const { frontmatter, body } = splitNote(await api.readNote(path));
           await api.writeNote(path, joinNote(patchFrontmatter(frontmatter, patch), body));
         },
+        renamePage: async (path, title) => (needs("workspace:write"), api.renameNote(path, title)),
+        deletePage: async (path) => {
+          needs("workspace:write");
+          await api.deleteNote(path);
+        },
       }
     : undefined;
 
@@ -577,7 +589,7 @@ function makeContext(p: PluginState): PluginContext {
 
   return {
     manifest: p.manifest,
-    app: { version: appVersion, apiVersion: 1, platform: "desktop" },
+    app: { version: appVersion, apiVersion: 1, platform },
     views: {
       register: (viewId, view) => add("views", own({ ...view, id: viewId })),
       open: (viewId, options) => host?.openPath(viewPath(id, viewId), options),

@@ -79,3 +79,15 @@ export function frontmatterTags(frontmatter: string): string[] {
   const tags = readFrontmatter(frontmatter).tags;
   return Array.isArray(tags) ? tags.map(String) : typeof tags === "string" ? [tags] : [];
 }
+
+/** A page's file name without `.md`: its id among its siblings, and what `[[links]]` name. */
+export const fileTitle = (path: string) => path.replace(/^.*\//, "").replace(/\.md$/, "");
+
+/**
+ * A page's name: its `title` frontmatter when it has one (pages in one place may share a name,
+ * their files numbered "Salary 2.md"), else its file name.
+ */
+export function pageTitle(path: string, frontmatter: string): string {
+  const t = getString(readFrontmatter(frontmatter), "title")?.trim();
+  return t || fileTitle(path);
+}

@@ -65,6 +65,10 @@ export type FilterOp =
   | "lte"
   | "before"
   | "after"
+  /** Within a range relative to today (`value` is a RELATIVE_DATES id, e.g. "last_month"). */
+  | "within"
+  /** Within a range of days, `value` "from..to"; either end may be left open. */
+  | "between"
   | "checked"
   | "unchecked";
 /** `value` holds several option names when a filter matches any of them. */
@@ -438,9 +442,11 @@ export const FILTER_OPS: Record<string, { op: FilterOp; label: string; needsValu
     { op: "is_not_empty", label: "Is not empty", needsValue: false },
   ],
   date: [
+    { op: "within", label: "Is within", needsValue: true },
     { op: "is", label: "Is", needsValue: true },
     { op: "before", label: "Is before", needsValue: true },
     { op: "after", label: "Is after", needsValue: true },
+    { op: "between", label: "Is between", needsValue: true },
     { op: "is_empty", label: "Is empty", needsValue: false },
     { op: "is_not_empty", label: "Is not empty", needsValue: false },
   ],
@@ -482,8 +488,7 @@ function matches(row: Row, prop: Property, f: Filter): boolean {
   if (prop.type === "date" || prop.type === "created_time" || prop.type === "last_edited_time") {
     const d = asDate(v);
     if (!d) return false;
-    const day = isoDay(d);
-    return f.op === "is" ? day === wants[0] : f.op === "before" ? day < wants[0] : f.op === "after" ? day > wants[0] : true;
+    return dateMatches(isoDay(d), f.op, wants[0]);
   }
   const list = (prop.type === "relation" ? relationTitles(v) : asList(v)).map((s) => s.toLowerCase());
   const text = list.join(", ");
@@ -501,6 +506,140 @@ function matches(row: Row, prop: Property, f: Filter): boolean {
       return !any((w) => text === w);
   }
   return true;
+}
+
+// ---------- date filters ----------
+
+/** Ranges relative to today, for date filters ("within"). They move with the calendar. */
+export const RELATIVE_DATES = [
+  // In threes, past to future: the filter menu shows one family per row.
+  { id: "yesterday", label: "Yesterday" },
+  { id: "today", label: "Today" },
+  { id: "tomorrow", label: "Tomorrow" },
+  { id: "last_week", label: "Last week" },
+  { id: "this_week", label: "This week" },
+  { id: "next_week", label: "Next week" },
+  { id: "last_month", label: "Last month" },
+  { id: "this_month", label: "This month" },
+  { id: "next_month", label: "Next month" },
+  { id: "last_year", label: "Last year" },
+  { id: "this_year", label: "This year" },
+  { id: "next_year", label: "Next year" },
+  { id: "past_90_days", label: "Past 90 days" },
+  { id: "past_30_days", label: "Past 30 days" },
+  { id: "past_7_days", label: "Past 7 days" },
+  { id: "next_7_days", label: "Next 7 days" },
+  { id: "next_30_days", label: "Next 30 days" },
+] as const;
+
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+/** The days (inclusive, `YYYY-MM-DD`) a relative range covers on `now`'s date. Weeks start on Monday. */
+export function relativeRange(id: string, now = new Date()): { from: string; to: string } | null {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const span = (from: Date, to: Date) => ({ from: isoDay(from), to: isoDay(to) });
+  const week = (offset: number) => {
+    const monday = addDays(today, -((today.getDay() + 6) % 7) + offset * 7);
+    return span(monday, addDays(monday, 6));
+  };
+  const month = (offset: number) => span(new Date(today.getFullYear(), today.getMonth() + offset, 1), new Date(today.getFullYear(), today.getMonth() + offset + 1, 0));
+  const year = (offset: number) => span(new Date(today.getFullYear() + offset, 0, 1), new Date(today.getFullYear() + offset, 11, 31));
+  switch (id) {
+    case "today":
+      return span(today, today);
+    case "yesterday":
+      return span(addDays(today, -1), addDays(today, -1));
+    case "tomorrow":
+      return span(addDays(today, 1), addDays(today, 1));
+    case "this_week":
+      return week(0);
+    case "last_week":
+      return week(-1);
+    case "next_week":
+      return week(1);
+    case "this_month":
+      return month(0);
+    case "last_month":
+      return month(-1);
+    case "next_month":
+      return month(1);
+    case "this_year":
+      return year(0);
+    case "last_year":
+      return year(-1);
+    case "next_year":
+      return year(1);
+    case "past_7_days":
+      return span(addDays(today, -6), today);
+    case "past_30_days":
+      return span(addDays(today, -29), today);
+    case "past_90_days":
+      return span(addDays(today, -89), today);
+    case "next_7_days":
+      return span(today, addDays(today, 6));
+    case "next_30_days":
+      return span(today, addDays(today, 29));
+  }
+  return null;
+}
+
+/** A "between" filter's value: `from..to`, either end possibly empty. */
+export function parseDateRange(value: string): { from?: string; to?: string } {
+  const [from, to] = value.includes("..") ? value.split("..") : [value, value];
+  return { from: from || undefined, to: to || undefined };
+}
+export const dateRange = (from?: string, to?: string) => `${from ?? ""}..${to ?? ""}`;
+
+/** Whether day `day` (`YYYY-MM-DD`) passes a date filter. */
+export function dateMatches(day: string, op: FilterOp, value: string, now = new Date()): boolean {
+  switch (op) {
+    case "is":
+      return day === value;
+    case "before":
+      return day < value;
+    case "after":
+      return day > value;
+    case "within": {
+      const r = relativeRange(value, now);
+      return !r || (day >= r.from && day <= r.to);
+    }
+    case "between": {
+      const { from, to } = parseDateRange(value);
+      return (!from || day >= from) && (!to || day <= to);
+    }
+  }
+  return true;
+}
+
+const shortDate = (iso: string) => {
+  const d = asDate(iso);
+  return d ? formatDate(d) : iso;
+};
+
+/** How a date filter reads on its chip: "is last month", "is between Jan 1 and Mar 31, 2026"… */
+export function describeDateFilter(f: Filter): string {
+  const [value] = filterValues(f);
+  if (f.op === "is_empty") return "is empty";
+  if (f.op === "is_not_empty") return "is not empty";
+  if (!value) return f.op === "within" ? "is within…" : "…";
+  switch (f.op) {
+    case "within":
+      return `is ${RELATIVE_DATES.find((r) => r.id === value)?.label.toLowerCase() ?? value}`;
+    case "is":
+      return `is ${shortDate(value)}`;
+    case "before":
+      return `is before ${shortDate(value)}`;
+    case "after":
+      return `is after ${shortDate(value)}`;
+    case "between": {
+      const { from, to } = parseDateRange(value);
+      if (from && to) return `is ${shortDate(from)} – ${shortDate(to)}`;
+      if (from) return `is on or after ${shortDate(from)}`;
+      if (to) return `is on or before ${shortDate(to)}`;
+      return "…";
+    }
+  }
+  return "";
 }
 
 const sortsAsEmpty = (prop: Property, v: unknown) => prop.type !== "checkbox" && isEmptyValue(prop, v);
@@ -561,9 +700,16 @@ export function filterDefaults(schema: Schema, view: View): Record<string, unkno
       case "number":
         if (f.op === "eq") out[prop.name] = Number(first);
         break;
-      case "date":
+      case "date": {
+        // A range starts new pages on today, or the range's nearest day to it.
+        const range = f.op === "within" ? relativeRange(first) : f.op === "between" ? parseDateRange(first) : null;
         if (f.op === "is") out[prop.name] = first;
+        else if (range) {
+          const today = isoDay(new Date());
+          out[prop.name] = range.from && today < range.from ? range.from : range.to && today > range.to ? range.to : today;
+        }
         break;
+      }
       case "text":
       case "url":
       case "email":
@@ -807,10 +953,16 @@ export function relationPage(title: string, dbPath: string | undefined, notes: N
   return inDb || resolveWikiLink(title, notes);
 }
 
-/** Whether `title` (a link target) names `row`: by title, or by its path. */
+/**
+ * What a relation links a row by: its file name, unique in its database, where its name (the
+ * title) may be shared: two rows can both be called "Salary".
+ */
+export const rowKey = (row: { path: string }) => row.path.replace(/^.*\//, "").replace(/\.md$/, "");
+
+/** Whether `title` (a link target) names `row`: by its file name, or by its path. */
 export function linksTo(title: string, row: { path: string; title: string }): boolean {
   const t = title.replace(/\.md$/, "").toLowerCase();
-  return t === row.title.toLowerCase() || t === rowsDir(row.path).toLowerCase();
+  return t === rowKey(row).toLowerCase() || t === rowsDir(row.path).toLowerCase();
 }
 
 /**
@@ -851,7 +1003,7 @@ export function withComputed(rows: Row[], schema: Schema, related: Map<string, R
   return rows.map((row) => {
     const computed: Record<string, unknown> = {};
     for (const prop of computedProps.filter((p) => p.type === "relation")) {
-      computed[prop.name] = relatedRows(row, prop, related.get(resolve(prop) ?? "")).map((r) => toLink(r.title));
+      computed[prop.name] = relatedRows(row, prop, related.get(resolve(prop) ?? "")).map((r) => toLink(rowKey(r)));
     }
     const withRelations = { ...row, computed };
     for (const prop of computedProps.filter((p) => p.type === "rollup")) {

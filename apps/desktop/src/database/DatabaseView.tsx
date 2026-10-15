@@ -1,5 +1,7 @@
 import {
   ArrowDownUp,
+  ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   Calendar,
   ChevronDown,
@@ -21,21 +23,27 @@ import {
   Type,
   X,
 } from "lucide-react";
+import { Calendar as DayPicker } from "../components/Calendar";
 import { PageIcon } from "../components/PageIcon";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { MenuDivider, MenuItem, MenuSection, Popover } from "../components/Popover";
 import { wantsNewTab } from "../lib/nav";
 import { OpenRowsIn, useVault } from "../lib/vault";
 import { PropIcon } from "./cells";
 import {
+  RELATIVE_DATES,
   VIEW_LABELS,
   allProperties,
   applyView,
+  dateRange,
+  describeDateFilter,
   filterDefaults,
   filterOpsFor,
   filterValues,
   findProperty,
+  parseDateRange,
   type Filter,
+  type Property,
   type Schema,
   type View,
   type ViewType,
@@ -170,34 +178,57 @@ function Toolbar({
   // Dragging a tab: which view, and the gap it would drop into (0 = before the first tab).
   const [dragging, setDragging] = useState<string | null>(null);
   const [gap, setGap] = useState<number | null>(null);
-  const endDrag = () => (setDragging(null), setGap(null));
+  const strip = useRef<HTMLDivElement>(null);
+
+  // Pointer-driven rather than HTML5 drag and drop: WebKit (the macOS and iOS app) never starts a
+  // drag from a button, so tabs couldn't be dragged at all. Touch keeps scrolling the tabs; the tab
+  // menu's Move left / Move right does it there.
+  const startDrag = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0 || e.pointerType === "touch") return;
+    const startX = e.clientX;
+    let active = false;
+    let target: number | null = null;
+    const move = (ev: PointerEvent) => {
+      if (!active) {
+        if (Math.abs(ev.clientX - startX) < 4) return;
+        active = true;
+        setDragging(id);
+        document.body.style.cursor = "grabbing";
+      }
+      const tabs = [...(strip.current?.querySelectorAll<HTMLElement>("[data-view-tab]") ?? [])].map((t) => t.getBoundingClientRect());
+      const i = tabs.findIndex((r) => ev.clientX < r.left + r.width / 2);
+      target = i < 0 ? tabs.length : i;
+      setGap(target);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      document.body.style.removeProperty("cursor");
+      setDragging(null);
+      setGap(null);
+      if (!active) return;
+      // The release would otherwise click the tab under the pointer.
+      const swallow = (ev: MouseEvent) => (ev.stopPropagation(), ev.preventDefault());
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener("click", swallow, true), 0);
+      const from = views.findIndex((x) => x.id === id);
+      // The gap counts the dragged tab itself; its new index is among the other tabs.
+      if (target !== null && target !== from && target !== from + 1) db.reorderView(id, target > from ? target - 1 : target);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
 
   return (
     <div className="flex h-10 items-center gap-1 border-b border-line">
-      <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+      <div ref={strip} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto overflow-y-hidden" style={{ scrollbarWidth: "none" }}>
         {views.map((v, i) => (
           <button
             key={v.id}
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData("text/betelgeuse-view", v.id);
-              e.dataTransfer.effectAllowed = "move";
-              setDragging(v.id);
-            }}
-            onDragOver={(e) => {
-              if (!dragging) return;
-              e.preventDefault();
-              const r = e.currentTarget.getBoundingClientRect();
-              setGap(e.clientX > r.left + r.width / 2 ? i + 1 : i);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              const from = views.findIndex((x) => x.id === dragging);
-              // The gap counts the dragged tab itself; its new index is among the other tabs.
-              if (dragging && gap !== null && gap !== from && gap !== from + 1) db.reorderView(dragging, gap > from ? gap - 1 : gap);
-              endDrag();
-            }}
-            onDragEnd={endDrag}
+            data-view-tab
+            onPointerDown={(e) => startDrag(e, v.id)}
             onClick={(e) => (v.id === view.id ? setTabMenu({ view: v, el: e.currentTarget }) : select(v.id))}
             className={`relative flex h-10 shrink-0 items-center gap-1.5 px-2 text-sm ${v.id === view.id ? "text-ink" : "text-muted hover:text-ink"} ${dragging === v.id ? "opacity-40" : ""}`}
           >
@@ -270,7 +301,17 @@ function Toolbar({
           ))}
         </Popover>
       )}
-      {tabMenu && <ViewTabMenu db={db} view={tabMenu.view} anchor={tabMenu.el} canDelete={views.length > 1} select={select} onClose={() => setTabMenu(null)} />}
+      {tabMenu && (
+        <ViewTabMenu
+          db={db}
+          view={tabMenu.view}
+          index={views.findIndex((v) => v.id === tabMenu.view.id)}
+          count={views.length}
+          anchor={tabMenu.el}
+          select={select}
+          onClose={() => setTabMenu(null)}
+        />
+      )}
       {filterMenu && <AddFilterMenu db={db} schema={schema} view={view} anchor={filterMenu} placement="bottom-end" onClose={() => setFilterMenu(null)} />}
       {sortMenu && <SortMenu db={db} schema={schema} view={view} anchor={sortMenu} onClose={() => setSortMenu(null)} />}
       {settings && <ViewSettings db={db} schema={schema} view={view} inline={inline} anchor={settings} onClose={() => setSettings(null)} />}
@@ -286,7 +327,25 @@ function IconButton({ children, title, active, onClick }: { children: ReactNode;
   );
 }
 
-function ViewTabMenu({ db, view, anchor, canDelete, select, onClose }: { db: Database; view: View; anchor: HTMLElement; canDelete: boolean; select: (id: string) => void; onClose: () => void }) {
+function ViewTabMenu({
+  db,
+  view,
+  index,
+  count,
+  anchor,
+  select,
+  onClose,
+}: {
+  db: Database;
+  view: View;
+  /** The tab's position among `count` tabs. */
+  index: number;
+  count: number;
+  anchor: HTMLElement;
+  select: (id: string) => void;
+  onClose: () => void;
+}) {
+  const canDelete = count > 1;
   const [name, setName] = useState(view.name);
   const close = () => {
     if (name.trim() && name !== view.name) db.updateView(view.id, { name: name.trim() });
@@ -310,6 +369,8 @@ function ViewTabMenu({ db, view, anchor, canDelete, select, onClose }: { db: Dat
         <MenuItem key={t} icon={VIEW_ICONS[t](15)} label={VIEW_LABELS[t]} right={view.type === t ? <span className="text-muted">✓</span> : null} onClick={() => db.updateView(view.id, { type: t })} />
       ))}
       <MenuDivider />
+      {index > 0 && <MenuItem icon={<ArrowLeft size={14} />} label="Move left" onClick={() => (db.reorderView(view.id, index - 1), onClose())} />}
+      {index < count - 1 && <MenuItem icon={<ArrowRight size={14} />} label="Move right" onClick={() => (db.reorderView(view.id, index + 1), onClose())} />}
       <MenuItem
         icon={<Copy size={14} />}
         label="Duplicate view"
@@ -541,7 +602,11 @@ function Chips({ db, schema, view }: { db: Database; schema: Schema; view: View 
           >
             {prop && <PropIcon type={prop.type} size={12} />}
             <span className="font-medium">{f.property}</span>
-            {op && (op.needsValue ? <span>{`${op.label.toLowerCase()} ${filterValues(f).join(", ") || "…"}`}</span> : <span>{op.label.toLowerCase()}</span>)}
+            {prop && isDateType(prop.type) ? (
+              <span>{describeDateFilter(f)}</span>
+            ) : (
+              op && (op.needsValue ? <span>{`${op.label.toLowerCase()} ${filterValues(f).join(", ") || "…"}`}</span> : <span>{op.label.toLowerCase()}</span>)
+            )}
             <ChevronDown size={12} />
           </button>
         );
@@ -573,6 +638,7 @@ function FilterEditor({ schema, filter, anchor, onChange, onDelete, onClose }: {
   const prop = findProperty(schema, filter.property);
   const [value, setValue] = useState(filterValues(filter)[0] ?? "");
   if (!prop) return null;
+  if (isDateType(prop.type)) return <DateFilterEditor prop={prop} filter={filter} anchor={anchor} onChange={onChange} onDelete={onDelete} onClose={onClose} />;
   const ops = filterOpsFor(prop.type);
   const op = ops.find((o) => o.op === filter.op) ?? ops[0];
   // Only the typed value is a draft; options apply as they're clicked, so closing must not overwrite them.
@@ -618,7 +684,7 @@ function FilterEditor({ schema, filter, anchor, onChange, onDelete, onClose }: {
         ) : (
           <input
             autoFocus
-            type={prop.type === "number" ? "number" : prop.type === "date" || prop.type.endsWith("_time") ? "date" : "text"}
+            type={prop.type === "number" ? "number" : "text"}
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onBlur={commit}
@@ -627,6 +693,116 @@ function FilterEditor({ schema, filter, anchor, onChange, onDelete, onClose }: {
             className="h-8 w-full rounded-md border border-line bg-side px-2 text-sm text-ink outline-none focus:border-[var(--blue)]"
           />
         ))}
+    </Popover>
+  );
+}
+
+const isDateType = (t: Property["type"]) => t === "date" || t === "created_time" || t === "last_edited_time";
+
+type DateMode = "is" | "before" | "after" | "between";
+
+/** Date filters: a range relative to today in one click, or specific days. */
+function DateFilterEditor({ prop, filter, anchor, onChange, onDelete, onClose }: { prop: Property; filter: Filter; anchor: HTMLElement; onChange: (f: Filter) => void; onDelete: () => void; onClose: () => void }) {
+  const [value] = filterValues(filter);
+  const [mode, setMode] = useState<DateMode>(filter.op === "is" || filter.op === "before" || filter.op === "after" ? filter.op : "between");
+  const range = filter.op === "between" && value ? parseDateRange(value) : {};
+  const single = filter.op === mode && mode !== "between" ? value ?? "" : "";
+  const set = (op: Filter["op"], v?: string) => onChange({ ...filter, op, value: v });
+  /** Which end of a range the calendar sets. */
+  const [end, setEnd] = useState<"from" | "to">(range.from && !range.to ? "to" : "from");
+  const pickRange = (day: string) => {
+    let { from, to } = range;
+    if (end === "from") from = day;
+    else to = day;
+    // Picked the wrong way round: swap, so it's still a range.
+    if (from && to && from > to) [from, to] = [to, from];
+    set("between", dateRange(from, to));
+    setEnd(end === "from" ? "to" : "from");
+  };
+  const short = (d?: string) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Any day");
+
+  return (
+    <Popover anchor={anchor} onClose={onClose} className="max-h-[85vh] w-[328px] overflow-y-auto p-2">
+      <div className="mb-2 flex items-center gap-1.5 px-1 text-xs text-muted">
+        <PropIcon type={prop.type} size={13} />
+        <span className="font-medium text-ink">{prop.name}</span>
+        <button onClick={onDelete} className="ml-auto grid size-6 place-items-center rounded text-faint hover:bg-hover" title="Delete filter">
+          <Trash2 size={13} />
+        </button>
+      </div>
+
+      <MenuSection label="Relative to today" />
+      <div className="grid grid-cols-3 gap-0.5 px-1 pb-1">
+        {RELATIVE_DATES.map((r) => {
+          const on = filter.op === "within" && value === r.id;
+          return (
+            <button
+              key={r.id}
+              onClick={() => (set("within", r.id), onClose())}
+              className={`flex h-7 items-center rounded-md px-1.5 text-left text-[13px] whitespace-nowrap ${on ? "bg-accent-soft font-medium text-[var(--blue)]" : "text-ink hover:bg-hover"}`}
+            >
+              {r.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <MenuDivider />
+      <MenuSection label="Specific dates" />
+      <div className="px-1 pb-1">
+        <div className="mb-2 flex rounded-lg bg-hover p-0.5">
+          {(
+            [
+              ["between", "Between"],
+              ["is", "On"],
+              ["before", "Before"],
+              ["after", "After"],
+            ] as [DateMode, string][]
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setMode(id)}
+              className={`h-6 flex-1 rounded-md text-xs ${mode === id ? "bg-raised font-medium text-ink shadow-card" : "text-muted hover:text-ink"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {mode === "between" ? (
+          <>
+            <div className="mb-3 grid grid-cols-2 gap-1.5">
+              {(["from", "to"] as const).map((e) => (
+                <button
+                  key={e}
+                  onClick={() => setEnd(e)}
+                  className={`group/end relative rounded-lg border px-2.5 py-1.5 text-left ${end === e ? "border-[var(--blue)] ring-1 ring-[var(--blue)]" : "border-line hover:bg-hover"}`}
+                >
+                  <span className="block text-[11px] text-faint">{e === "from" ? "From" : "To"}</span>
+                  <span className={`block text-sm ${range[e] ? "text-ink" : "text-faint"}`}>{short(range[e])}</span>
+                  {range[e] && (
+                    <span
+                      role="button"
+                      aria-label={`Clear ${e}`}
+                      onClick={(ev) => (ev.stopPropagation(), set("between", dateRange(e === "from" ? undefined : range.from, e === "to" ? undefined : range.to)))}
+                      className="absolute top-1.5 right-1.5 hidden size-5 place-items-center rounded text-faint group-hover/end:grid hover:bg-hover"
+                    >
+                      <X size={12} />
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <DayPicker value={null} range={range} onPick={pickRange} quick={false} />
+            <p className="px-0.5 pt-2 text-[11px] text-faint">Leave either end empty for an open range.</p>
+          </>
+        ) : (
+          <DayPicker value={single || null} onPick={(day) => set(mode, day)} />
+        )}
+      </div>
+
+      <MenuDivider />
+      <MenuItem label="Is empty" right={filter.op === "is_empty" ? <span className="text-muted">✓</span> : null} onClick={() => (set("is_empty"), onClose())} />
+      <MenuItem label="Is not empty" right={filter.op === "is_not_empty" ? <span className="text-muted">✓</span> : null} onClick={() => (set("is_not_empty"), onClose())} />
     </Popover>
   );
 }

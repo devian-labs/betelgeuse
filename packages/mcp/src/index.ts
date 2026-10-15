@@ -266,7 +266,7 @@ function buildServer(): McpServer {
     {
       title: "Create note",
       description:
-        "Creates a note. The title becomes the file name; if that name is taken, a number is added. Pass parent to create it as a sub-page.",
+        "Creates a note. The title becomes the file name; pages may share a title (rows of a database often do), in which case the file name is numbered and the title is kept in its frontmatter. Pass parent to create it as a sub-page.",
       inputSchema: {
         title: z.string().min(1),
         body: z.string().default("").describe("Markdown body. Do not repeat the title as a heading."),

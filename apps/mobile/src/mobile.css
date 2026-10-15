@@ -3,6 +3,10 @@
 /* Tailwind only generates classes it finds; the shared components live in the desktop app. */
 @source "../../desktop/src";
 
+/* Tailwind applies hover styles only where there's a mouse. On a touch screen a tap is the hover:
+   it reveals the controls the shared components show on hover (row buttons, cell menus…). */
+@custom-variant hover (&:hover);
+
 /* ---------- Phone adjustments ---------- */
 
 html,
@@ -10,6 +14,16 @@ body,
 #root {
   height: 100%;
   overscroll-behavior: none;
+}
+
+/* Only the screens scroll, never the page itself: nothing (such as a screen sliding in) may make
+   it wider than the phone, which would widen the viewport and let it wobble sideways. */
+html,
+body {
+  overflow: hidden;
+}
+#root {
+  overflow: clip;
 }
 
 body {
@@ -34,7 +48,167 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Desktop prose is sized for a wide window; on a phone, a little smaller and tighter. */
+/* Rows that open a menu on a long press: no text selection or system callout instead. */
+.no-callout {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Screens slide in from the right as they open. */
+.screen-in {
+  animation: screen-in 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes screen-in {
+  from {
+    transform: translateX(28%);
+    opacity: 0.4;
+  }
+}
+
+/* Sheets rise from the bottom over a dimmed screen. */
+.sheet-backdrop {
+  animation: fade-in 180ms ease-out;
+}
+.sheet-panel {
+  animation: sheet-up 240ms cubic-bezier(0.2, 0, 0, 1);
+}
+.sheet-backdrop.closing {
+  opacity: 0;
+  transition: opacity 160ms ease-in;
+}
+.sheet-panel.closing {
+  transform: translateY(100%);
+  transition: transform 160ms ease-in;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+/* The editor's block handle sits in the desktop page margin, which a phone doesn't have; the
+   toolbar above the keyboard does its job here. */
+.mobile-page .drag-handle {
+  display: none !important;
+}
+
+/* Menus from the shared components fit the phone's width. */
+[data-popover] {
+  max-width: calc(100vw - 16px);
+}
+[data-popover] .max-h-96,
+[data-popover] .max-h-80 {
+  max-height: 50vh;
+}
+
+/* The icon picker, which floats under the icon on the desktop, fills its sheet here. */
+.icon-sheet .safe-bottom > div {
+  position: static;
+  width: auto;
+  height: min(440px, 62vh);
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* Clear of the New page button and the home indicator. */
+.toast {
+  bottom: calc(env(safe-area-inset-bottom) + 88px);
+  width: max-content;
+  max-width: calc(100vw - 32px);
+}
+
+/* Databases scroll sideways inside the page rather than widening it. */
+.mobile-db {
+  overflow-x: auto;
+}
+
+/* Page history, a side panel on the desktop, fills the screen. */
+.history-screen > aside {
+  width: 100%;
+  flex: 1;
+  border: 0;
+}
+
+/* Phones scroll by touch: the desktop's always-visible scrollbars (and their white corner squares)
+   only get in the way, so none are drawn. Everything still scrolls. */
+* {
+  scrollbar-width: none;
+}
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Long words and links wrap instead of widening the page (tables and code keep their own lines
+   and scroll inside their box). */
 .mobile-page .betelgeuse-prose {
-  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.mobile-page .betelgeuse-prose table,
+.mobile-page .betelgeuse-prose pre {
+  overflow-wrap: normal;
+}
+
+/* Columns, side by side on the desktop, stack one after another. */
+.mobile-page .betelgeuse-prose .columns {
+  flex-direction: column;
+}
+.mobile-page .betelgeuse-prose .column {
+  flex: none !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+.mobile-page .betelgeuse-prose .column + .column {
+  padding-left: 0;
+  margin-top: 8px;
+}
+/* A picture sized for a narrow column (an avatar, a logo) would fill the screen once stacked. */
+.mobile-page .betelgeuse-prose .column img {
+  max-height: 32vh;
+  object-fit: contain;
+}
+
+/* Page properties: a narrower name column leaves room for the value. */
+.mobile-page .prop-label {
+  width: 7.5rem;
+}
+
+/* Board columns stack too, each the page's width, its cards in full rather than in a short scroller. */
+.mobile-page .board-lanes {
+  flex-direction: column;
+  overflow-x: visible;
+}
+.mobile-page .board-lane {
+  width: auto;
+  max-height: none;
+  align-self: stretch;
+}
+
+/* Calendar: a compact month with a dot per entry, and the month's entries listed underneath. */
+.mobile-page .calendar-chips {
+  display: none;
+}
+.mobile-page .calendar-dots,
+.mobile-page .calendar-agenda {
+  display: flex;
+}
+.mobile-page .calendar-agenda {
+  flex-direction: column;
+}
+.mobile-page .group\/day {
+  min-height: 3.5rem;
+  padding: 2px;
+}
+.mobile-page .group\/day > :first-child {
+  justify-content: center;
+}
+.mobile-page .group\/day > :first-child > button {
+  display: none;
 }

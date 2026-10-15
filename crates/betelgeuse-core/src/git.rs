@@ -58,15 +58,18 @@ pub fn ensure_repo(vault: &Path) -> Result<(), String> {
     if fresh {
         run(vault, &["init", "--quiet", "-b", "main"])?;
     }
-    ensure_ignored(vault, &[".DS_Store", ".obsidian/workspace*.json", ".trash/"])?;
+    ensure_ignored(vault, IGNORED)?;
     if fresh {
         commit_all(vault, "Initialize Betelgeuse workspace")?;
     }
     Ok(())
 }
 
+/// What every workspace repository ignores: the Trash (git history keeps every version) and OS clutter.
+pub(crate) const IGNORED: &[&str] = &[".DS_Store", ".obsidian/workspace*.json", ".trash/"];
+
 /// Adds any missing lines to .gitignore (the trash is ignored; git history keeps every version).
-fn ensure_ignored(vault: &Path, patterns: &[&str]) -> Result<(), String> {
+pub(crate) fn ensure_ignored(vault: &Path, patterns: &[&str]) -> Result<(), String> {
     let path = vault.join(".gitignore");
     let current = std::fs::read_to_string(&path).unwrap_or_default();
     let missing: Vec<&str> = patterns.iter().copied().filter(|p| !current.lines().any(|l| l.trim() == *p)).collect();
@@ -111,7 +114,11 @@ pub fn commit_all(vault: &Path, message: &str) -> Result<Option<String>, String>
 
 /// Summarises staged-to-be changes as e.g. "Update Ideas, Welcome and 2 more".
 pub fn auto_message(vault: &Path) -> Option<String> {
-    let changes = status(vault).ok()?.changes;
+    summarize(vault, &status(vault).ok()?.changes)
+}
+
+/// A commit message naming the changed pages (shared with the libgit2 backend).
+pub(crate) fn summarize(vault: &Path, changes: &[Change]) -> Option<String> {
     if changes.is_empty() {
         return None;
     }
@@ -177,6 +184,10 @@ pub fn show(vault: &Path, rev: &str, path: &str) -> Result<String, String> {
 }
 
 pub fn sync(vault: &Path) -> Result<String, String> {
+    // Nothing to pull from until the branch has an upstream (e.g. a fresh, empty remote).
+    if run(vault, &["rev-parse", "--abbrev-ref", "@{upstream}"]).is_err() {
+        return publish(vault);
+    }
     let pull = run(vault, &["pull", "--rebase", "--autostash"])?;
     let push = run(vault, &["push"])?;
     Ok(format!("{pull}{push}").trim().to_string())

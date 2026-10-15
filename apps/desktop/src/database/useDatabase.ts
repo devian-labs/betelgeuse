@@ -18,6 +18,7 @@ import {
   relationDatabase,
   relationTitles,
   removeProperty,
+  rowKey,
   toLink,
   toRelationValue,
   toRow,
@@ -164,8 +165,8 @@ export function useDatabase(path: string, scope?: string) {
         if (linked === wanted) continue;
         const next = wanted
           ? sourceProp.limit === "one"
-            ? [toLink(row.title)]
-            : [...current, toLink(row.title)]
+            ? [toLink(rowKey(row))]
+            : [...current, toLink(rowKey(row))]
           : current.filter((v) => !linksTo(linkTarget(v), row));
         await api.writeNote(r.path, joinNote(patchFrontmatter(r.frontmatter, { [sourceProp.name]: next.length ? next : null }), r.body));
       }
@@ -341,8 +342,11 @@ export function useDatabase(path: string, scope?: string) {
   const createRow = useCallback(
     async (values: Record<string, unknown> = {}, openAfter = false) => {
       const rowPath = await api.createNote(path, "Untitled");
-      const frontmatter = patchFrontmatter("", values);
-      if (frontmatter) await api.writeNote(rowPath, joinNote(frontmatter, ""));
+      // Added to what the new page has: its name, when the file had to be numbered ("Untitled 2").
+      if (Object.keys(values).length) {
+        const { frontmatter, body } = splitNote(await api.readNote(rowPath));
+        await api.writeNote(rowPath, joinNote(patchFrontmatter(frontmatter, values), body));
+      }
       await load();
       if (openAfter) peek(rowPath);
       return rowPath;
@@ -354,10 +358,12 @@ export function useDatabase(path: string, scope?: string) {
     async (row: Row, title: string) => {
       if (!title.trim() || title.trim() === row.title) return;
       const next = await api.renameNote(row.path, title.trim());
+      // Its file name was taken, so only the name in its frontmatter changed: just reload.
+      if (next === row.path) return void (await load());
       // Reloads this database too, along with any page or database that links to the row.
       await renamed(row.path, next);
     },
-    [renamed],
+    [renamed, load],
   );
 
   const deleteRow = useCallback(
@@ -403,6 +409,7 @@ export function useDatabase(path: string, scope?: string) {
 /** Creates a new database page (optionally nested) with the default columns. */
 export async function createDatabase(parent: string | null, title = "Untitled database"): Promise<string> {
   const path = await api.createNote(parent, title);
-  await api.writeNote(path, joinNote("type: database", writeSchema("", defaultSchema())));
+  const { frontmatter } = splitNote(await api.readNote(path));
+  await api.writeNote(path, joinNote(patchFrontmatter(frontmatter, { type: "database" }), writeSchema("", defaultSchema())));
   return path;
 }

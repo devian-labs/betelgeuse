@@ -323,7 +323,7 @@ function SubpagePrompt({ editor, page }: { editor: TiptapEditor; page: PageActio
 
 // ---------- block handle ----------
 
-type MenuAt = { el: HTMLElement | DOMRect; node: PMNode; pos: number; link?: string };
+export type MenuAt = { el: HTMLElement | DOMRect; node: PMNode; pos: number; link?: string };
 
 function BlockHandle({ editor, onOpenLink }: { editor: TiptapEditor; onOpenLink: Props["onOpenLink"] }) {
   const target = useRef<{ node: PMNode; pos: number } | null>(null);
@@ -514,7 +514,7 @@ const NODE_LABELS: Record<string, string> = {
   horizontalRule: "Divider",
 };
 
-function BlockMenu({ editor, el, node, pos, link, onOpenLink, onClose }: MenuAt & { editor: TiptapEditor; onOpenLink: Props["onOpenLink"]; onClose: () => void }) {
+export function BlockMenu({ editor, el, node, pos, link, onOpenLink, onClose }: MenuAt & { editor: TiptapEditor; onOpenLink: Props["onOpenLink"]; onClose: () => void }) {
   const [sub, setSub] = useState<{ kind: "turn" | "color"; el: HTMLElement } | null>(null);
   const [query, setQuery] = useState("");
   const selectBlock = () => {

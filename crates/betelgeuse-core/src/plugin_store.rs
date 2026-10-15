@@ -18,7 +18,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 use std::time::{Duration, SystemTime};
-use tauri::{AppHandle, Manager};
+use crate::plugins::Dirs;
 
 const DEFAULT_INDEX: &str = "https://github.com/devian-labs/betelgeuse/releases/latest/download/plugins.json";
 /// Refetch the index after this long (it's also refreshed on demand).
@@ -75,8 +75,8 @@ fn index_url() -> String {
     std::env::var("BETELGEUSE_PLUGIN_INDEX").ok().filter(|s| !s.trim().is_empty()).unwrap_or_else(|| DEFAULT_INDEX.into())
 }
 
-fn cache_file(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_cache_dir().ok().map(|d| d.join("plugin-index.json"))
+fn cache_file(dirs: &Dirs) -> Option<PathBuf> {
+    Some(dirs.cache.join("plugin-index.json"))
 }
 
 fn now() -> u64 {
@@ -113,8 +113,8 @@ fn resolve(base: &str, url: &str) -> String {
 }
 
 /// The store's plugins: the cached copy if it's fresh, else fetched (falling back to the cache).
-pub fn index(app: &AppHandle, refresh: bool) -> Result<Index, String> {
-    let cached: Option<Index> = cache_file(app).and_then(|f| std::fs::read(f).ok()).and_then(|b| serde_json::from_slice(&b).ok());
+pub fn index(dirs: &Dirs, refresh: bool) -> Result<Index, String> {
+    let cached: Option<Index> = cache_file(dirs).and_then(|f| std::fs::read(f).ok()).and_then(|b| serde_json::from_slice(&b).ok());
     let url = index_url();
     if let Some(c) = &cached {
         if !refresh && c.source == url && now().saturating_sub(c.fetched) < MAX_AGE.as_secs() {
@@ -127,7 +127,7 @@ pub fn index(app: &AppHandle, refresh: bool) -> Result<Index, String> {
             fresh.source = url;
             fresh.fetched = now();
             fresh.stale = false;
-            if let Some(f) = cache_file(app) {
+            if let Some(f) = cache_file(dirs) {
                 let _ = std::fs::create_dir_all(f.parent().unwrap());
                 let _ = std::fs::write(f, serde_json::to_vec(&fresh).unwrap_or_default());
             }
@@ -191,16 +191,16 @@ fn unpack(bytes: &[u8], dest: &Path) -> Result<(), String> {
 }
 
 /// Downloads, verifies and installs a plugin from the store. Returns its id.
-pub fn install(app: &AppHandle, id: &str) -> Result<String, String> {
-    let idx = index(app, false)?;
+pub fn install(dirs: &Dirs, id: &str) -> Result<String, String> {
+    let idx = index(dirs, false)?;
     let entry = idx.plugins.iter().find(|e| e.id == id).cloned().ok_or_else(|| format!("{id} isn't in the plugin store."))?;
     let bytes = fetch(&resolve(&idx.source, &entry.url), MAX_ZIP)?;
     verify(&bytes, &entry)?;
-    install_bytes(app, &bytes, &entry)
+    install_bytes(dirs, &bytes, &entry)
 }
 
-fn install_bytes(app: &AppHandle, bytes: &[u8], entry: &Entry) -> Result<String, String> {
-    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("plugins");
+fn install_bytes(dirs: &Dirs, bytes: &[u8], entry: &Entry) -> Result<String, String> {
+    let dir = dirs.data.join("plugins");
     let tmp = dir.join(format!(".{}-download", entry.id));
     let _ = std::fs::remove_dir_all(&tmp);
     std::fs::create_dir_all(&tmp).map_err(|e| e.to_string())?;
@@ -211,7 +211,7 @@ fn install_bytes(app: &AppHandle, bytes: &[u8], entry: &Entry) -> Result<String,
         if manifest.get("id").and_then(|v| v.as_str()) != Some(entry.id.as_str()) || manifest.get("version").and_then(|v| v.as_str()) != Some(entry.version.as_str()) {
             return Err("The plugin package doesn't match the store's listing.".to_string());
         }
-        crate::plugins::install_folder(app, &tmp)
+        crate::plugins::install_folder(dirs, &tmp)
     })();
     let _ = std::fs::remove_dir_all(&tmp);
     result
@@ -267,11 +267,11 @@ mod tests {
     }
 
     /// Checks what `node scripts/package-plugins.mjs --key …` produced against the public key built
-    /// into the app, the way installing does: `cargo test -p betelgeuse packaged -- --ignored`.
+    /// into the app, the way installing does: `cargo test -p betelgeuse-core --features plugins packaged -- --ignored`.
     #[test]
     #[ignore]
     fn packaged_plugins_verify() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../dist-plugins");
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../dist-plugins");
         let index: Index = serde_json::from_slice(&std::fs::read(dir.join("plugins.json")).unwrap()).unwrap();
         assert!(!index.plugins.is_empty());
         for e in &index.plugins {

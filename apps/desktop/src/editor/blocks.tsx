@@ -856,7 +856,7 @@ function ImageBlockView({ src, alt, selected, onDelete }: { src: string; alt: st
           <div className="absolute inset-0" onDoubleClick={() => setViewing(true)} />
         </>
       ) : (
-        <div className="h-24 w-64 animate-pulse rounded-sm bg-hover" />
+        <div className="h-24 w-64 max-w-full animate-pulse rounded-sm bg-hover" />
       )}
       {url && (
         <div
