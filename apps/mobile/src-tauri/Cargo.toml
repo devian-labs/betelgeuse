@@ -1,6 +1,6 @@
 [package]
 name = "betelgeuse-mobile"
-version = "0.4.0"
+version = "0.5.0"
 description = "Betelgeuse for iOS and Android: your notes as Markdown, on your phone"
 authors = ["Devian Labs and contributors"]
 license = "MIT"
