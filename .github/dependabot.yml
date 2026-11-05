@@ -6,7 +6,12 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      # Security fixes arrive as one PR, not one per package.
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
       npm-minor-and-patch:
+        applies-to: version-updates
         update-types: [minor, patch]
 
   - package-ecosystem: cargo
@@ -15,7 +20,11 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     groups:
+      cargo-security:
+        applies-to: security-updates
+        patterns: ["*"]
       cargo-minor-and-patch:
+        applies-to: version-updates
         update-types: [minor, patch]
 
   - package-ecosystem: github-actions
