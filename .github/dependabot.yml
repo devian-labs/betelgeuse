@@ -13,6 +13,10 @@ updates:
       npm-minor-and-patch:
         applies-to: version-updates
         update-types: [minor, patch]
+      # Major versions can break things: one PR for all of them, to review on its own.
+      npm-major:
+        applies-to: version-updates
+        update-types: [major]
 
   - package-ecosystem: cargo
     directory: /
@@ -26,6 +30,10 @@ updates:
       cargo-minor-and-patch:
         applies-to: version-updates
         update-types: [minor, patch]
+      # Major versions can break things: one PR for all of them, to review on its own.
+      cargo-major:
+        applies-to: version-updates
+        update-types: [major]
 
   - package-ecosystem: github-actions
     directory: /
