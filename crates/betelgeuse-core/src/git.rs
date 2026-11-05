@@ -3,7 +3,6 @@
 
 use serde::Serialize;
 use std::path::Path;
-use std::process::Command;
 
 #[derive(Serialize)]
 pub struct Change {
@@ -28,7 +27,7 @@ pub struct RepoStatus {
 }
 
 fn run(vault: &Path, args: &[&str]) -> Result<String, String> {
-    let out = Command::new("git")
+    let out = crate::process::command("git")
         .arg("-C")
         .arg(vault)
         .args(["-c", "core.quotepath=off"])

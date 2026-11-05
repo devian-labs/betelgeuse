@@ -349,12 +349,12 @@ fn backlinks(state: State<AppState>, path: String) -> Result<Vec<vault::NoteMeta
     Ok(vault::backlinks(&vault(&state)?, &path))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_status(state: State<AppState>) -> Result<git::RepoStatus, String> {
     git::status(&vault(&state)?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_commit(state: State<AppState>, message: Option<String>) -> Result<Option<String>, String> {
     let path = vault(&state)?;
     let message = message.filter(|m| !m.trim().is_empty()).or_else(|| git::auto_message(&path));
@@ -365,12 +365,12 @@ fn git_commit(state: State<AppState>, message: Option<String>) -> Result<Option<
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_log(state: State<AppState>, path: Option<String>, limit: Option<usize>) -> Result<Vec<git::Commit>, String> {
     git::log(&vault(&state)?, path.as_deref(), limit.unwrap_or(50))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_show(state: State<AppState>, rev: String, path: String) -> Result<String, String> {
     git::show(&vault(&state)?, &rev, &path)
 }
@@ -402,27 +402,27 @@ fn git_sync_soon(state: State<AppState>) {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_settings(state: State<AppState>) -> Result<git::GitSettings, String> {
     git::settings(&vault(&state)?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_set_remote(state: State<AppState>, url: String) -> Result<(), String> {
     git::set_remote(&vault(&state)?, &url)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_set_identity(state: State<AppState>, name: String, email: String) -> Result<(), String> {
     git::set_identity(&vault(&state)?, &name, &email)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_test_remote(state: State<AppState>) -> Result<String, String> {
     git::test_remote(&vault(&state)?)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn git_publish(state: State<AppState>) -> Result<String, String> {
     let path = vault(&state)?;
     if let Some(m) = git::auto_message(&path) {
@@ -487,7 +487,7 @@ fn mcp_info(app: AppHandle, state: State<AppState>) -> Result<McpInfo, String> {
 /// shell where `node` is. The absolute path also works in clients like Claude Desktop.
 fn find_node() -> Option<String> {
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
-    let out = std::process::Command::new(shell).args(["-lc", "command -v node"]).output().ok()?;
+    let out = betelgeuse_core::process::command(shell).args(["-lc", "command -v node"]).output().ok()?;
     let path = String::from_utf8_lossy(&out.stdout).lines().last()?.trim().to_string();
     (out.status.success() && Path::new(&path).is_absolute()).then_some(path)
 }
