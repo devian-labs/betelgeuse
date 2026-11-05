@@ -47,7 +47,7 @@ jobs:
           ci='|^\.github/workflows/ci\.yml$'
           has() { grep -qE "$1" <<< "${2:-$files}" && echo true || echo false; }
           # The TypeScript job ignores the Rust shells, except the two files its tests read.
-          web_files=$(grep -vE '^apps/(desktop|mobile)/src-tauri/' <<< "$files"; grep -E '^apps/desktop/src-tauri/(seed/|src/importer/notion_html\.rs$)' <<< "$files")
+          web_files=$(grep -vE '^apps/(desktop|mobile)/src-tauri/' <<< "$files" || true; grep -E '^apps/desktop/src-tauri/(seed/|src/importer/notion_html\.rs$)' <<< "$files" || true)
           {
             echo "web=$(has "^(apps/desktop/|apps/mobile/|packages/|plugins/|scripts/|package(-lock)?\.json$|tsconfig)$ci" "$web_files")"
             echo "lander=$(has "^(apps/lander/|docs/content/|apps/desktop/src-tauri/seed/|package(-lock)?\.json$)$ci")"
