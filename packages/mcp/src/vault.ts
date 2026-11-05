@@ -92,9 +92,19 @@ const childrenDir = (rel: string) => rel.replace(/\.md$/, "");
 /** The name a page is given: trimmed, and "Untitled" when there's nothing left. */
 const nameFrom = (title: string) => title.replace(/\s+/g, " ").trim() || "Untitled";
 
+/** File systems cap a name at 255 bytes; titles are cut shorter so ` 99.md` still fits. */
+const MAX_NAME_BYTES = 200;
+
 function sanitizeTitle(title: string): string {
   const t = title.replace(/[/\\:*?"<>|#^[\]\p{Cc}]/gu, " ").replace(/\s+/g, " ").trim();
-  return !t || t.startsWith(".") ? "Untitled" : t;
+  if (!t || t.startsWith(".")) return "Untitled";
+  if (Buffer.byteLength(t) <= MAX_NAME_BYTES) return t;
+  let cut = "";
+  for (const ch of t) {
+    if (Buffer.byteLength(cut + ch) > MAX_NAME_BYTES) break;
+    cut += ch;
+  }
+  return cut.trimEnd();
 }
 
 export class Vault {

@@ -8,7 +8,7 @@
 mod notion_html;
 mod remote_images;
 
-use crate::vault::{children_dir, sanitize_title, unique_path, write_note};
+use crate::vault::{children_dir, sanitize_title, title_fits_name, unique_path, write_note};
 use regex::Regex;
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -303,6 +303,9 @@ fn extract_zip(zip_path: &Path, into: &Path) -> Result<(), String> {
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
         let Some(rel) = entry.enclosed_name() else { continue };
+        if rel.starts_with("__MACOSX") {
+            continue;
+        }
         let out = into.join(rel);
         if entry.is_dir() {
             fs::create_dir_all(&out).map_err(|e| e.to_string())?;
@@ -1242,7 +1245,7 @@ impl NotionCtx {
     /// and `order:`, its position among its siblings in Notion.
     fn page_frontmatter(&self, i: usize, order: Option<usize>) -> String {
         let page = &self.pages[i];
-        let mut fm = String::new();
+        let mut fm = long_title_fm(&page.title);
         if let Some(meta) = &page.html {
             let from_dir = parent_dir(page.doc.as_deref().unwrap_or(""));
             let mut notes = vec![];
@@ -1312,6 +1315,12 @@ impl NotionCtx {
     fn empty() -> NotionCtx {
         NotionCtx { html: true, pages: vec![], by_path: HashMap::new(), by_id: HashMap::new(), assets: HashMap::new(), title_count: HashMap::new() }
     }
+}
+
+/// `title: …` for a title too long to be its file name in full (which `sanitize_title` cuts).
+fn long_title_fm(title: &str) -> String {
+    let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    if title_fits_name(&title) { String::new() } else { format!("title: {}\n", yaml_text(&title)) }
 }
 
 /// A frontmatter string, unquoted when YAML reads it back as the same string (as the app writes
@@ -1840,7 +1849,10 @@ fn import_notion_dir(vault: &Path, export: &Path, fetch: Option<&Fetch>) -> Resu
             let order = r.map(|r| r + 1).filter(|_| !names.iter().any(|n| n.eq_ignore_ascii_case("order")));
             let mut fm = match p {
                 Some(p) => ctx.page_frontmatter(p, order),
-                None => order.map_or(String::new(), |o| format!("order: {o}\n")),
+                None => {
+                    let title = r.and_then(|r| db.records[r].first()).map_or("", |s| s.trim());
+                    long_title_fm(title) + &order.map_or(String::new(), |o| format!("order: {o}\n"))
+                }
             };
             for (c, name) in names.iter().enumerate() {
                 let value = match &linked[k][c] {
