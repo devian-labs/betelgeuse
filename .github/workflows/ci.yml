@@ -74,15 +74,15 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      # The Android build only needs to run when its native side changes: the mobile app, the shared
-      # Rust crates or the Cargo files. The mobile interface is already built by the Rust job.
+      # The Android build only runs when the mobile app itself changes. The shared crates are covered
+      # by clippy and the tests, and every release builds the APK anyway.
       - id: diff
         env:
           BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
             changed=true # No usable base (first push, force-push): build to be safe.
-          elif git diff --name-only "$BASE" HEAD | grep -qE '^(apps/mobile/|crates/|Cargo\.(toml|lock)$|\.github/workflows/ci\.yml$)'; then
+          elif git diff --name-only "$BASE" HEAD | grep -q '^apps/mobile/'; then
             changed=true
           else
             changed=false
