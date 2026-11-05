@@ -84,6 +84,8 @@ export default function App() {
   const [history, setHistory] = useState(false);
   const [sidebar, setSidebar] = useState(() => store.get("sidebar") !== "hidden");
   const [sidebarPeek, setSidebarPeek] = useState(false);
+  // The folder a breadcrumb last asked the sidebar to show (`at` repeats it for a second click).
+  const [revealed, setRevealed] = useState<{ key: string; at: number } | null>(null);
   const fullscreen = useFullscreen();
   useApplySettings();
   const [settings, setSettings] = useState<false | Section>(false);
@@ -330,6 +332,25 @@ export default function App() {
 
   const toggleFavorite = (path: string) => setFavorites((f) => (f.includes(path) ? f.filter((x) => x !== path) : [...f, path]));
 
+  const revealFolder = useCallback((key: string) => {
+    setExpanded((prev) => new Set([...prev, ...ancestorKeys(`${key}.md`), key]));
+    setSidebar(true);
+    setSidebarPeek(false);
+    setRevealed({ key, at: Date.now() });
+  }, []);
+
+  // Runs once the sidebar has rendered the expanded rows.
+  useEffect(() => {
+    const row = revealed && document.querySelector<HTMLElement>(`[data-tree-row="${CSS.escape(revealed.key)}"]`);
+    if (!row) return;
+    row.scrollIntoView({ block: "nearest" });
+    row.classList.remove("tree-revealed");
+    void row.offsetWidth; // restarts the highlight on a repeat click
+    row.classList.add("tree-revealed");
+    const done = () => row.classList.remove("tree-revealed");
+    row.addEventListener("animationend", done, { once: true });
+  }, [revealed]);
+
   const toggle = (key: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -476,8 +497,8 @@ export default function App() {
   );
 
   const ctx: VaultContextValue = useMemo(
-    () => ({ notes, refreshKey, openPage, peek: setPeekPath, createPage, refresh, renamed, aiPolicy, setPageAi }),
-    [notes, refreshKey, openPage, createPage, refresh, renamed, aiPolicy, setPageAi],
+    () => ({ notes, refreshKey, openPage, peek: setPeekPath, createPage, revealFolder, refresh, renamed, aiPolicy, setPageAi }),
+    [notes, refreshKey, openPage, createPage, revealFolder, refresh, renamed, aiPolicy, setPageAi],
   );
   const tree = useMemo(() => buildTree(notes), [notes]);
 

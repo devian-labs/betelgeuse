@@ -534,7 +534,7 @@ function HeadButton({ icon, label, onClick }: { icon: React.ReactNode; label: st
 }
 
 function TopBar(p: Props & { meta?: NoteMeta; saving: boolean; onMenu: (el: HTMLElement) => void; hiddenFromAi?: boolean }) {
-  const { notes, openPage } = useVault();
+  const { notes, openPage, revealFolder } = useVault();
   const crumbs = ancestorKeys(p.path).map((key) => {
     const note = notes.find((n) => n.path === `${key}.md`);
     return { key, title: note?.title ?? key.split("/").pop()!, note };
@@ -559,10 +559,11 @@ function TopBar(p: Props & { meta?: NoteMeta; saving: boolean; onMenu: (el: HTML
         <div className="flex min-w-0 flex-1 items-center gap-0.5 text-ink" data-tauri-drag-region>
           {crumbs.map((c) => (
             <span key={c.key} className="flex min-w-0 items-center gap-0.5">
+              {/* A plain folder has no page to open: its crumb shows it in the sidebar instead. */}
               <button
-                disabled={!c.note}
-                onClick={(e) => c.note && openPage(c.note.path, { newTab: wantsNewTab(e) })}
-                className="flex min-w-0 items-center gap-1 rounded px-1.5 py-0.5 enabled:hover:bg-hover"
+                title={c.note ? undefined : "Show in sidebar"}
+                onClick={(e) => (c.note ? openPage(c.note.path, { newTab: wantsNewTab(e) }) : revealFolder(c.key))}
+                className="flex min-w-0 items-center gap-1 rounded px-1.5 py-0.5 hover:bg-hover"
               >
                 {c.note?.icon && <PageIcon icon={c.note.icon} size={16} />}
                 <span className="truncate">{c.title}</span>

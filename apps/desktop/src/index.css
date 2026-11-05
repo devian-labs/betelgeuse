@@ -884,6 +884,18 @@ pre {
   border-top-color: var(--ink);
 }
 
+/* A sidebar row a breadcrumb revealed: briefly highlighted. */
+.tree-revealed {
+  animation: tree-revealed 1.2s ease-out;
+}
+@keyframes tree-revealed {
+  0%,
+  40% {
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+}
+
 /* Side peek slides in from the right. */
 .peek-panel {
   animation: peek-in 160ms ease-out;
