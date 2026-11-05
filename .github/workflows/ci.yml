@@ -7,9 +7,58 @@ on:
   # The release workflow runs these same checks before it builds anything.
   workflow_call:
 
+# A new push to a pull request cancels its older run. Runs on main (and releases) always finish.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.diff.outputs.web }}
+      lander: ${{ steps.diff.outputs.lander }}
+      rust: ${{ steps.diff.outputs.rust }}
+      android: ${{ steps.diff.outputs.android }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # Each job below runs only when something it checks has changed. A skipped job counts as
+      # passing, so required checks don't block. Releases (and their dry runs) check everything.
+      - id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set_all() { for k in web lander rust; do echo "$k=true" >> "$GITHUB_OUTPUT"; done; echo "android=$1" >> "$GITHUB_OUTPUT"; }
+          if [ "$EVENT" != pull_request ] && { [ "$EVENT" != push ] || [[ "$REF" == refs/tags/* ]]; }; then
+            # A release or a release dry run: run every check. The release builds Android itself.
+            echo "Release: running every check"; set_all false; exit 0
+          fi
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            # No usable base (first push, force-push): check everything to be safe.
+            echo "No base to compare with: running every check"; set_all true; exit 0
+          fi
+          files=$(git diff --name-only "$BASE" HEAD)
+          echo "Changed files:"; echo "$files" | sed 's/^/  /'
+          ci='|^\.github/workflows/ci\.yml$'
+          has() { grep -qE "$1" <<< "${2:-$files}" && echo true || echo false; }
+          # The TypeScript job ignores the Rust shells, except the two files its tests read.
+          web_files=$(grep -vE '^apps/(desktop|mobile)/src-tauri/' <<< "$files"; grep -E '^apps/desktop/src-tauri/(seed/|src/importer/notion_html\.rs$)' <<< "$files")
+          {
+            echo "web=$(has "^(apps/desktop/|apps/mobile/|packages/|plugins/|scripts/|package(-lock)?\.json$|tsconfig)$ci" "$web_files")"
+            echo "lander=$(has "^(apps/lander/|docs/content/|apps/desktop/src-tauri/seed/|package(-lock)?\.json$)$ci")"
+            echo "rust=$(has "^(crates/|apps/desktop/src-tauri/|apps/mobile/src-tauri/|Cargo\.(toml|lock)$|rust-toolchain)$ci")"
+            echo "android=$(has "^(apps/mobile/src-tauri/|apps/mobile/scripts/|apps/mobile/package\.json$)")"
+          } | tee -a "$GITHUB_OUTPUT"
+
   web-and-mcp:
     name: Typecheck and tests (desktop frontend, MCP server)
+    needs: changes
+    if: ${{ needs.changes.outputs.web == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -24,9 +73,16 @@ jobs:
       - run: node --import tsx --test tests/*.test.mjs
         working-directory: apps/desktop
       - run: npm test -w betelgeuse-mcp
+      # Both interfaces build, so a UI change is checked without the Rust job.
+      - run: npx vite build
+        working-directory: apps/desktop
+      - run: npx vite build
+        working-directory: apps/mobile
 
   lander:
     name: Landing page build
+    needs: changes
+    if: ${{ needs.changes.outputs.lander == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -39,6 +95,8 @@ jobs:
 
   rust:
     name: Rust tests and clippy
+    needs: changes
+    if: ${{ needs.changes.outputs.rust == 'true' }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -63,37 +121,12 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
-  android-changes:
-    name: Detect Android changes
-    # Releases build (and sign) the APK in their own job, so not again in their checks.
-    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-    runs-on: ubuntu-latest
-    outputs:
-      changed: ${{ steps.diff.outputs.changed }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      # The Android build only runs when the mobile app itself changes. The shared crates are covered
-      # by clippy and the tests, and every release builds the APK anyway.
-      - id: diff
-        env:
-          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            changed=true # No usable base (first push, force-push): build to be safe.
-          elif git diff --name-only "$BASE" HEAD | grep -q '^apps/mobile/'; then
-            changed=true
-          else
-            changed=false
-          fi
-          echo "Android-related changes: $changed"
-          echo "changed=$changed" >> "$GITHUB_OUTPUT"
-
   android:
     name: Android build
-    needs: android-changes
-    if: ${{ needs.android-changes.outputs.changed == 'true' }}
+    needs: changes
+    # Only when the Android app itself changes; the shared crates are covered by the Rust job, and
+    # every release builds and signs the APK.
+    if: ${{ needs.changes.outputs.android == 'true' }}
     runs-on: ubuntu-latest
     env:
       NDK_VERSION: 28.2.13676358
