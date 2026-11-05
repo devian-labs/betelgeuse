@@ -3,7 +3,8 @@
 //
 //   npm run version:set 0.2.0
 //
-// Then commit, tag and push:  git add -A && git commit -m "release: v0.2.0" && git tag v0.2.0 && git push --follow-tags
+// Then merge it through a pull request (main is protected), and tag the merged commit; see
+// CONTRIBUTING.md, "Releasing".
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -47,4 +48,4 @@ setJson("package-lock.json", (j) => {
   for (const ws of ["apps/desktop", "apps/mobile", "packages/mcp"]) if (j.packages?.[ws]) j.packages[ws].version = version;
 });
 replaceOnce("packages/mcp/src/index.ts", /(new McpServer\(\{ name: "betelgeuse", version: )"[^"]+"/, `$1"${version}"`);
-console.log(`\nNext: git add -A && git commit -m "release: v${version}" && git tag v${version} && git push --follow-tags`);
+console.log(`\nNext: commit "release: v${version}" and merge it through a pull request, then on the merged main:\n  git tag v${version} && git push origin v${version}`);
