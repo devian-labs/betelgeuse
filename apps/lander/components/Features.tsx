@@ -76,6 +76,7 @@ const features: { id: string; Icon: LucideIcon; title: string; body: ReactNode; 
   },
 ];
 
+/** Also the progress bar's animation-duration in globals.css. */
 const INTERVAL = 7000;
 
 /** Features on the right; picking one (or waiting, while it's on screen) swaps the picture on the left. */
@@ -144,7 +145,7 @@ export function Features() {
                 </span>
               </span>
             </span>
-            {i === active && playing && <span key={active} className="feature-progress" style={{ animationDuration: `${INTERVAL}ms` }} />}
+            {i === active && playing && <span key={active} className="feature-progress" />}
           </button>
         ))}
       </div>

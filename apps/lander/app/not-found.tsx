@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PlainPage } from "@/components/PlainPage";
 
 export const metadata: Metadata = {
-  title: { absolute: "Page Not Found | Betelgeuse" },
+  title: { absolute: "Page Not Found | Betelgeuse, the Markdown Notes App" },
   description: "This page doesn't exist. Betelgeuse is a free, open-source workspace for notes, docs and databases stored as Markdown in git.",
 };
 

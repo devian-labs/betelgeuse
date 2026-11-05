@@ -1,0 +1,56 @@
+name: PR checks
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  no-ai-attribution:
+    name: No AI attribution
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the commits and the description
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BODY: ${{ github.event.pull_request.body }}
+        run: |
+          tools='claude|anthropic|copilot|cursor|openai|codex|chatgpt|gemini|devin|aider|codeium|windsurf|jules'
+          # Co-author trailers, "Generated with/by <tool>" lines, and commits authored by a tool.
+          pattern="co-authored-by:.*($tools)|generated (with|by) \[?($tools)|^[0-9a-f]{7} author: .*($tools)"
+
+          commits=$(gh api --paginate "repos/$REPO/pulls/$PR/commits" --jq '.[] | .sha[0:7] as $s
+            | ($s + " author: " + .commit.author.name + " <" + .commit.author.email + ">"),
+              (.commit.message | split("\n")[] | $s + " " + .)')
+          bad_commits=$(grep -iE "$pattern" <<< "$commits" || true)
+          bad_body=$(grep -iE "co-authored-by:.*($tools)|generated (with|by) \[?($tools)" <<< "$BODY" || true)
+
+          if [ -z "$bad_commits" ] && [ -z "$bad_body" ]; then
+            echo "No AI attribution found."
+            exit 0
+          fi
+          if [ -n "$bad_commits" ]; then
+            echo "::error::These commits credit an AI tool:"
+            echo "$bad_commits"
+          fi
+          if [ -n "$bad_body" ]; then
+            echo "::error::The pull request description credits an AI tool:"
+            echo "$bad_body"
+          fi
+          cat <<'EOF'
+
+          You're welcome to use AI tools, but you're the author: remove AI co-author trailers and
+          "Generated with" lines (see CONTRIBUTING.md, "Using AI tools").
+          - Description: edit the pull request and delete those lines. This check runs again on save.
+          - Commits: reword them, or squash the branch into one signed-off commit, and force-push:
+              git reset --soft $(git merge-base HEAD origin/main)
+              git commit -s -m "fix(import): your summary"
+              git push --force-with-lease
+          EOF
+          exit 1

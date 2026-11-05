@@ -1,6 +1,6 @@
 ---
 title: API reference
-description: The Betelgeuse plugin API, version 1 — activate, contribution points, storage, the workspace and more.
+description: The Betelgeuse plugin API, version 1: activate, contribution points, commands, views, storage, the workspace and everything else a plugin can use.
 ---
 Types for everything here are in `@betelgeuse/plugin-api` (`index.d.ts`), so your editor completes and checks them.
 

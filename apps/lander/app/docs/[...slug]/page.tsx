@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const slug = (await params).slug.join("/");
   const doc = loadDoc(slug);
   if (!doc) return {};
-  return pageMetadata({ title: `${doc.title} | Betelgeuse docs`, description: doc.description, path: href(slug) });
+  return pageMetadata({ title: `${doc.title} | Betelgeuse documentation`, description: doc.description, path: href(slug) });
 }
 
 export default async function Doc({ params }: Params) {

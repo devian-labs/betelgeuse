@@ -31,7 +31,7 @@ import { getSnapshot } from "@/lib/github";
 import { ORG, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
 
 const description =
-  "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git on your computer, AI agents read only the pages you share, and plugins add what else you need.";
+  "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git on your devices, synced everywhere, with AI agents and plugins.";
 
 export const metadata: Metadata = pageMetadata({ title: "Open-Source Markdown Notes & Docs App | Betelgeuse", description, path: "/" });
 

@@ -2,11 +2,12 @@ import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { ORG, SITE_NAME, SITE_URL, jsonLd } from "@/lib/site";
 import "./globals.css";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
 const description =
-  "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git on your computer, and AI agents read only the pages you share.";
+  "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git on your devices, synced everywhere, with AI agents and plugins.";
 
 // Defaults for every route; each page sets its own title, description, canonical and social cards (lib/site.ts).
 export const metadata: Metadata = {
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(site)} />
         {children}
+        <GoogleAnalytics />
       </body>
     </html>
   );

@@ -78,6 +78,32 @@ const decodeEntities = (s: string) =>
     e[0] === "#" ? String.fromCodePoint(e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : +e.slice(1)) : ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" } as Record<string, string>)[e.toLowerCase()] ?? m,
   );
 
+/**
+ * A search-result description for a page without one (the Welcome guide's pages): its opening prose as plain
+ * text, whole sentences up to 160 characters, else cut at a word.
+ */
+function summarize(body: string) {
+  const text = body
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/^\s*(#|>|\||- \[[ x]\]).*$/gm, " ")
+    .replace(/!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_, t: string, l?: string) => l ?? t.split("/").pop()!)
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s*([-*]|\d+\.)\s+/gm, "")
+    .replace(/[*_`]/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+  let out = "";
+  for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+    if ((out + " " + sentence).trim().length > 160) break;
+    out = (out + " " + sentence).trim();
+  }
+  if (out.length >= 110 || text.length <= 160) return out.length >= 110 ? out : text;
+  const cut = text.slice(0, 157);
+  return cut.slice(0, cut.lastIndexOf(" ")).replace(/[,;:]$/, "") + "…";
+}
+
 export type Doc = { slug: string; title: string; description: string; html: string; headings: { id: string; text: string; level: number }[]; section: string };
 
 const split = (text: string) => {
@@ -162,7 +188,7 @@ export function loadDoc(slug: string): Doc | null {
     },
   });
   const html = md.parse(translate(body)) as string;
-  const description = meta.description ?? body.replace(/^#.*$/gm, "").replace(/[[\]*_`>#!-]/g, "").replace(/\s+/g, " ").trim().slice(0, 155);
+  const description = meta.description ?? summarize(body);
   const section = NAV.find((s) => s.pages.includes(entry))!.title;
   return { slug, title, description, html, headings, section };
 }

@@ -1,6 +1,6 @@
 ---
 title: Testing and publishing
-description: Check your Betelgeuse plugin, share it, and get it into the plugin store.
+description: Check your Betelgeuse plugin, share it as a folder, and get it into the plugin store, where the release pipeline builds it from source and signs it.
 ---
 ## Check it
 
