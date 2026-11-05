@@ -12,6 +12,8 @@ export type VaultContextValue = {
   /** Opens a page in the side peek panel, as clicking a database row does. */
   peek: (path: string) => void;
   createPage: (parent: string | null, title?: string) => Promise<string>;
+  /** Shows a plain folder (one with no page of its own) in the sidebar: expanded, scrolled to and highlighted. */
+  revealFolder: (key: string) => void;
   refresh: () => Promise<NoteMeta[]>;
   /**
    * After a rename (the file and its sub-pages moved, links rewritten across the vault): follows
