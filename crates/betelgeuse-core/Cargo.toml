@@ -16,9 +16,9 @@ walkdir = "2"
 git2 = { version = "0.21", optional = true, default-features = false, features = ["vendored-libgit2"] }
 # Installing plugins and the plugin store (desktop and mobile apps).
 ureq = { version = "3", optional = true }
-zip = { version = "8", default-features = false, features = ["deflate"], optional = true }
+zip = { version = "9", default-features = false, features = ["deflate"], optional = true }
 ed25519-dalek = { version = "2", optional = true }
-sha2 = { version = "0.10", optional = true }
+sha2 = { version = "0.11", optional = true }
 hex = { version = "0.4", optional = true }
 base64 = { version = "0.23", optional = true }
 

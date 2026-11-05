@@ -34,7 +34,7 @@ const SUGGESTED = [
   "Code", "Terminal", "Bot", "Database", "Rocket", "Lightbulb", "Target", "Flag", "Trophy", "Star",
   "Heart", "Flame", "Zap", "Sparkles", "Sun", "Moon", "Cloud", "Leaf", "Globe", "Map",
   "Compass", "House", "Building2", "Users", "User", "MessageCircle", "Mail", "Inbox", "Bell", "Phone",
-  "Camera", "Music", "Palette", "PenLine", "Pin", "Paperclip", "Link", "Tag", "Lock", "Key",
+  "Camera", "EighthNotes", "Palette", "PenLine", "Pin", "Paperclip", "Link", "Tag", "Lock", "Key",
   "Settings", "Wrench", "Hammer", "ShoppingCart", "Wallet", "PiggyBank", "ChartLine", "ChartPie", "GraduationCap", "Coffee",
 ].filter((n) => n in icons);
 

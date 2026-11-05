@@ -195,7 +195,7 @@ const NOTION_ICONS: &[(&str, &str)] = &[
     ("money", "Banknote"),
     ("moon", "Moon"),
     ("mountain", "Mountain"),
-    ("music", "Music"),
+    ("music", "EighthNotes"),
     ("newspaper", "Newspaper"),
     ("note", "StickyNote"),
     ("notification", "Bell"),
