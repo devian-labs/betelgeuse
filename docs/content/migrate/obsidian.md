@@ -1,6 +1,6 @@
 ---
 title: Move from Obsidian
-description: Open your Obsidian vault in Betelgeuse as it is, or import a copy of it, and see what carries over.
+description: Move from Obsidian to Betelgeuse: open your vault as it is, or import a copy of it, and see how links, callouts, attachments and frontmatter carry over.
 ---
 Obsidian and Betelgeuse both keep notes as Markdown files in a folder, and Betelgeuse uses Obsidian's syntax for links, embeds and callouts. So there's very little to move. There are two ways in.
 

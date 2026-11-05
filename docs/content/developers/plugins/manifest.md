@@ -1,6 +1,6 @@
 ---
 title: The manifest
-description: betelgeuse-plugin.json — the fields every Betelgeuse plugin declares, and its permissions.
+description: The betelgeuse-plugin.json manifest: every field a Betelgeuse plugin declares, from its id and version to the platforms it runs on and its permissions.
 ---
 Every plugin has a `betelgeuse-plugin.json` at the top of its folder. The build copies it into `dist/` next to `main.js`. Betelgeuse reads it before loading any code: to list the plugin, check that it can run here, and show its permissions.
 

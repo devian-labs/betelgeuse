@@ -30,7 +30,8 @@ export function pageMetadata({ title, description, path }: { title: string; desc
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: path },
+    // One language; hreflang still tells search engines so, and which URL to show everyone else.
+    alternates: { canonical: path, languages: { en: path, "x-default": path } },
     openGraph: { title, description, url: path, type: "website", siteName: SITE_NAME, locale: "en_US", images: [shareImage] },
     twitter: { card: "summary_large_image", title, description, images: [shareImage] },
   };

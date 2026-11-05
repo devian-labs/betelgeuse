@@ -1,6 +1,6 @@
 ---
 title: Plugins
-description: Add features to Betelgeuse with plugins, and decide what each one may do.
+description: Add features to Betelgeuse with plugins: install signed plugins from the store, turn them on per workspace, and decide exactly what each one may do.
 ---
 Plugins add features to Betelgeuse: new screens, panels on pages, settings, commands and search results. The core app stays small and focused; you add only what you need.
 

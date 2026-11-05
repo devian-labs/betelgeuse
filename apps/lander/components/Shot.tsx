@@ -20,13 +20,15 @@ export function Shot({
   theme?: "light" | "dark";
   crop?: Crop;
 }) {
-  const set = (t: "light" | "dark") => `/assets/${name}-${t}-1440.jpg 1440w, /assets/${name}-${t}.jpg 2880w`;
+  const set = (t: "light" | "dark", ext = "jpg") => `/assets/${name}-${t}-1440.${ext} 1440w, /assets/${name}-${t}.${ext} 2880w`;
   const sizes = crop ? "(min-width: 1180px) 1200px, 150vw" : "(min-width: 1180px) 1140px, 94vw";
   const fallback = theme ?? "light";
   return (
     <figure className={`shot${crop ? " cropped" : ""}`}>
       <picture>
+        {!theme && <source media="(prefers-color-scheme: dark)" srcSet={set("dark", "webp")} sizes={sizes} type="image/webp" />}
         {!theme && <source media="(prefers-color-scheme: dark)" srcSet={set("dark")} sizes={sizes} />}
+        <source srcSet={set(fallback, "webp")} sizes={sizes} type="image/webp" />
         <img
           src={`/assets/${name}-${fallback}-1440.jpg`}
           srcSet={set(fallback)}

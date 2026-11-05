@@ -1,6 +1,6 @@
 ---
 title: Betelgeuse documentation
-description: How to use Betelgeuse, connect AI agents, add plugins, and build your own plugins.
+description: Learn Betelgeuse: write in blocks, build databases, sync with git across devices, connect AI agents over MCP, add plugins, and build your own plugins.
 ---
 Betelgeuse is a workspace for notes, docs and databases that stays yours. Every page is a plain Markdown file in a folder on your computer, saved to git as you go and synced to your other computers and phone, and AI agents can read and write only the pages you share with them. Plugins add the rest, such as personal finance, when you want it.
 

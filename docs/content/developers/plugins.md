@@ -1,6 +1,6 @@
 ---
 title: Build a plugin
-description: How Betelgeuse plugins work, and a step-by-step guide to your first one.
+description: How Betelgeuse plugins work, and a step-by-step guide to building your first one in TypeScript and React, from a new folder to a running plugin.
 ---
 A Betelgeuse plugin is a small TypeScript and React project that builds into three files: a manifest (`betelgeuse-plugin.json`), the code (`main.js`) and optional styles (`styles.css`). The app loads that folder, calls your `activate(ctx)` function, and you add features through `ctx`.
 

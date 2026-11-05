@@ -31,12 +31,14 @@ export function Phone({
   eager?: boolean;
   className?: string;
 }) {
-  const src = (t: "light" | "dark") => `/assets/phone-${kind}-${name}-${t}.jpg`;
+  const src = (t: "light" | "dark", ext = "jpg") => `/assets/phone-${kind}-${name}-${t}.${ext}`;
   return (
     <figure className={`phone phone-${kind} ${className}`}>
       <div className="phone-screen">
         <picture>
+          {!theme && <source media="(prefers-color-scheme: dark)" srcSet={src("dark", "webp")} type="image/webp" />}
           {!theme && <source media="(prefers-color-scheme: dark)" srcSet={src("dark")} />}
+          <source srcSet={src(theme ?? "light", "webp")} type="image/webp" />
           <img src={src(theme ?? "light")} alt={alt} width={786} height={1704} loading={eager ? "eager" : "lazy"} decoding="async" />
         </picture>
         <span className={kind === "ios" ? "phone-island" : "phone-camera"} aria-hidden />

@@ -1,6 +1,6 @@
 ---
 title: Install Betelgeuse
-description: Download Betelgeuse for macOS, Windows, Linux or Android, or build it from source.
+description: Download Betelgeuse for macOS, Windows, Linux or Android, or build it from source with one command, then open your first workspace of Markdown notes.
 ---
 ## Download
 

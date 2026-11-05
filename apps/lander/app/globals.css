@@ -1535,11 +1535,16 @@ a.oss-card:hover {
 }
 
 .lang-bar {
-  display: flex;
+  display: block;
+  width: 100%;
   height: 8px;
-  gap: 2px;
-  border-radius: 999px;
-  overflow: hidden;
+  clip-path: inset(0 round 999px);
+}
+
+/* A gap between the shares. */
+.lang-bar rect {
+  stroke: var(--raised);
+  stroke-width: 2px;
 }
 
 .repo-langs ul {
@@ -1559,10 +1564,8 @@ a.oss-card:hover {
   gap: 6px;
 }
 
-.repo-langs li i {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+.repo-langs li svg {
+  flex-shrink: 0;
 }
 
 .repo-langs li span {
@@ -1775,9 +1778,34 @@ a.oss-card:hover {
   flex-shrink: 0;
 }
 
+/* <picture> only picks the file: the image is laid out as the logo's own child, centred on it. */
+.logo picture {
+  display: contents;
+}
+
 .logo img {
   position: absolute;
   max-width: none;
+}
+
+.logo-18 {
+  width: 18px;
+  height: 18px;
+}
+
+.logo-22 {
+  width: 22px;
+  height: 22px;
+}
+
+.logo-24 {
+  width: 24px;
+  height: 24px;
+}
+
+.logo-64 {
+  width: 64px;
+  height: 64px;
 }
 
 /* ---------- Plain document pages (Privacy) ---------- */
@@ -2804,7 +2832,7 @@ a.oss-card:hover {
   border-radius: 2px;
   background: var(--accent);
   transform-origin: top;
-  animation: feature-progress linear forwards;
+  animation: feature-progress 7s linear forwards;
 }
 
 @keyframes feature-progress {

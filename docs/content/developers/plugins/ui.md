@@ -1,6 +1,6 @@
 ---
 title: UI and styling
-description: Use Betelgeuse's own components and design tokens so your plugin looks native in every theme.
+description: Use Betelgeuse's own components and design tokens in your plugin, so it looks native in light and dark themes and every palette, on desktop and phone.
 ---
 Your plugin renders with the app's React and can use the app's components and colours, so it fits in, in light and dark mode and every palette.
 

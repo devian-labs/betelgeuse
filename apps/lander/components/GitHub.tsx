@@ -156,7 +156,7 @@ export function RepoCard({ children }: { children?: React.ReactNode }) {
   return (
     <div className="repo-card">
       <div className="repo-head">
-        <img src="/app-icon.png" alt="" width={44} height={44} />
+        <img src="/app-icon.png" alt="Betelgeuse app icon" width={44} height={44} />
         <div>
           <a href={REPO} className="repo-name">
             devian-labs / <strong>betelgeuse</strong>
@@ -192,15 +192,24 @@ export function RepoCard({ children }: { children?: React.ReactNode }) {
       </div>
       {languages.length > 0 && (
         <div className="repo-langs">
-          <div className="lang-bar" aria-hidden>
-            {languages.map((l) => (
-              <span key={l.name} style={{ width: `${l.share}%`, background: LANGUAGE_COLORS[l.name] ?? LANGUAGE_COLORS.Other }} />
+          {/* SVG, so each share is an attribute rather than an inline style. */}
+          <svg className="lang-bar" aria-hidden>
+            {languages.map((l, i) => (
+              <rect
+                key={l.name}
+                x={`${languages.slice(0, i).reduce((sum, p) => sum + p.share, 0)}%`}
+                width={`${l.share}%`}
+                height="100%"
+                fill={LANGUAGE_COLORS[l.name] ?? LANGUAGE_COLORS.Other}
+              />
             ))}
-          </div>
+          </svg>
           <ul>
             {languages.slice(0, 4).map((l) => (
               <li key={l.name}>
-                <i style={{ background: LANGUAGE_COLORS[l.name] ?? LANGUAGE_COLORS.Other }} />
+                <svg width="8" height="8" aria-hidden>
+                  <circle cx="4" cy="4" r="4" fill={LANGUAGE_COLORS[l.name] ?? LANGUAGE_COLORS.Other} />
+                </svg>
                 {l.name} <span>{l.share.toFixed(1)}%</span>
               </li>
             ))}
