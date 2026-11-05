@@ -12,14 +12,14 @@
     "test": "node --import tsx --test test/*.test.mjs"
   },
   "dependencies": {
-    "lucide-react": "^1.52.0"
+    "lucide-react": "^1.66.0"
   },
   "devDependencies": {
     "@betelgeuse/plugin-api": "*",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "typescript": "^5.9.3"
   }
 }
