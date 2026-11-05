@@ -19,8 +19,10 @@ jobs:
           REPO: ${{ github.repository }}
           GH_REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-          BODY: ${{ github.event.pull_request.body }}
         run: |
+          # The description as it is now, not as it was when this run was triggered, so an older
+          # run that finishes after an edit (or a re-run) still sees the edited description.
+          BODY=$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')
           tools='claude|anthropic|copilot|cursor|openai|codex|chatgpt|gemini|devin|aider|codeium|windsurf|jules'
           # Co-author trailers, "Generated with/by <tool>" lines, and commits authored by a tool.
           pattern="co-authored-by:.*($tools)|generated (with|by) \[?($tools)|^[0-9a-f]{7} author: .*($tools)"
