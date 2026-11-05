@@ -66,13 +66,22 @@ git commit -s -m "Fix the board's drop target"
 
 That appends `Signed-off-by: Your Name <you@example.com>` using your git name and email. Forgot? `git commit --amend -s` fixes the last commit, and `git rebase --signoff main` fixes every commit on your branch.
 
+## Using AI tools
+
+You're welcome to use AI coding tools, but you're the author: review everything they write, and leave out `Co-Authored-By` trailers and "Generated with" lines for the tool, in commits and in the pull request description. Commits that credit an AI tool can't be merged into `main`. If you use Claude Code, the `.claude/settings.json` in this repository already turns that attribution off.
+
 ## Releasing
 
 ```bash
+git switch -c release/v0.2.0
 npm run version:set 0.2.0          # writes the version everywhere it appears
-git add -A && git commit -m "release: v0.2.0"
-git tag v0.2.0 && git push --follow-tags
+git add -A && git commit -s -m "release: v0.2.0"
+git push -u origin release/v0.2.0  # open a pull request and merge it once the checks pass
+git switch main && git pull
+git tag v0.2.0 && git push origin v0.2.0
 ```
+
+`main` only takes changes through pull requests, so the version bump goes through one too. Only maintainers can push `v*` tags.
 
 The tag starts the Release workflow. It runs the tests, checks that the tag matches the app version, then builds macOS (Apple Silicon and Intel), Windows and Linux (x64 and ARM64) and attaches the installers to a draft GitHub release. Review the draft and click **Publish**. A tag with a suffix, like `v0.2.0-beta.1`, makes a pre-release.
 
