@@ -241,7 +241,7 @@ checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 name = "betelgeuse"
 version = "0.5.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "betelgeuse-core",
  "csv",
  "dirs 6.0.0",
@@ -269,7 +269,7 @@ dependencies = [
 name = "betelgeuse-core"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.1",
  "ed25519-dalek",
  "git2",
  "hex",
