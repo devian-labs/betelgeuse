@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use betelgeuse_core::process::command;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter, Manager};
@@ -672,7 +672,7 @@ struct Probe {
 }
 
 fn probe_media(ffprobe: &str, path: &Path) -> Option<Probe> {
-    let out = Command::new(ffprobe)
+    let out = command(ffprobe)
         .args(["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams"])
         .arg(path)
         .output()
@@ -719,11 +719,11 @@ fn find_tool(name: &str) -> Option<String> {
         }
     }
     #[cfg(windows)]
-    let out = Command::new("where").arg(name).output().ok()?;
+    let out = command("where").arg(name).output().ok()?;
     #[cfg(not(windows))]
     let out = {
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".into());
-        Command::new(shell).args(["-lc", &format!("command -v {name}")]).output().ok()?
+        command(shell).args(["-lc", &format!("command -v {name}")]).output().ok()?
     };
     let path = String::from_utf8_lossy(&out.stdout).lines().last()?.trim().to_string();
     (out.status.success() && Path::new(&path).is_absolute()).then_some(path)
@@ -1095,7 +1095,7 @@ fn make_thumbnail(lib: &Shared, src: &Path, kind: &str, out: &Path) -> Option<()
     {
         let tmp = out.with_extension("ql");
         let _ = std::fs::create_dir_all(&tmp);
-        let ok = Command::new("qlmanage")
+        let ok = command("qlmanage")
             .args(["-t", "-s", &THUMB_SIZE.to_string(), "-o"])
             .arg(&tmp)
             .arg(src)
@@ -1110,7 +1110,7 @@ fn make_thumbnail(lib: &Shared, src: &Path, kind: &str, out: &Path) -> Option<()
     }
     if kind == "video" {
         let ffmpeg = tool(lib, "ffmpeg")?;
-        let ok = Command::new(ffmpeg)
+        let ok = command(ffmpeg)
             .args(["-v", "quiet", "-y", "-ss", "1", "-i"])
             .arg(src)
             .args(["-frames:v", "1", "-vf", &format!("scale={THUMB_SIZE}:-2")])

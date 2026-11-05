@@ -4,6 +4,7 @@
 pub mod git;
 #[cfg(feature = "libgit2")]
 pub mod git_lib;
+pub mod process;
 pub mod vault;
 #[cfg(feature = "plugins")]
 pub mod plugin_store;
