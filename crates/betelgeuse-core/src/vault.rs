@@ -284,7 +284,28 @@ pub fn write_note(vault: &Path, rel: &str, content: &str) -> Result<(), String> 
     fs::write(abs, content).map_err(|e| e.to_string())
 }
 
+/// File systems cap a name at 255 bytes; titles are cut shorter so ` 99.md` still fits.
+const MAX_NAME_BYTES: usize = 200;
+
+/// A title made safe to use as a file name (cut to `MAX_NAME_BYTES`; see `title_fits_name`).
 pub fn sanitize_title(title: &str) -> String {
+    let cleaned = clean_title(title);
+    if cleaned.len() <= MAX_NAME_BYTES {
+        return cleaned;
+    }
+    let mut end = MAX_NAME_BYTES;
+    while !cleaned.is_char_boundary(end) {
+        end -= 1;
+    }
+    cleaned[..end].trim_end().to_string()
+}
+
+/// Whether `sanitize_title` keeps all of `title`; when it doesn't, keep the full title in `title`.
+pub fn title_fits_name(title: &str) -> bool {
+    clean_title(title).len() <= MAX_NAME_BYTES
+}
+
+fn clean_title(title: &str) -> String {
     let cleaned: String = title
         .chars()
         .map(|c| if "/\\:*?\"<>|#^[]".contains(c) || c.is_control() { ' ' } else { c })
@@ -722,6 +743,16 @@ pub fn ai_visible(vault: &Path, rel: &str, policy: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn long_titles_fit_in_a_file_name() {
+        let long = "GitHub - owner/repo: ".to_string() + &"轻量级 Web 应用防火墙 ".repeat(20);
+        let name = sanitize_title(&long);
+        assert!(name.len() <= MAX_NAME_BYTES && !name.ends_with(' '));
+        assert!(long.replace(['/', ':'], " ").split_whitespace().collect::<Vec<_>>().join(" ").starts_with(&name));
+        assert!(!title_fits_name(&long));
+        assert!(title_fits_name("Ideas") && sanitize_title("Ideas") == "Ideas");
+    }
 
     #[test]
     fn parses_frontmatter() {
