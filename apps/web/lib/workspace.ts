@@ -27,13 +27,6 @@ const BATCH = 100;
 const READERS = 3;
 const ANNOUNCE_EVERY = 2000;
 
-const WELCOME = `---
-icon: 🌟
----
-This workspace lives in this GitHub repository. Every page is a Markdown file, and every change is a commit.
-
-Type \`/\` for any block. Add this repository in the Betelgeuse desktop or phone app to work on the same pages there.
-`;
 const GITIGNORE = ".DS_Store\n.obsidian/workspace*.json\n.trash/\n";
 
 export type WorkspaceOptions = {
@@ -47,6 +40,8 @@ export type WorkspaceOptions = {
   channel?: Pick<BroadcastChannel, "postMessage"> & { onmessage: ((e: MessageEvent) => void) | null };
   /** Runs one tab's sync at a time. */
   lock?: <T>(run: () => Promise<T>) => Promise<T>;
+  /** The pages a repository with no commits starts with. */
+  starter?: () => Promise<Record<string, string>>;
 };
 
 export class Workspace implements Files {
@@ -59,6 +54,7 @@ export class Workspace implements Files {
   private now: () => number;
   private lock: <T>(run: () => Promise<T>) => Promise<T>;
   private channel: WorkspaceOptions["channel"];
+  private starter: WorkspaceOptions["starter"];
 
   private commitSha: string | null = null;
   private treeSha: string | null = null;
@@ -90,6 +86,7 @@ export class Workspace implements Files {
     this.now = options.now ?? Date.now;
     this.lock = options.lock ?? ((run) => run());
     this.channel = options.channel;
+    this.starter = options.starter;
     if (this.channel) this.channel.onmessage = (e) => void this.fromOtherTab(e.data);
   }
 
@@ -250,9 +247,9 @@ export class Workspace implements Files {
       let head = await this.gh.head(this.owner, this.repo, this.branch);
       if (!head) {
         await this.gh.putFile(this.owner, this.repo, ".gitignore", GITIGNORE, "Set up Betelgeuse workspace");
-        await this.gh.putFile(this.owner, this.repo, "Welcome.md", WELCOME, "Add Welcome page");
         head = await this.gh.head(this.owner, this.repo, this.branch);
         if (!head) throw new Error("GitHub didn't create the first commit.");
+        head = await this.addStarterPages(head);
       }
       const { tree: treeSha, date } = await this.gh.commit(this.owner, this.repo, head);
       const entries = await this.gh.tree(this.owner, this.repo, treeSha);
@@ -278,6 +275,16 @@ export class Workspace implements Files {
     }
     void this.loadRest().catch((e) => this.emit("git-sync-failed", e instanceof Error ? e.message : String(e)));
     if (known) void this.background();
+  }
+
+  /** Fills a repository that was empty with the starter pages, in one commit. Returns the new head. */
+  private async addStarterPages(head: string) {
+    const pages = await this.starter?.();
+    if (!pages) return head;
+    const { tree } = await this.gh.commit(this.owner, this.repo, head);
+    const treeSha = await this.gh.createTree(this.owner, this.repo, tree, Object.entries(pages).map(([path, content]) => ({ path, content })));
+    const commit = await this.gh.createCommit(this.owner, this.repo, "Add the starter pages", treeSha, head);
+    return (await this.gh.updateBranch(this.owner, this.repo, this.branch, commit)) ? commit : head;
   }
 
   // ---------- Loading pages ----------

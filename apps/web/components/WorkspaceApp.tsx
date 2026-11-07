@@ -11,6 +11,7 @@ import { GitHub, GitHubError, SignedOut } from "@/lib/github";
 import { PluginStore } from "@/lib/plugins";
 import { accessToken, githubApi, remember } from "@/lib/session";
 import { signOut } from "@/lib/sign-out";
+import { starterPages } from "@/lib/starter";
 import { IdbKV } from "@/lib/store";
 import { eventBus, webPlatform } from "@/lib/web-platform";
 import { Workspace } from "@/lib/workspace";
@@ -38,7 +39,7 @@ export default function WorkspaceApp({ owner, repo }: { owner: string; repo: str
     const github = new GitHub(accessToken, githubApi());
     const store = new IdbKV(`${owner}/${repo}`.toLowerCase());
     const channel = typeof BroadcastChannel === "undefined" ? undefined : new BroadcastChannel(`betelgeuse:${name}`.toLowerCase());
-    const ws = new Workspace({ owner, repo, github, store, emit: bus.emit, channel, lock: lockFor(`betelgeuse:${name}`) });
+    const ws = new Workspace({ owner, repo, github, store, emit: bus.emit, channel, lock: lockFor(`betelgeuse:${name}`), starter: starterPages });
     const unlisten = bus.listen<string>("auth-lost", () => setAuthLost(true));
     const unlistenLoading = bus.listen<{ done: number; total: number }>("load-progress", ({ payload }) => setLoading(payload.done < payload.total ? payload : null));
 

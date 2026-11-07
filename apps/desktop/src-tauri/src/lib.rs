@@ -191,7 +191,7 @@ fn run_sync(app: &AppHandle, state: &AppState, path: &Path) -> Result<betelgeuse
             git::commit_all(path, &m)?;
         }
         *state.pending.lock().unwrap() = None;
-        git::sync_merging(path)
+        git::sync_merging(path, Some(betelgeuse_core::starter::App::Desktop))
     })();
     state.syncing.store(false, Ordering::SeqCst);
     match &result {
@@ -423,12 +423,13 @@ fn git_test_remote(state: State<AppState>) -> Result<String, String> {
 }
 
 #[tauri::command(async)]
-fn git_publish(state: State<AppState>) -> Result<String, String> {
+fn git_publish(app: AppHandle, state: State<AppState>) -> Result<String, String> {
     let path = vault(&state)?;
     if let Some(m) = git::auto_message(&path) {
         git::commit_all(&path, &m)?;
     }
-    git::publish(&path)
+    // A repository that already has pages can't take a plain push: its pages come first.
+    git::publish(&path).or_else(|_| run_sync(&app, state.inner(), &path).map(|_| "Synced with the repository".to_string()))
 }
 
 /// Seconds of quiet before auto-committing; 0 disables auto-commit.

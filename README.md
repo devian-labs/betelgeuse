@@ -54,7 +54,7 @@ Every change an agent makes is saved as its own git commit, so you can review or
 
 ## Learn more
 
-Betelgeuse opens with a Welcome guide that explains every feature. You can also [read it here](apps/desktop/src-tauri/seed/Welcome.md):
+A new workspace starts with a few sample pages. The full guide explains every feature, and you can [read it here](apps/desktop/src-tauri/seed/Welcome.md):
 
 [Writing and blocks](apps/desktop/src-tauri/seed/Welcome/Writing%20and%20blocks.md) ·
 [Databases](apps/desktop/src-tauri/seed/Welcome/Databases.md) ·

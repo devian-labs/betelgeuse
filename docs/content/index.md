@@ -49,7 +49,7 @@ These docs cover:
 - **Every change is saved to git**, so a page's history is one click away and nothing is ever lost.
 - **Connect a git repository** and your computers and phone sync on their own.
 
-The **Using Betelgeuse** pages here are the same guide the app opens with in every new workspace, so you can read them in the app too.
+The **Using Betelgeuse** pages here are the full guide to the app.
 
 ## Get help
 

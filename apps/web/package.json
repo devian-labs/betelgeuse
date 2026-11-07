@@ -6,8 +6,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/notices.mjs && next dev --port 3100",
-    "build": "node scripts/notices.mjs && next build",
+    "dev": "node scripts/notices.mjs && node scripts/starter-pages.mjs && next dev --port 3100",
+    "build": "node scripts/notices.mjs && node scripts/starter-pages.mjs && next build",
     "start": "next start --port 3100",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",

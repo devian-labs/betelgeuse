@@ -28,7 +28,7 @@ import { RevealObserver } from "@/components/Reveal";
 import { Shot } from "@/components/Shot";
 import { Tabs } from "@/components/Tabs";
 import { getSnapshot } from "@/lib/github";
-import { APP_URL, ORG, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
+import { APP_URL, DEMO_URL, ORG, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
 
 const description =
   "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git, on your devices or in your own GitHub repository, with AI agents and plugins.";
@@ -169,8 +169,8 @@ export default async function Home() {
               <p className="lede">Notes, docs and databases as Markdown files you own, synced with git across all your devices.</p>
               <div className="cta">
                 <DownloadButton suffix=" — free" />
-                <a className="button ghost" href={APP_URL}>
-                  Open in your browser
+                <a className="button ghost" href={DEMO_URL}>
+                  Try it in your browser
                 </a>
               </div>
               <p className="fineprint">macOS · Windows · Linux · Web · Android preview · MIT licensed · No account needed on your computer</p>
@@ -232,9 +232,14 @@ export default async function Home() {
                 Your notes stay on your GitHub. <em>Not with us.</em>
               </h2>
               <p className="intro center">The same editor and databases, with nothing to install. Sign in with GitHub and pick a repository.</p>
-              <a className="button primary web-cta" href={APP_URL}>
-                Open the web app
-              </a>
+              <div className="cta">
+                <a className="button primary" href={DEMO_URL}>
+                  Try the demo
+                </a>
+                <a className="button" href={APP_URL}>
+                  Sign in with GitHub
+                </a>
+              </div>
             </div>
             <div className="wrap" data-reveal>
               <div className="web-flow" role="img" aria-label="Your browser and your GitHub repository exchange your notes directly. Betelgeuse's servers aren't part of that path.">

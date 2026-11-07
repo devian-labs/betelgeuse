@@ -1,7 +1,10 @@
 // Sync against a fake GitHub: what two devices editing one repository have to get right.
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, before, beforeEach, test } from "node:test";
 import { makeCommands } from "../lib/commands.ts";
+import { DemoGitHub } from "../lib/demo/github.ts";
+import { fillDates } from "../lib/starter.ts";
 import { GitHub } from "../lib/github.ts";
 import { conflictedCopyPath, mergeText } from "../lib/merge.ts";
 import { MemoryKV } from "../lib/store.ts";
@@ -13,7 +16,8 @@ let gh: FakeGitHub;
 const events: [string, unknown][] = [];
 
 const device = (store = new MemoryKV()) => {
-  const ws = new Workspace({ owner: "octo", repo: "notes", github: new GitHub(async () => "test-token", gh.url), store, emit: (e, p) => void events.push([e, p]) });
+  const starter = async () => ({ "Welcome.md": "Welcome\n", "Tasks.md": "tasks\n", "Tasks/One.md": "one\n" });
+  const ws = new Workspace({ owner: "octo", repo: "notes", github: new GitHub(async () => "test-token", gh.url), store, emit: (e, p) => void events.push([e, p]), starter });
   return { ws, store };
 };
 const opened = async (store?: MemoryKV) => {
@@ -36,8 +40,28 @@ beforeEach(() => {
 
 test("an empty repository becomes a workspace", async () => {
   const ws = await opened();
-  assert.deepEqual(vault.listNotes(ws).map((n) => n.path), ["Welcome.md"]);
+  assert.deepEqual(vault.listNotes(ws).map((n) => n.path), ["Tasks.md", "Tasks/One.md", "Welcome.md"]);
   assert.ok(gh.text(".gitignore")!.includes(".trash/"));
+  assert.equal(gh.text("Tasks/One.md"), "one\n", "the starter pages are in the repository");
+  assert.equal(gh.log()[0].message, "Add the starter pages");
+  assert.equal(gh.log().length, 2);
+  assert.deepEqual(ws.changes(), []);
+});
+
+test("a repository with pages never gets the starter pages", async () => {
+  gh.push({ "Mine.md": "mine\n" });
+  const ws = await opened();
+  assert.deepEqual(vault.listNotes(ws).map((n) => n.path), ["Mine.md"]);
+  assert.deepEqual(gh.files(), ["Mine.md"]);
+});
+
+test("the starter pages in the repo are complete and their dates fill in", () => {
+  const dir = new URL("../../../packages/starter-pages/", import.meta.url);
+  const row = readFileSync(new URL("Tasks/Write the launch post.md", dir), "utf8");
+  assert.match(fillDates({ a: row }).a, /Due: \d{4}-\d{2}-\d{2}\n/);
+  for (const page of ["Welcome.md", "Welcome.desktop.md", "Welcome.phone.md", "Meeting notes.md"]) {
+    assert.match(readFileSync(new URL(page, dir), "utf8"), /github\.com\/devian-labs\/betelgeuse/, `${page} asks for a star`);
+  }
 });
 
 test("opens what's already there", async () => {
@@ -418,6 +442,46 @@ test("a failed load is retried, and edits wait safely", async () => {
   assert.equal(gh.text("Page 2.md"), "kept");
   assert.equal(ws.read("Page 200.md"), "page 200");
   ws.dispose();
+});
+
+test("the demo runs the real engine without touching the network", async () => {
+  const real = globalThis.fetch;
+  globalThis.fetch = (() => {
+    throw new Error("the demo tried to use the network");
+  }) as typeof fetch;
+  try {
+    const github = new DemoGitHub({ ".gitignore": ".trash/\n", "A.md": "one\n", "B.md": "[[A]]\n", ".assets/i.png": "x" }, 1000);
+    const ws = new Workspace({ owner: "betelgeuse", repo: "Demo", github, store: new MemoryKV(), emit: () => {} });
+    await ws.open();
+    await ws.sync();
+    assert.deepEqual(vault.listNotes(ws).map((n) => n.path), ["A.md", "B.md"]);
+    ws.write("A.md", "two\n");
+    assert.ok((await ws.sync()).commit);
+    assert.deepEqual(ws.changes(), []);
+    vault.renameNote(ws, "A.md", "Moved");
+    vault.createNote(ws, null, "New");
+    vault.deleteNote(ws, "New.md", 1000);
+    await ws.sync();
+    assert.equal(ws.read("B.md"), "[[Moved]]\n");
+    const log = await github.log("betelgeuse", "Demo", "main", "Moved.md", 10);
+    assert.equal(log.length, 1);
+    assert.equal(await github.show("betelgeuse", "Demo", log[0].hash, "Moved.md"), "two\n");
+    const history = await github.log("betelgeuse", "Demo", "main", undefined, 10);
+    assert.equal(history.length, 3);
+    assert.equal(await github.show("betelgeuse", "Demo", history[2].hash, "A.md"), "one\n");
+    assert.equal(await github.commitCount(), 3);
+    ws.writeBytes(".assets/new.png", Uint8Array.from([1, 2, 255]));
+    await ws.sync();
+    assert.deepEqual(await ws.readBytes(".assets/new.png"), Uint8Array.from([1, 2, 255]));
+    ws.dispose();
+  } finally {
+    globalThis.fetch = real;
+  }
+});
+
+test("the demo's dates are filled in from today", () => {
+  const filled = fillDates({ "A.md": "Due: today+2 today-3, and today stays a word" }, new Date(2026, 11, 30));
+  assert.equal(filled["A.md"], "Due: 2027-01-01 2026-12-27, and today stays a word");
 });
 
 test("merging text", () => {

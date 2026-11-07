@@ -15,6 +15,8 @@ apps/web/next-env.d.ts
 # Written at build time by apps/desktop/scripts/notices.mjs
 apps/desktop/public/third-party-notices.txt
 apps/web/public/third-party-notices.txt
+# Written at build time by apps/web/scripts/starter-pages.mjs
+apps/web/public/starter-pages.json
 *.tsbuildinfo
 
 # Local keys (e.g. VITE_UNSPLASH_ACCESS_KEY): release builds get them from CI secrets

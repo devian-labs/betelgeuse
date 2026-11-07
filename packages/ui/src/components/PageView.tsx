@@ -266,7 +266,7 @@ export function PageView(p: Props) {
   const small = values.small === true;
   const peekMode = p.mode === "peek";
   const fullWidth = values.fullWidth === true || (isDb && !peekMode && values.fullWidth !== false);
-  const width = fullWidth ? "max-w-none px-24" : peekMode ? "max-w-none px-12" : "max-w-[708px] px-0";
+  const width = fullWidth ? "max-w-none px-24 max-md:px-5" : peekMode ? "max-w-none px-12 max-md:px-5" : "max-w-[708px] px-0 max-md:px-5";
   const emptyBody = doc && !isDb && !body.current.trim() && !parentIsDb;
 
   return (

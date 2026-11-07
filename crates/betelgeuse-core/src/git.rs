@@ -192,16 +192,53 @@ pub fn has_remote(vault: &Path) -> bool {
 /// changed both here and elsewhere is kept twice ("(conflicted copy)") instead of leaving a rebase
 /// stopped with conflict markers in it. Safe to run unattended.
 #[cfg(feature = "libgit2")]
-pub fn sync_merging(vault: &Path) -> Result<crate::git_lib::Integrated, String> {
-    let branch = run(vault, &["branch", "--show-current"])?.trim().to_string();
-    if branch.is_empty() {
+pub fn sync_merging(vault: &Path, samples: Option<crate::starter::App>) -> Result<crate::git_lib::Integrated, String> {
+    if run(vault, &["branch", "--show-current"])?.trim().is_empty() {
         return Err("Not on a branch: sync from a terminal".into());
     }
     run(vault, &["fetch", "--quiet", "origin"])?;
-    let done = crate::git_lib::integrate(vault)?;
+    let adopted = match samples {
+        Some(app) => adopt_repository(vault, app)?,
+        None => None,
+    };
+    let done = match adopted {
+        Some(done) => done,
+        None => crate::git_lib::integrate(vault)?,
+    };
+    let branch = run(vault, &["branch", "--show-current"])?.trim().to_string();
     // Sets the upstream the first time (a fresh, empty remote).
     run(vault, &["push", "--quiet", "--set-upstream", "origin", &branch])?;
     Ok(done)
+}
+
+/// The first sync with a repository that already has pages: its pages are the workspace now. Samples
+/// nobody touched go, and with nothing else here the workspace becomes the repository, without a trace
+/// of them in its history. Returns None to carry on with a normal merge: anything someone wrote is kept.
+#[cfg(feature = "libgit2")]
+fn adopt_repository(vault: &Path, app: crate::starter::App) -> Result<Option<crate::git_lib::Integrated>, String> {
+    if run(vault, &["rev-parse", "--abbrev-ref", "@{upstream}"]).is_ok() {
+        return Ok(None);
+    }
+    // No HEAD to point at: an empty repository, which this workspace fills.
+    let refs = run(vault, &["ls-remote", "--symref", "origin", "HEAD"]).unwrap_or_default();
+    let Some(remote) = refs.lines().find_map(|l| l.strip_prefix("ref: refs/heads/")?.split_whitespace().next().map(str::to_string)) else {
+        return Ok(None);
+    };
+    // Take its branch's name, so this doesn't push a second branch beside it.
+    if run(vault, &["branch", "--show-current"])?.trim() != remote {
+        run(vault, &["branch", "-M", &remote])?;
+    }
+    let removed = crate::starter::remove_untouched(vault, app);
+    if crate::vault::markdown_files(vault).next().is_none() {
+        run(vault, &["add", "--all"])?;
+        run(vault, &["reset", "--hard", &format!("origin/{remote}")])?;
+        run(vault, &["branch", &format!("--set-upstream-to=origin/{remote}")])?;
+        return Ok(Some(crate::git_lib::Integrated { updated: true, conflicts: vec![] }));
+    }
+    if removed > 0 {
+        commit_all(vault, "Remove the starter pages")?;
+    }
+    Ok(None)
 }
 
 pub fn sync(vault: &Path) -> Result<String, String> {
@@ -279,6 +316,97 @@ pub fn publish(vault: &Path) -> Result<String, String> {
 mod sync_tests {
     use super::*;
 
+    /// A bare repository (its default branch named `branch`) holding `Mine.md`.
+    fn remote_with_a_page(root: &Path, branch: &str) -> std::path::PathBuf {
+        let (remote, seed) = (root.join("remote.git"), root.join("seed"));
+        std::fs::create_dir_all(&remote).unwrap();
+        run(&remote, &["init", "--quiet", "--bare", "--initial-branch", branch]).unwrap();
+        std::fs::create_dir_all(&seed).unwrap();
+        run(&seed, &["init", "--quiet", "--initial-branch", branch]).unwrap();
+        run(&seed, &["config", "user.name", "T"]).unwrap();
+        run(&seed, &["config", "user.email", "t@t"]).unwrap();
+        std::fs::write(seed.join("Mine.md"), "mine\n").unwrap();
+        run(&seed, &["add", "."]).unwrap();
+        run(&seed, &["commit", "--quiet", "-m", "mine"]).unwrap();
+        run(&seed, &["push", "--quiet", remote.to_str().unwrap(), branch]).unwrap();
+        remote
+    }
+
+    /// A new workspace: starter pages, committed, connected to `remote`.
+    fn new_workspace(root: &Path, remote: &Path) -> std::path::PathBuf {
+        let a = root.join("a");
+        std::fs::create_dir_all(&a).unwrap();
+        for (rel, content) in crate::starter::pages(crate::starter::App::Desktop) {
+            crate::vault::write_note(&a, rel, &content).unwrap();
+        }
+        ensure_repo(&a).unwrap();
+        run(&a, &["config", "user.name", "A"]).unwrap();
+        run(&a, &["config", "user.email", "a@a"]).unwrap();
+        commit_all(&a, "Start").unwrap();
+        set_remote(&a, remote.to_str().unwrap()).unwrap();
+        a
+    }
+
+    fn pages_in(dir: &Path) -> Vec<String> {
+        let mut pages: Vec<String> = crate::vault::markdown_files(dir).map(|p| crate::vault::rel_string(dir, &p)).collect();
+        pages.sort();
+        pages
+    }
+
+    #[test]
+    fn connecting_a_repository_leaves_only_its_pages() {
+        let desktop = Some(crate::starter::App::Desktop);
+        let root = std::env::temp_dir().join(format!("bg-adopt-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let remote = remote_with_a_page(&root, "trunk");
+        let a = new_workspace(&root, &remote);
+
+        let done = sync_merging(&a, desktop).unwrap();
+        assert!(done.updated);
+        assert_eq!(pages_in(&a), ["Mine.md"], "only the repository's pages");
+        assert_eq!(run(&a, &["branch", "--show-current"]).unwrap().trim(), "trunk");
+        assert_eq!(run(&remote, &["branch", "--list"]).unwrap().split_whitespace().filter(|b| *b != "*").collect::<Vec<_>>(), ["trunk"], "no second branch");
+        let history = run(&remote, &["log", "--all", "--name-only", "--format="]).unwrap();
+        assert!(!history.contains("Welcome.md") && !history.contains("Tasks"), "no sample in the repository, even in its history: {history}");
+
+        // From then on it's a normal workspace: its pages stay, and new ones are synced.
+        std::fs::write(a.join("Next.md"), "next\n").unwrap();
+        sync_merging(&a, desktop).unwrap();
+        assert_eq!(pages_in(&a), ["Mine.md", "Next.md"]);
+        assert!(run(&remote, &["ls-tree", "--name-only", "trunk"]).unwrap().contains("Next.md"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn connecting_keeps_what_someone_wrote_or_edited() {
+        let root = std::env::temp_dir().join(format!("bg-adopt-kept-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let remote = remote_with_a_page(&root, "main");
+        let a = new_workspace(&root, &remote);
+        std::fs::write(a.join("Written here.md"), "new\n").unwrap();
+        std::fs::write(a.join("Meeting notes.md"), "edited\n").unwrap();
+
+        sync_merging(&a, Some(crate::starter::App::Desktop)).unwrap();
+        assert_eq!(pages_in(&a), ["Meeting notes.md", "Mine.md", "Written here.md"], "untouched samples go, the rest stays");
+        assert_eq!(std::fs::read_to_string(a.join("Meeting notes.md")).unwrap(), "edited\n");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn an_empty_repository_gets_the_starter_pages() {
+        let root = std::env::temp_dir().join(format!("bg-adopt-empty-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let remote = root.join("remote.git");
+        std::fs::create_dir_all(&remote).unwrap();
+        run(&remote, &["init", "--quiet", "--bare", "--initial-branch", "main"]).unwrap();
+        let a = new_workspace(&root, &remote);
+
+        sync_merging(&a, Some(crate::starter::App::Desktop)).unwrap();
+        assert_eq!(pages_in(&a).len(), 7, "the samples stay");
+        assert!(run(&remote, &["ls-tree", "--name-only", "main"]).unwrap().contains("Welcome.md"));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
     #[test]
     fn sync_merging_never_stops_half_way() {
         let root = std::env::temp_dir().join(format!("bg-sync-merging-{}", std::process::id()));
@@ -296,7 +424,7 @@ mod sync_tests {
         set_remote(&a, remote.to_str().unwrap()).unwrap();
         std::fs::write(a.join("Plan.md"), "v1\n").unwrap();
         // A fresh, empty remote: the first sync publishes.
-        sync_merging(&a).unwrap();
+        sync_merging(&a, None).unwrap();
 
         std::process::Command::new("git").args(["clone", "--quiet"]).arg(&remote).arg(&b).status().unwrap();
         ident(&b);
@@ -304,14 +432,14 @@ mod sync_tests {
 
         // The same page changed on both: both kept, nothing left half done.
         std::fs::write(a.join("Plan.md"), "from a\n").unwrap();
-        sync_merging(&a).unwrap();
+        sync_merging(&a, None).unwrap();
         std::fs::write(b.join("Plan.md"), "from b\n").unwrap();
-        let got = sync_merging(&b).unwrap();
+        let got = sync_merging(&b, None).unwrap();
         assert_eq!(got.conflicts, vec!["Plan.md".to_string()]);
         assert_eq!(std::fs::read_to_string(b.join("Plan.md")).unwrap(), "from a\n");
         assert_eq!(std::fs::read_to_string(b.join("Plan (conflicted copy).md")).unwrap(), "from b\n");
         assert!(!b.join(".git/rebase-merge").exists() && status(&b).unwrap().changes.is_empty());
-        sync_merging(&a).unwrap();
+        sync_merging(&a, None).unwrap();
         assert!(a.join("Plan (conflicted copy).md").exists());
         let _ = std::fs::remove_dir_all(&root);
     }

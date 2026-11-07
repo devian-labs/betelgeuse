@@ -39,10 +39,11 @@ npm run android -w @betelgeuse/mobile    # Android emulator (or a connected phon
 | `apps/desktop/` | The desktop app (Tauri). |
 | `apps/desktop/src/` | The desktop app's entry point. Its interface is shared: see `packages/ui/`. |
 | `apps/desktop/src-tauri/` | The desktop app's Rust side: its commands, file watching, import from Notion and Obsidian. |
-| `apps/desktop/src-tauri/seed/` | The Welcome guide every new workspace starts with. |
+| `apps/desktop/src-tauri/seed/` | The guide published as the website's "Using Betelgeuse" docs. |
 | `apps/desktop/tests/` | Tests of the shared editor, databases and plugin runtime. |
 | `apps/mobile/` | The iOS and Android app (Tauri). Its screens are its own and reuse the shared editor and databases; `src-tauri/gen/` holds the Xcode and Android Studio projects. |
 | `apps/web/` | The web app (Next.js): the shared interface over a GitHub repository. `lib/vault.ts` is its copy of the workspace rules, `lib/workspace.ts` its sync. See its [README](apps/web/README.md). |
+| `packages/starter-pages/` | The pages every new workspace starts with, in all the apps. They must stay exactly as the editor saves them: a test checks this. |
 | `packages/ui/` | The interface all three apps share: the editor (`src/editor/`), databases (`src/database/`), sidebar and settings, and the plugin runtime. It reaches its host only through `src/platform/`, and must not import `@tauri-apps/*` anywhere else. |
 | `apps/lander/` | The website ([betelgeuse.pro](https://betelgeuse.pro)). Run it with `npm run lander`. |
 | `crates/betelgeuse-core/` | The workspace engine every app shares (Rust): pages, frontmatter, databases, links, trash and git. |

@@ -51,8 +51,8 @@ jobs:
           {
             echo "web=$(has "^(apps/desktop/|apps/mobile/|apps/web/|crates/betelgeuse-core/plugin-signing\.pub$|packages/|plugins/|scripts/|package(-lock)?\.json$|tsconfig)$ci" "$web_files")"
             echo "lander=$(has "^(apps/lander/|docs/content/|apps/desktop/src-tauri/seed/|package(-lock)?\.json$)$ci")"
-            echo "rust=$(has "^(crates/|apps/desktop/src-tauri/|apps/mobile/src-tauri/|Cargo\.(toml|lock)$|rust-toolchain)$ci")"
-            echo "android=$(has "^(apps/mobile/src-tauri/|apps/mobile/scripts/|apps/mobile/package\.json$)")"
+            echo "rust=$(has "^(crates/|apps/desktop/src-tauri/|apps/mobile/src-tauri/|packages/starter-pages/|Cargo\.(toml|lock)$|rust-toolchain)$ci")"
+            echo "android=$(has "^(apps/mobile/src-tauri/|apps/mobile/scripts/|apps/mobile/package\.json$|packages/starter-pages/)")"
           } | tee -a "$GITHUB_OUTPUT"
 
   web-and-mcp:

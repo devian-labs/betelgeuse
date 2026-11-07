@@ -59,6 +59,9 @@ const withActive = (t: Tabs, f: (tab: Tab) => Tab): Tabs => ({ ...t, list: t.lis
 
 const RECENTS = 10;
 
+/** A browser on a phone: too narrow for the sidebar and a page side by side, so it stays out of the way. */
+const narrowWeb = () => platform().kind === "web" && window.innerWidth < 768;
+
 export default function App() {
   const [vault, setVault] = useState<VaultInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +84,10 @@ export default function App() {
   const [palette, setPalette] = useState(false);
   const [agents, setAgents] = useState(false);
   const [history, setHistory] = useState(false);
-  const [sidebar, setSidebar] = useState(() => store.get("sidebar") !== "hidden");
+  const [sidebar, setSidebar] = useState(() => {
+    const saved = store.get("sidebar");
+    return saved ? saved !== "hidden" : !narrowWeb();
+  });
   const [sidebarPeek, setSidebarPeek] = useState(false);
   const fullscreen = useFullscreen();
   useApplySettings();
@@ -174,7 +180,10 @@ export default function App() {
       // A background sync: pages it brought in show straight away; trouble is said once, not every round.
       listen<{ updated: boolean; conflicts: string[] }>("git-synced", (e) => {
         lastSyncError.current = null;
-        refresh();
+        void refresh().then((n) => {
+          // Pages the sync took away (a repository's pages replacing the samples) close their tabs.
+          if (e.payload.updated) setTabs((t) => withoutMissing(t, n));
+        });
         if (e.payload.updated) setRefreshKey((k) => k + 1);
         const n = e.payload.conflicts.length;
         if (n) setToast({ message: n === 1 ? `“${e.payload.conflicts[0].replace(/^.*\//, "").replace(/\.md$/, "")}” changed here and elsewhere: both versions kept` : `${n} pages changed here and elsewhere: both versions kept` });
@@ -209,7 +218,10 @@ export default function App() {
   }, [vault, favorites]);
 
   // Opening a page closes the peek panel; the sidebar stays as the user left it.
-  const reveal = useCallback((_path: string) => setPeekPath(null), []);
+  const reveal = useCallback((_path: string) => {
+    setPeekPath(null);
+    if (narrowWeb()) setSidebar(false);
+  }, []);
 
   // Opens a page in the current tab (browser-style back/forward), or a new
   // tab next to it. With no tab open yet, the page gets the first one.
@@ -651,6 +663,19 @@ export default function App() {
       </div>
     </VaultContext.Provider>
   );
+}
+
+/** Keeps the tabs still showing something, moving to the first page left if none are. */
+function withoutMissing(t: Tabs, notes: NoteMeta[]): Tabs {
+  const shows = (tab: Tab) => {
+    const path = current(tab);
+    return !!path && (path.startsWith("@plugin/") || notes.some((n) => n.path === path));
+  };
+  const alive = t.list.filter(shows);
+  if (alive.length === t.list.length) return t;
+  if (!alive.length) return { list: notes[0] ? [newTab(notes[0].path)] : [], active: 0 };
+  const keep = alive.indexOf(t.list[t.active]);
+  return { list: alive, active: keep >= 0 ? keep : Math.min(t.active, alive.length - 1) };
 }
 
 /** The new page list, reusing the old entries (and the old list) where nothing changed. */

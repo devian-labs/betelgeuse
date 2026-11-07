@@ -51,6 +51,10 @@ Both use `tests/fake-github.ts`, a small GitHub with real hashing and fast-forwa
 - **`lib/vault.ts`** is the workspace's rules, ported from `crates/betelgeuse-core/src/vault.rs`. Keep them in step.
 - **`lib/commands.ts`** answers the shared interface in the same words as the desktop app's Tauri commands. `@betelgeuse/ui` doesn't know which backend it has.
 
+## The demo
+
+`/demo` is the whole app with no account. It runs the real workspace and sync code against `lib/demo/github.ts`, an in-memory stand-in for GitHub, on the starter pages in `packages/starter-pages`. Nothing leaves the tab, and reloading starts over.
+
 ## Limits
 
 - GitHub only, on the repository's default branch.
