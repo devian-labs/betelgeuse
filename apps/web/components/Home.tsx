@@ -61,6 +61,9 @@ export default function Home() {
         <a href="/api/auth/login" className="flex h-10 items-center justify-center gap-2 rounded-md bg-[var(--blue)] text-sm font-medium text-white hover:brightness-110">
           <GitFork size={16} /> Sign in with GitHub
         </a>
+        <a href="/demo" className="flex h-10 items-center justify-center rounded-md border border-line text-sm font-medium hover:bg-hover">
+          Try the demo, no sign-in
+        </a>
         <p className="text-xs leading-relaxed text-faint">
           You choose which repositories Betelgeuse can open, and you can take that back any time in your GitHub settings.{" "}
           <a href="https://betelgeuse.pro" className="underline underline-offset-2 hover:text-ink">

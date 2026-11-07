@@ -4,7 +4,7 @@
  * (needs Chromium from playwright, and `npm run plugins` for the plugin part).
  */
 import assert from "node:assert/strict";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium } from "playwright-core";
@@ -42,6 +42,7 @@ const env = {
   APP_URL: APP,
 };
 const cwd = resolve(import.meta.dirname, "../..");
+execFileSync("node", ["scripts/starter-pages.mjs"], { cwd, stdio: "ignore" });
 // Its own process group: `next` runs children that have to stop with it.
 const next = (args: string[]): ChildProcess => spawn("npx", ["next", ...args], { cwd, env, stdio: ["ignore", "pipe", "pipe"], detached: true });
 const stopServer = (child: ChildProcess) => {
@@ -71,6 +72,9 @@ for (let i = 0; ; i++) {
   }
   await new Promise((r) => setTimeout(r, 500));
 }
+
+// Compile the pages first: a dev server's first compile reloads a page mid-test.
+for (const path of ["/", "/demo"]) await fetch(`${APP}${path}`).catch(() => {});
 
 const browser = await chromium.launch({ channel: process.env.E2E_CHANNEL ?? "chrome" });
 // A dark system theme, to show the app still starts light.
@@ -105,6 +109,39 @@ const sidebar = (title: string) => page.getByText(title, { exact: true }).first(
 
 let failed: unknown = null;
 try {
+  await step("the demo works with no sign-in, and never talks to GitHub", async () => {
+    const before = gh.requests.length;
+    // A dev server compiles its hot-reload code on the first page a browser opens, and reloads that page.
+    await page.goto(APP);
+    await page.getByText("Sign in with GitHub").waitFor();
+    await page.goto(`${APP}/demo`);
+    await page.getByText("This is a demo.").waitFor();
+    await page.locator(".ProseMirror").first().waitFor();
+    await page.locator(".ProseMirror").first().click();
+    await page.keyboard.type("Typed in the demo. ");
+    await page.getByText("Typed in the demo.").first().waitFor();
+    await sidebar("Meeting notes").click();
+    await page.getByText("Who does what").waitFor();
+    await sidebar("Tasks").click();
+    await page.getByText("Write the launch post").first().waitFor();
+    await page.getByRole("button", { name: "New", exact: true }).first().waitFor();
+    assert.equal(await page.getByText(/today[+-]\d/).count(), 0, "dates are filled in");
+    await page.screenshot({ path: `${SHOTS}/0-demo.png` });
+    await page.waitForTimeout(10_000); // past the auto-commit delay
+    await sidebar("Welcome").click();
+    await page.getByTitle("Page history").click();
+    await page.getByText(/Update Welcome/).first().waitFor();
+    const subjects = await page.locator("button .line-clamp-2").allTextContents();
+    assert.deepEqual(subjects, ["Update Welcome", "Create the demo workspace"], "only the edit made a commit: opening pages made none");
+    await page.getByTitle("Page history").click();
+    assert.equal(gh.requests.length, before, "no calls to GitHub");
+    assert.equal(await context.cookies(`${APP}/api/auth/token`).then((c) => c.length), 0, "no session");
+    await page.reload();
+    await page.getByText("This is a demo.").waitFor();
+    await page.locator(".ProseMirror").first().waitFor();
+    assert.equal(await page.getByText("Typed in the demo.").count(), 0, "reloading starts over");
+  });
+
   await step("signed out, the page offers GitHub sign-in", async () => {
     await page.goto(APP);
     await page.getByText("Sign in with GitHub").waitFor();

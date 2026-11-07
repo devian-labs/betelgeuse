@@ -7,6 +7,8 @@ export const RELEASES = `${REPO}/releases/latest`;
 export const SITE_URL = "https://betelgeuse.pro";
 /** The web app: Betelgeuse in the browser, on a GitHub repository. */
 export const APP_URL = "https://app.betelgeuse.pro";
+/** The whole app with sample pages, and no sign-in. */
+export const DEMO_URL = `${APP_URL}/demo`;
 export const SITE_NAME = "Betelgeuse";
 export const ORG = { name: "Devian Labs", url: "https://devianlabs.com", github: "https://github.com/devian-labs" };
 

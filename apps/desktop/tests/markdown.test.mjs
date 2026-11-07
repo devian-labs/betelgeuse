@@ -29,7 +29,7 @@ function roundTrip(md) {
 
 const same = (md) => assert.equal(roundTrip(md).trim(), md.trim());
 
-// ---------- seed workspace (src-tauri/seed mirrors the pages a new workspace starts with) ----------
+// ---------- the guide (src-tauri/seed: the website's "Using Betelgeuse" docs) ----------
 
 const SEED = fileURLToPath(new URL("../src-tauri/seed/", import.meta.url));
 const seed = readdirSync(SEED, { recursive: true })
@@ -115,6 +115,19 @@ test("code block languages", () => same("```python\nprint('hi')\n```\n\n```\npla
 
 test("colour spanning bold text stays one well-formed span", () =>
   same('<span data-bg="red">Plain then **bold words** and `code` then plain.</span>'));
+
+// ---------- the starter pages every new workspace gets: opening one must not rewrite it, or just reading makes a commit ----------
+
+const STARTER = fileURLToPath(new URL("../../../packages/starter-pages/", import.meta.url));
+for (const path of readdirSync(STARTER, { recursive: true }).filter((f) => f.endsWith(".md"))) {
+  const content = readFileSync(STARTER + path, "utf8");
+  const { frontmatter, body } = splitNote(content);
+  if (readFrontmatter(frontmatter).type === "database") {
+    test(`starter database "${path}" has a schema`, () => assert.ok(parseSchema(body).properties.length > 0));
+  } else {
+    test(`starter page "${path}" stays exactly as written when opened`, () => assert.equal(joinNote(frontmatter, roundTrip(body)), content));
+  }
+}
 
 // ---------- Notion import (src-tauri/src/importer.rs) ----------
 

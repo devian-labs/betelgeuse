@@ -6,6 +6,7 @@
 mod plugin_host;
 mod sync;
 
+use betelgeuse_core::starter::{self, App};
 use betelgeuse_core::vault;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -40,8 +41,8 @@ struct VaultInfo {
     name: String,
 }
 
-/// The pages a new phone workspace starts with.
-const WELCOME: &[(&str, &str)] = &[("Welcome.md", include_str!("../welcome/Welcome.md")), ("Inbox.md", include_str!("../welcome/Inbox.md"))];
+/// The page new notes land in: the phone's own, on top of the starter pages every app shares.
+const INBOX: (&str, &str) = ("Inbox.md", include_str!("../welcome/Inbox.md"));
 
 fn workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let dir = app.path().app_data_dir().map_err(|e| e.to_string())?.join("Workspace");
@@ -50,12 +51,13 @@ fn workspace_dir(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 /// Welcome pages earlier versions of the app wrote, which still count as untouched.
-const PREVIOUS_WELCOME: &[(&str, &str)] = &[("Welcome.md", include_str!("../welcome/previous/Welcome.md"))];
+const PREVIOUS_WELCOME: &[(&str, &str)] = &[("Welcome.md", include_str!("../welcome/previous/Welcome.md")), ("Welcome.md", include_str!("../welcome/previous/Welcome-short.md")), INBOX];
 
 /// A welcome page as this app wrote it, with nothing inside it: not worth keeping when the phone
 /// connects to a repository that already has pages.
 pub(crate) fn is_untouched_welcome(workspace: &Path, rel: &str, bytes: &[u8]) -> bool {
-    WELCOME.iter().chain(PREVIOUS_WELCOME).any(|(page, content)| *page == rel && content.as_bytes() == bytes) && !workspace.join(rel.trim_end_matches(".md")).exists()
+    starter::is_untouched(workspace, App::Phone, rel, bytes)
+        || PREVIOUS_WELCOME.iter().any(|(page, content)| *page == rel && content.as_bytes() == bytes) && !workspace.join(rel.trim_end_matches(".md")).exists()
 }
 
 /// Writes the welcome pages into an empty workspace, and never over anything already there.
@@ -63,10 +65,10 @@ fn seed_if_empty(dir: &Path) -> Result<(), String> {
     if !vault::list_notes(dir).is_empty() {
         return Ok(());
     }
-    for (rel, content) in WELCOME {
-        vault::write_note(dir, rel, content)?;
+    for (rel, content) in starter::pages(App::Phone) {
+        vault::write_note(dir, rel, &content)?;
     }
-    Ok(())
+    vault::write_note(dir, INBOX.0, INBOX.1)
 }
 
 #[tauri::command]
@@ -271,11 +273,11 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         seed_if_empty(&dir).unwrap();
         let titles: Vec<String> = vault::list_notes(&dir).into_iter().map(|n| n.title).collect();
-        assert_eq!(titles.len(), WELCOME.len(), "{titles:?}");
-        for (_, content) in WELCOME {
-            for target in vault::wikilinks(content) {
-                assert!(WELCOME.iter().any(|(page, _)| vault::link_matches(target, page)), "welcome links to missing [[{target}]]");
-            }
+        assert!(["Welcome", "Inbox", "Meeting notes", "Tasks"].iter().all(|t| titles.iter().any(|x| x == t)), "{titles:?}");
+        assert_eq!(titles.len(), 8, "{titles:?}");
+        // Connecting to a repository that has pages leaves all of these behind, Inbox included.
+        for note in vault::list_notes(&dir) {
+            assert!(is_untouched_welcome(&dir, &note.path, &std::fs::read(dir.join(&note.path)).unwrap()), "{}", note.path);
         }
 
         vault::write_note(&dir, "Welcome.md", "edited").unwrap();
