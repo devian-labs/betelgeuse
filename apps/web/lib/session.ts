@@ -23,7 +23,7 @@ async function fetchToken(force: boolean): Promise<string> {
 export const githubApi = () => process.env.NEXT_PUBLIC_GITHUB_API_URL || "https://api.github.com";
 export const githubWeb = () => process.env.NEXT_PUBLIC_GITHUB_WEB_URL || "https://github.com";
 /** Where people give the app access to more repositories. */
-export const installUrl = () => `${githubWeb()}/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG ?? "betelgeuse-notes"}/installations/new`;
+export const installUrl = () => `${githubWeb()}/apps/${process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || "betelgeuse-web"}/installations/new`;
 export const newRepoUrl = () => `${githubWeb()}/new?name=notes&visibility=private`;
 
 export const LAST_REPO = "betelgeuse:last-repo";

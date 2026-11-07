@@ -1,12 +1,13 @@
 "use client";
 
-import { Blocks, FileText, MonitorSmartphone, Table2, type LucideIcon } from "lucide-react";
+import { Blocks, FileText, MonitorSmartphone, Puzzle, Table2, type LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CodeWindow } from "./CodeWindow";
+import { PluginStoreDemo } from "./Demos";
 import { Laptop, Phone } from "./Devices";
 import { Shot } from "./Shot";
 
-const PLATFORMS: [string, string?][] = [["macOS"], ["Windows"], ["Linux"], ["Android", "preview"], ["iOS", "soon"]];
+const PLATFORMS: [string, string?][] = [["macOS"], ["Windows"], ["Linux"], ["Web", "preview"], ["Android", "preview"], ["iOS", "soon"]];
 
 const features: { id: string; Icon: LucideIcon; title: string; body: ReactNode; visual: ReactNode }[] = [
   {
@@ -73,6 +74,13 @@ const features: { id: string; Icon: LucideIcon; title: string; body: ReactNode; 
         <Phone theme="light" kind="ios" name="welcome" alt="The Welcome page on an iPhone" className="device-right" />
       </div>
     ),
+  },
+  {
+    id: "plugins",
+    Icon: Puzzle,
+    title: "Extend it with plugins",
+    body: "Add finance, a media library and more from the store, or build your own.",
+    visual: <PluginStoreDemo />,
   },
 ];
 

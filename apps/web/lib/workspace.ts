@@ -22,6 +22,11 @@ export type Emit = (event: string, payload: unknown) => void;
 const isText = (path: string) => isMarkdownPage(path) || (path.startsWith(".betelgeuse/") && path.endsWith(".json")) || path === ".gitignore";
 const isLocal = (path: string) => path.startsWith(`${TRASH}/`);
 
+/** Pages per request, requests at a time, and how often the interface hears about new pages. */
+const BATCH = 100;
+const READERS = 3;
+const ANNOUNCE_EVERY = 2000;
+
 const WELCOME = `---
 icon: 🌟
 ---
@@ -73,6 +78,8 @@ export class Workspace implements Files {
   private timesTimer: ReturnType<typeof setTimeout> | undefined;
   private lastError: string | null = null;
   private edits = 0;
+  private loading: Promise<void> | null = null;
+  private disposed = false;
 
   constructor(options: WorkspaceOptions) {
     this.owner = options.owner;
@@ -224,10 +231,11 @@ export class Workspace implements Files {
   }
 
   /**
-   * Opens the workspace. With a copy in this browser it's ready straight away and catches up in the
-   * background, offline included; the first time it reads the whole repository.
+   * Opens the workspace, ready to use as soon as the page list is known: pages themselves load in the
+   * background (`loadRest`), and any page asked for goes first. With a copy in this browser it's ready
+   * straight away and catches up from there, offline included.
    */
-  async open(progress?: (done: number, total: number) => void): Promise<void> {
+  async open(): Promise<void> {
     const known = await this.load();
     let info;
     try {
@@ -238,44 +246,105 @@ export class Workspace implements Files {
       throw e;
     }
     this.branch = info.default_branch;
-    if (known) {
-      void this.background();
-      return;
+    if (!known) {
+      let head = await this.gh.head(this.owner, this.repo, this.branch);
+      if (!head) {
+        await this.gh.putFile(this.owner, this.repo, ".gitignore", GITIGNORE, "Set up Betelgeuse workspace");
+        await this.gh.putFile(this.owner, this.repo, "Welcome.md", WELCOME, "Add Welcome page");
+        head = await this.gh.head(this.owner, this.repo, this.branch);
+        if (!head) throw new Error("GitHub didn't create the first commit.");
+      }
+      const { tree: treeSha, date } = await this.gh.commit(this.owner, this.repo, head);
+      const entries = await this.gh.tree(this.owner, this.repo, treeSha);
+      const cached = new Map(await this.store.all<string | Uint8Array>("blobs"));
+      for (const e of entries) {
+        const text = cached.get(e.sha);
+        if (isText(e.path) && typeof text === "string") this.texts.set(e.sha, text);
+      }
+      this.commitSha = head;
+      this.treeSha = treeSha;
+      this.base = new Map(entries.map((e) => [e.path, e.sha]));
+      const local = this.working;
+      this.working = new Map();
+      for (const e of entries) {
+        this.working.set(e.path, isText(e.path) && this.texts.has(e.sha) ? { text: this.texts.get(e.sha) } : { sha: e.sha });
+        this.timesByPath.set(e.path, { modified: date, created: date });
+      }
+      for (const [path, node] of local) this.working.set(path, node);
+      // The workspace's settings (plugins, who agents can see) have to be there from the start.
+      await this.ensure(this.paths().filter((path) => !isMarkdownPage(path)));
+      this.saveMeta();
+      await this.flush();
     }
-    let head = await this.gh.head(this.owner, this.repo, this.branch);
-    if (!head) {
-      await this.gh.putFile(this.owner, this.repo, ".gitignore", GITIGNORE, "Set up Betelgeuse workspace");
-      await this.gh.putFile(this.owner, this.repo, "Welcome.md", WELCOME, "Add Welcome page");
-      head = await this.gh.head(this.owner, this.repo, this.branch);
-      if (!head) throw new Error("GitHub didn't create the first commit.");
+    void this.loadRest().catch((e) => this.emit("git-sync-failed", e instanceof Error ? e.message : String(e)));
+    if (known) void this.background();
+  }
+
+  // ---------- Loading pages ----------
+
+  /** Text files not read yet, by blob sha. */
+  private unread(paths: Iterable<string>) {
+    const shas = new Set<string>();
+    for (const path of paths) {
+      const node = this.working.get(path);
+      if (isText(path) && node?.sha && node.text === undefined) shas.add(node.sha);
     }
-    const { tree: treeSha, date } = await this.gh.commit(this.owner, this.repo, head);
-    const entries = await this.gh.tree(this.owner, this.repo, treeSha);
-    const wanted = [...new Set(entries.filter((e) => isText(e.path)).map((e) => e.sha))];
-    const cached = new Map(await this.store.all<string | Uint8Array>("blobs"));
-    const fetch = wanted.filter((sha) => {
-      const text = cached.get(sha);
-      if (typeof text === "string") this.texts.set(sha, text);
-      return typeof text !== "string";
-    });
-    progress?.(0, fetch.length);
-    const got = await this.gh.texts(this.owner, this.repo, fetch, (n) => progress?.(n, fetch.length));
+    return [...shas];
+  }
+
+  private applyTexts(got: Map<string, string>) {
     for (const [sha, text] of got) {
       this.texts.set(sha, text);
       this.writes = this.writes.then(() => this.store.put("blobs", sha, text));
     }
-    this.commitSha = head;
-    this.treeSha = treeSha;
-    this.base = new Map(entries.map((e) => [e.path, e.sha]));
-    const local = this.working;
-    this.working = new Map();
-    for (const e of entries) {
-      this.working.set(e.path, isText(e.path) ? { text: this.texts.get(e.sha) ?? "" } : { sha: e.sha });
-      this.timesByPath.set(e.path, { modified: date, created: date });
+    // An edit or a pull may have replaced a file meanwhile: only files still waiting take the text.
+    for (const [path, node] of this.working) {
+      const text = node.sha && node.text === undefined && isText(path) ? got.get(node.sha) : undefined;
+      if (text !== undefined) this.working.set(path, { text });
     }
-    for (const [path, node] of local) this.working.set(path, node);
-    this.saveMeta();
+  }
+
+  /** Reads these files now, ahead of the background load. */
+  async ensure(paths: string[]) {
+    const shas = this.unread(paths);
+    if (shas.length) this.applyTexts(await this.gh.texts(this.owner, this.repo, shas));
+  }
+
+  /** Finishes reading every page. Resumes where it left off: what's read is kept in this browser. */
+  loadRest(): Promise<void> {
+    this.loading ??= this.readAll().finally(() => {
+      this.loading = null;
+    });
+    return this.loading;
+  }
+
+  private async readAll() {
+    const shas = this.unread(this.paths());
+    if (!shas.length) return;
+    const total = shas.length;
+    let done = 0;
+    let announced = 0;
+    this.emit("load-progress", { done, total });
+    try {
+      const batches = Array.from({ length: Math.ceil(total / BATCH) }, (_, i) => shas.slice(i * BATCH, (i + 1) * BATCH));
+      const worker = async () => {
+        for (let batch = batches.shift(); batch && !this.disposed; batch = batches.shift()) {
+          this.applyTexts(await this.gh.texts(this.owner, this.repo, batch));
+          done += batch.length;
+          this.emit("load-progress", { done, total });
+          // Icons and titles fill in as pages arrive, without refreshing the whole app on every batch.
+          if (this.now() - announced > ANNOUNCE_EVERY) {
+            announced = this.now();
+            this.emit("vault-changed", ["@loading"]);
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: READERS }, worker));
+    } finally {
+      this.emit("load-progress", { done: total, total });
+    }
     await this.flush();
+    if (!this.disposed) this.emit("vault-changed", ["@loading"]);
   }
 
   // ---------- Other tabs ----------
@@ -337,6 +406,7 @@ export class Workspace implements Files {
     this.soonTimer = setTimeout(() => void this.background(), 1000);
   }
   dispose() {
+    this.disposed = true;
     clearTimeout(this.commitTimer);
     clearTimeout(this.soonTimer);
     clearTimeout(this.timesTimer);
@@ -366,6 +436,8 @@ export class Workspace implements Files {
 
   private async syncNow(message?: string): Promise<SyncResult> {
     await this.flush();
+    // Merging and commit messages (which never name private pages) need every page.
+    await this.loadRest();
     const result: SyncResult = { updated: false, conflicts: [], commit: null };
     // Another device can push between our pull and push: then pull again.
     for (let attempt = 0; attempt < 4; attempt++) {

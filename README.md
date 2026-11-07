@@ -32,7 +32,7 @@ The builds aren't code-signed yet, so the first time you open the app, your OS a
 
 **Android** (preview): install `Betelgeuse_*_android.apk` from the same release. Your phone may ask you to allow installs from your browser or files app. Then open **Settings → Sync** to connect the repository your workspace syncs with. The iOS app builds, but isn't distributed yet.
 
-**[Web](https://app.betelgeuse.pro)** (preview): sign in with GitHub and open a repository as your workspace, with nothing to install. Your browser talks to GitHub directly, so your pages stay in your repository. [Open it](https://app.betelgeuse.pro), or [run it yourself](apps/web/README.md).
+**[Web](https://app.betelgeuse.pro)** (preview): sign in with GitHub and open a repository as your workspace, with nothing to install. Your browser talks to GitHub directly, and we keep no copy of your pages. [Open it](https://app.betelgeuse.pro), or [run it yourself](apps/web/README.md).
 
 **Or build it yourself.** You need [git](https://git-scm.com), [Node.js 20+](https://nodejs.org) and [Rust](https://rustup.rs). The script checks for anything else it needs.
 

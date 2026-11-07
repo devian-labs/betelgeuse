@@ -47,6 +47,7 @@ Both use `tests/fake-github.ts`, a small GitHub with real hashing and fast-forwa
 ## How it works
 
 - **`lib/workspace.ts`** holds the repository's files in memory. Edits go straight into the browser's IndexedDB, so a closed tab loses nothing, then to GitHub as commits. Pulling merges as the other apps do: different lines both survive, and when the same lines changed, the other device's version keeps the page with yours beside it as "(conflicted copy)".
+- **Opening is immediate.** The page list comes first, and pages load in the background, three requests at a time, with any page you open going first. Search and backlinks cover what's arrived so far. Renames, moves and syncing wait until every page is here, since they rewrite links and keep private page names out of commit messages.
 - **`lib/vault.ts`** is the workspace's rules, ported from `crates/betelgeuse-core/src/vault.rs`. Keep them in step.
 - **`lib/commands.ts`** answers the shared interface in the same words as the desktop app's Tauri commands. `@betelgeuse/ui` doesn't know which backend it has.
 

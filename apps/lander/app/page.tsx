@@ -3,20 +3,18 @@ import {
   Bot,
   EyeOff,
   FileText,
-  FolderOpen,
+  GitBranch,
   GitFork,
+  Globe,
   Heart,
   History,
-  ImageIcon,
   Lock,
   MessageSquarePlus,
+  ServerOff,
   ShieldCheck,
-  Store,
-  Wallet,
   Wrench,
 } from "lucide-react";
 import { Command } from "@/components/Command";
-import { PluginStoreDemo } from "@/components/Demos";
 import { DownloadButton } from "@/components/DownloadButton";
 import { Downloads } from "@/components/Downloads";
 import { CodeWindow } from "@/components/CodeWindow";
@@ -24,6 +22,8 @@ import { Laptop, Phone } from "@/components/Devices";
 import { Features } from "@/components/Features";
 import { Contributors, GitHubProvider, RepoCard, StarButton } from "@/components/GitHub";
 import { Logo } from "@/components/Logo";
+import { NavDownload } from "@/components/NavDownload";
+import { OsIcon } from "@/components/OsIcon";
 import { RevealObserver } from "@/components/Reveal";
 import { Shot } from "@/components/Shot";
 import { Tabs } from "@/components/Tabs";
@@ -31,7 +31,7 @@ import { getSnapshot } from "@/lib/github";
 import { APP_URL, ORG, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
 
 const description =
-  "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git on your devices, synced everywhere, with AI agents and plugins.";
+  "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git, on your devices or in your own GitHub repository, with AI agents and plugins.";
 
 export const metadata: Metadata = pageMetadata({ title: "Open-Source Markdown Notes & Docs App | Betelgeuse", description, path: "/" });
 
@@ -52,84 +52,37 @@ const session: [kind: "you" | "tool" | "reply", text: string][] = [
   ["reply", "Done. Both are commits you can undo."],
 ];
 
-/** How plugins work, next to the store illustration. */
-const pluginPoints: { Icon: typeof FileText; title: string; body: string }[] = [
-  {
-    Icon: Store,
-    title: "One click from Settings",
-    body: "Browse the store in Settings → Plugins and install. It's on straight away, and updates come on their own.",
-  },
-  {
-    Icon: ShieldCheck,
-    title: "Signed and checked",
-    body: "Store plugins are built from source by the release pipeline and signed. The app refuses anything that doesn't match.",
-  },
-  {
-    Icon: Lock,
-    title: "Only what they ask for",
-    body: "Each plugin lists its permissions and gets nothing else. Turn it off and everything it added goes, with no restart.",
-  },
-  {
-    Icon: FolderOpen,
-    title: "Your data stays in your pages",
-    body: "What a plugin keeps lives in your workspace, synced with git, and stays if you ever remove the plugin.",
-  },
-];
-
-/** Plugins from Betelgeuse, each with its docs page. */
-const featured: { Icon: typeof FileText; name: string; body: string; where: string; href: string }[] = [
-  {
-    Icon: Wallet,
-    name: "Finance",
-    body: "Accounts and credit cards, transactions, monthly budgets, investments and your net worth, with charts. Import bank statements. Your money stays in databases you own.",
-    where: "Desktop and phone",
-    href: "/docs/plugins/finance/",
-  },
-  {
-    Icon: ImageIcon,
-    name: "Media Library",
-    body: "Browse and search your footage, audio, photos and project files where they already are, with previews, and link project folders to the pages that plan them.",
-    where: "Desktop",
-    href: "/docs/plugins/media-library/",
-  },
+/** What the web app promises: keep each of these true of apps/web. */
+const webPoints: { Icon: typeof FileText; title: string; body: string }[] = [
+  { Icon: Lock, title: "You choose the repositories", body: "It only reaches the ones you select." },
+  { Icon: History, title: "Every edit is a commit", body: "Plain Markdown, made as you." },
+  { Icon: GitFork, title: "Works with your other devices", body: "Open the same repository in the desktop or phone app." },
 ];
 
 /** Question, answer, and the answer as plain text when it isn't a string already (for the FAQPage structured data). */
 const faqs: [string, React.ReactNode, string?][] = [
-  ["Is it really free?", "Yes. It's open source under the MIT license, with no account, subscription or paid tier."],
+  ["Is it really free?", "Yes. It's open source under the MIT license, with no subscription or paid tier. The desktop and phone apps need no account, and the web app signs in with your own GitHub account."],
   [
     "Where are my notes stored?",
     <>
-      In a folder on your computer (<code>~/Betelgeuse</code> by default), as Markdown files in a git repository. Nothing leaves your machine unless
-      you add a git remote to sync.
+      On the desktop, in a folder on your computer (<code>~/Betelgeuse</code> by default), as Markdown files in a git repository. Nothing leaves your
+      machine unless you add a git remote to sync. In the web app, in the GitHub repository you open, with a copy in your browser so it opens quickly.
     </>,
-    "In a folder on your computer (~/Betelgeuse by default), as Markdown files in a git repository. Nothing leaves your machine unless you add a git remote to sync.",
+    "On the desktop, in a folder on your computer (~/Betelgeuse by default), as Markdown files in a git repository. Nothing leaves your machine unless you add a git remote to sync. In the web app, in the GitHub repository you open, with a copy in your browser so it opens quickly.",
   ],
   [
     "Can I use it in a browser?",
     "Yes. The web app opens a GitHub repository as your workspace, with the same editor and databases and nothing to install. You sign in with GitHub and choose which repositories it can reach. Your browser talks to GitHub directly, so your pages stay in your repository. AI agents and importing need the desktop app.",
   ],
   [
+    "Do you keep a copy of my notes?",
+    "No. We have no database and no copy of your pages, and your browser talks to GitHub directly, so they don't pass through our servers. A small service does handle GitHub sign-in, keeping your session in an encrypted cookie in your browser, and it passes along the public plugin store. Your notes are on GitHub under GitHub's terms, so use a private repository, and signing out deletes the copy in your browser.",
+  ],
+  [
     "What can AI agents see?",
     "Only what you share. Pages you hide are left out of agent searches, listings and every MCP tool. That boundary covers agents connected through Betelgeuse's MCP server. An agent you separately give access to the folder itself can read the files.",
   ],
   ["Which AI tools work with it?", "Any MCP client: Claude Code, Claude Desktop, Cursor and others. The app gives you copy-paste setup for each."],
-  [
-    "What are plugins, and are they safe?",
-    "Plugins add features such as Finance or Media Library. Store plugins are built from source by Betelgeuse's release pipeline and signed, the app checks the signature before installing, and each plugin only gets the permissions it lists.",
-  ],
-  [
-    "Can I use it on my phone, or on more than one computer?",
-    "Yes, with git. Connect your workspace to a private repository you control, and Betelgeuse syncs in the background on each computer and in the Android app (a preview). A page changed in two places between syncs keeps both versions, so nothing is lost.",
-  ],
-  [
-    "Why does my computer warn me when I open it?",
-    "The builds aren't code-signed yet (certificates cost money). Confirm once and it opens normally, or build from source to skip the warning entirely.",
-  ],
-  [
-    "What doesn't it do yet?",
-    "It's an early preview. Search is basic, databases don't have formulas yet, there's no sharing or comments, the iOS app isn't distributed yet, and if you and an agent edit the same page at the same moment the last save wins (git keeps both).",
-  ],
 ];
 
 export default async function Home() {
@@ -145,7 +98,7 @@ export default async function Home() {
         url: `${SITE_URL}/`,
         applicationCategory: "BusinessApplication",
         applicationSubCategory: "Notes, documents and databases",
-        operatingSystem: "macOS, Windows, Linux, Android",
+        operatingSystem: "macOS, Windows, Linux, Android, Web",
         ...(github.release ? { softwareVersion: github.release.version.replace(/^v/, "") } : {}),
         downloadUrl: RELEASES,
         installUrl: RELEASES,
@@ -191,18 +144,13 @@ export default async function Home() {
               <a className="optional" href="#features">
                 Features
               </a>
-              <a className="optional" href="#plugins">
-                Plugins
-              </a>
               <a className="optional" href="#agents">
-                AI agents
+                MCP
               </a>
               <a href="/docs/">Docs</a>
-              <a className="optional" href={APP_URL}>
-                Web app
-              </a>
             </nav>
             <StarButton className="button small" label="Star" />
+            <NavDownload />
           </div>
         </header>
 
@@ -246,14 +194,18 @@ export default async function Home() {
             </div>
           </div>
 
-          <ul className="works-with wrap" aria-label="Works with">
-            <li>Works with</li>
-            <li>Claude Code</li>
-            <li>Cursor</li>
-            <li>Any MCP client</li>
-            <li>Obsidian</li>
-            <li>VS Code</li>
-            <li>git</li>
+          <ul className="works-with wrap" aria-label="Works on">
+            <li>Works on</li>
+            {(["macOS", "Windows", "Linux", "Android", "Web"] as const).map((os) => (
+              <li key={os} className="works-on">
+                <OsIcon os={os} size={20} />
+                {os}
+              </li>
+            ))}
+            <li className="works-on">
+              <OsIcon os="iOS" size={20} />
+              iOS <span className="badge quiet">Soon</span>
+            </li>
           </ul>
 
           {/* ---------- Features ---------- */}
@@ -264,7 +216,7 @@ export default async function Home() {
                 If you know Notion, <em>you know this.</em>
               </h2>
               <p className="intro center">
-                The blocks and databases you&apos;re used to, without the cloud: your pages are files on your own devices, and git keeps them in sync.
+                The blocks and databases you&apos;re used to, without our cloud: your pages are files on your own devices or in your own GitHub repository, and git keeps them in sync.
               </p>
             </div>
             <div data-reveal>
@@ -272,72 +224,46 @@ export default async function Home() {
             </div>
           </section>
 
-          {/* ---------- Plugins ---------- */}
-          <div className="band" id="plugins">
+          {/* ---------- Web app ---------- */}
+          <section id="web">
             <div className="wrap center" data-reveal>
-              <p className="kicker">Plugins</p>
+              <p className="kicker">In your browser</p>
               <h2 className="center">
-                Make it <em>yours.</em>
+                Your notes stay on your GitHub. <em>Not with us.</em>
               </h2>
-              <p className="intro center">
-                Betelgeuse stays small. Add what you need from the plugin store, from personal finance to a library for your project files, or build
-                your own.
-              </p>
+              <p className="intro center">The same editor and databases, with nothing to install. Sign in with GitHub and pick a repository.</p>
+              <a className="button primary web-cta" href={APP_URL}>
+                Open the web app
+              </a>
             </div>
-            <div className="wrap plugins" data-reveal>
-              <PluginStoreDemo />
-              <ul className="plugin-points">
-                {pluginPoints.map(({ Icon, title, body }) => (
+            <div className="wrap" data-reveal>
+              <div className="web-flow" role="img" aria-label="Your browser and your GitHub repository exchange your notes directly. Betelgeuse's servers aren't part of that path.">
+                <div className="web-flow-path">
+                  <span className="web-flow-node">
+                    <Globe size={18} /> Your browser
+                  </span>
+                  <span className="web-flow-line">
+                    <span>your notes</span>
+                  </span>
+                  <span className="web-flow-node">
+                    <GitBranch size={18} /> Your repository
+                  </span>
+                </div>
+                <div className="web-flow-off">
+                  <ServerOff size={15} /> Betelgeuse&apos;s servers never see your pages
+                </div>
+              </div>
+              <ul className="web-points">
+                {webPoints.map(({ Icon, title, body }) => (
                   <li key={title}>
                     <Icon className="plugin-point-icon" />
-                    <span>
-                      <strong>{title}</strong>
-                      <span>{body}</span>
-                    </span>
+                    <strong>{title}</strong>
+                    <span>{body}</span>
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="wrap plugin-cards" data-reveal>
-              {featured.map(({ Icon, name, body, where, href }) => (
-                <a key={name} className="oss-card plugin-card" href={href}>
-                  <Icon className="oss-icon" />
-                  <strong>{name}</strong>
-                  <span>{body}</span>
-                  <span className="plugin-meta">
-                    <span className="plugin-where">{where}</span>
-                    <span className="plugin-more">Read more →</span>
-                  </span>
-                </a>
-              ))}
-              <div className="oss-card plugin-build">
-                <div className="plugin-build-head">
-                  <div>
-                    <p className="oss-label">Build your own</p>
-                    <strong>TypeScript and React, a few files.</strong>
-                  </div>
-                  <a href="/docs/developers/plugins/">Build a plugin →</a>
-                </div>
-                <CodeWindow
-                  code
-                  title="src/main.tsx"
-                  lines={[
-                    [`import { definePlugin } from "@betelgeuse/plugin-api";`],
-                    [""],
-                    ["export const { activate } = definePlugin({"],
-                    ["  activate(ctx) {"],
-                    ["    ctx.commands.register({"],
-                    [`      id: "hello",`],
-                    [`      title: "Say hello", // in ⌘K`],
-                    ['      run: () => ctx.ui.toast("Hello!"),'],
-                    ["    });"],
-                    ["  },"],
-                    ["});"],
-                  ]}
-                />
-              </div>
-            </div>
-          </div>
+          </section>
 
           {/* ---------- AI agents ---------- */}
           <section id="agents">
@@ -512,18 +438,6 @@ export default async function Home() {
               <Downloads />
               <div className="card build-card">
                 <h3>
-                  In your browser <span className="badge">Preview</span>
-                </h3>
-                <p>
-                  Nothing to install. Sign in with GitHub and open a repository as your workspace. Your browser talks to GitHub directly, so your pages
-                  stay in your repository and never pass through our servers.
-                </p>
-                <a className="button" href={APP_URL}>
-                  Open the web app
-                </a>
-              </div>
-              <div className="card build-card">
-                <h3>
                   Build from source <span className="badge">No warnings</span>
                 </h3>
                 <p>Needs git, Node.js 20+ and Rust. The script checks for anything else.</p>
@@ -563,7 +477,7 @@ export default async function Home() {
             <nav aria-label="Product">
               <strong>Product</strong>
               <a href="#features">Features</a>
-              <a href="#plugins">Plugins</a>
+              <a href="/docs/plugins/">Plugins</a>
               <a href="#agents">AI agents</a>
               <a href="/docs/">Docs</a>
               <a href="/docs/developers/plugins/">Build a plugin</a>

@@ -1,6 +1,7 @@
 // Sync against a fake GitHub: what two devices editing one repository have to get right.
 import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
+import { makeCommands } from "../lib/commands.ts";
 import { GitHub } from "../lib/github.ts";
 import { conflictedCopyPath, mergeText } from "../lib/merge.ts";
 import { MemoryKV } from "../lib/store.ts";
@@ -265,6 +266,158 @@ test("a page's history comes from GitHub", async () => {
   assert.deepEqual(log.map((c) => c.subject), ["Second", "First"]);
   assert.ok(log[0].timestamp > 1_000_000_000 && log[0].timestamp < 10_000_000_000, "in seconds, like git");
   assert.equal(await ws.github.show("octo", "notes", log[1].hash, "A.md"), "one");
+});
+
+// Holds back the page-reading requests until a test lets them go.
+const holdPages = () => {
+  let release = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  gh.before = async (_method, path) => {
+    if (path === "/graphql") await held;
+  };
+  return release;
+};
+const big = () => Object.fromEntries(Array.from({ length: 250 }, (_, i) => [`Page ${i}.md`, `page ${i}`]));
+
+test("opens before its pages have loaded, and fills in behind", async () => {
+  gh.push({ ...big(), "Icon.md": "---\nicon: 🌟\n---\nx" });
+  const release = holdPages();
+  const { ws } = device();
+  await Promise.race([ws.open(), new Promise((_, no) => setTimeout(() => no(new Error("open waited for the pages")), 1500))]);
+  const notes = vault.listNotes(ws);
+  assert.equal(notes.length, 251, "the whole page list is there");
+  assert.equal(notes.find((n) => n.path === "Page 7.md")!.title, "Page 7", "named after their files for now");
+  assert.equal(notes.find((n) => n.path === "Icon.md")!.icon, null);
+  release();
+  await ws.loadRest();
+  assert.equal(vault.listNotes(ws).find((n) => n.path === "Icon.md")!.icon, "🌟");
+  assert.equal(ws.read("Page 7.md"), "page 7");
+  assert.deepEqual(ws.changes(), [], "loading isn't editing");
+  const progress = events.filter(([e]) => e === "load-progress").map(([, p]) => p as { done: number; total: number });
+  assert.deepEqual(progress.at(-1), { done: 251, total: 251 });
+  assert.ok(events.some(([e]) => e === "vault-changed"), "the interface hears about it");
+  ws.dispose();
+});
+
+test("the workspace's settings are there from the start", async () => {
+  gh.push({ ...big(), ".betelgeuse/plugins.json": '{"enabled":["finance"]}', ".betelgeuse/config.json": '{"ai":{"policy":"shared"}}' });
+  const { ws } = device();
+  await ws.open();
+  assert.equal(ws.read(".betelgeuse/plugins.json"), '{"enabled":["finance"]}');
+  assert.equal(vault.aiPolicy(ws), "shared");
+  await ws.loadRest();
+  ws.dispose();
+});
+
+test("a page asked for goes ahead of the queue", async () => {
+  gh.push(big());
+  const { ws } = device();
+  await ws.open();
+  await ws.ensure(["Page 200.md"]);
+  assert.equal(ws.read("Page 200.md"), "page 200");
+  await ws.loadRest();
+  ws.dispose();
+});
+
+test("an edit made while pages load isn't overwritten", async () => {
+  gh.push(big());
+  const release = holdPages();
+  const { ws } = device();
+  await ws.open();
+  ws.write("Page 3.md", "edited early");
+  release();
+  await ws.loadRest();
+  assert.equal(ws.read("Page 3.md"), "edited early");
+  assert.deepEqual(ws.changes(), [{ path: "Page 3.md", status: "modified" }]);
+  gh.before = undefined;
+  await ws.sync();
+  assert.equal(gh.text("Page 3.md"), "edited early");
+  assert.equal(gh.text("Page 4.md"), "page 4", "the rest untouched");
+  ws.dispose();
+});
+
+test("syncing during the load can't name a private page in a commit", async () => {
+  gh.push({ ...big(), "Secret.md": "---\nai: false\n---\nx" });
+  const release = holdPages();
+  const { ws } = device();
+  await ws.open();
+  // Its parent, which says it's private, hasn't been read yet.
+  ws.write("Secret/Child.md", "new");
+  const syncing = ws.sync();
+  // Long enough for a sync that didn't wait to have committed already, naming the page.
+  await new Promise((r) => setTimeout(r, 300));
+  assert.ok(!gh.files().includes("Secret/Child.md"), "nothing is pushed until every page is read");
+  release();
+  await syncing;
+  assert.equal(gh.log()[0].message, "Update 1 private page");
+  ws.dispose();
+});
+
+test("renaming waits for every page, so no link is missed", async () => {
+  gh.push({ ...big(), "Target.md": "t", "Zed links.md": "[[Target]]" });
+  const release = holdPages();
+  const { ws } = device();
+  await ws.open();
+  const invoke = makeCommands(ws, {} as never, new MemoryKV());
+  const renamed = invoke<string>("rename_note", { path: "Target.md", title: "Moved" });
+  release();
+  assert.equal(await renamed, "Moved.md");
+  assert.equal(ws.read("Zed links.md"), "[[Moved]]");
+  ws.dispose();
+});
+
+test("opening a page or database reads it first", async () => {
+  gh.push({ ...big(), "Db.md": "d", "Db/Row.md": "---\nStatus: Doing\n---\nrow" });
+  const { ws } = device();
+  await ws.open();
+  const invoke = makeCommands(ws, {} as never, new MemoryKV());
+  assert.equal(await invoke("read_note", { path: "Db.md" }), "d");
+  const rows = await invoke<vault.Row[]>("database_rows", { path: "Db.md" });
+  assert.equal(rows[0].content, "---\nStatus: Doing\n---\nrow");
+  await assert.rejects(invoke("read_note", { path: "Nope.md" }), /no such page/);
+  await ws.loadRest();
+  ws.dispose();
+});
+
+test("closing partway picks up where it left off", async () => {
+  gh.push(big());
+  const store = new MemoryKV();
+  const first = device(store).ws;
+  await first.open();
+  await first.ensure(["Page 1.md"]);
+  await first.loadRest();
+  await first.flush();
+  first.dispose();
+  // Half the cache goes missing, as if the tab closed midway.
+  const blobs = await store.all<string>("blobs");
+  for (const [sha] of blobs.slice(0, 120)) await store.del("blobs", sha);
+  gh.requests = [];
+  const second = device(store).ws;
+  await second.open();
+  await second.loadRest();
+  assert.equal(second.read("Page 200.md"), "page 200");
+  assert.equal(gh.requests.filter((r) => r.path === "/graphql").length, 2, "only what was missing");
+  assert.deepEqual(second.changes(), []);
+  second.dispose();
+});
+
+test("a failed load is retried, and edits wait safely", async () => {
+  gh.push(big());
+  let fail = true;
+  gh.before = (_m, path) => {
+    if (path === "/graphql" && fail) throw new Error("boom");
+  };
+  const { ws } = device();
+  await ws.open();
+  await ws.loadRest().catch(() => {});
+  ws.write("Page 2.md", "kept");
+  await assert.rejects(ws.sync());
+  assert.equal(gh.text("Page 2.md"), "page 2");
+  fail = false;
+  await ws.sync();
+  assert.equal(gh.text("Page 2.md"), "kept");
+  assert.equal(ws.read("Page 200.md"), "page 200");
+  ws.dispose();
 });
 
 test("merging text", () => {
