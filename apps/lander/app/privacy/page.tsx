@@ -60,6 +60,10 @@ export default function Privacy() {
         stay in the GitHub repositories you choose: your browser reads and writes them through GitHub&apos;s API directly, and they don&apos;t pass through
         our servers.
       </p>
+      <p>
+        A small service runs alongside the app, for two things only: GitHub sign-in and passing along the public plugin store. Your pages never pass through
+        it, and we keep no database.
+      </p>
       <ul>
         <li>
           <strong>Your session</strong> is an encrypted cookie holding the tokens GitHub issues for you. We keep no copy and no user database. Our server

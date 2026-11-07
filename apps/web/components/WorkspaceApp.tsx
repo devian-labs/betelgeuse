@@ -17,7 +17,7 @@ import { Workspace } from "@/lib/workspace";
 import { Card } from "./Card";
 
 type State =
-  | { kind: "opening"; done: number; total: number }
+  | { kind: "opening" }
   | { kind: "ready"; App: ComponentType }
   | { kind: "signed-out" }
   | { kind: "failed"; message: string };
@@ -27,8 +27,9 @@ const lockFor = (name: string) =>
 
 /** Opens a repository as the workspace, then hands over to the same interface the desktop app has. */
 export default function WorkspaceApp({ owner, repo }: { owner: string; repo: string }) {
-  const [state, setState] = useState<State>({ kind: "opening", done: 0, total: 0 });
+  const [state, setState] = useState<State>({ kind: "opening" });
   const [authLost, setAuthLost] = useState(false);
+  const [loading, setLoading] = useState<{ done: number; total: number } | null>(null);
 
   useEffect(() => {
     let stop = false;
@@ -39,6 +40,7 @@ export default function WorkspaceApp({ owner, repo }: { owner: string; repo: str
     const channel = typeof BroadcastChannel === "undefined" ? undefined : new BroadcastChannel(`betelgeuse:${name}`.toLowerCase());
     const ws = new Workspace({ owner, repo, github, store, emit: bus.emit, channel, lock: lockFor(`betelgeuse:${name}`) });
     const unlisten = bus.listen<string>("auth-lost", () => setAuthLost(true));
+    const unlistenLoading = bus.listen<{ done: number; total: number }>("load-progress", ({ payload }) => setLoading(payload.done < payload.total ? payload : null));
 
     // A file dropped where nothing handles it would navigate away from the app.
     const guard = (e: DragEvent) => {
@@ -49,7 +51,7 @@ export default function WorkspaceApp({ owner, repo }: { owner: string; repo: str
 
     (async () => {
       try {
-        await ws.open((done, total) => !stop && setState({ kind: "opening", done, total }));
+        await ws.open();
         if (stop) return;
         const invoke = makeCommands(ws, new PluginStore(), store);
         const user = await github.user().catch(() => null);
@@ -79,6 +81,7 @@ export default function WorkspaceApp({ owner, repo }: { owner: string; repo: str
       ws.dispose();
       channel?.close();
       void unlisten.then((f) => f());
+      void unlistenLoading.then((f) => f());
       window.removeEventListener("dragover", guard);
       window.removeEventListener("drop", guard);
     };
@@ -89,6 +92,11 @@ export default function WorkspaceApp({ owner, repo }: { owner: string; repo: str
     return (
       <>
         <App />
+        {loading && (
+          <div role="status" className="fixed right-4 bottom-4 z-[90] rounded-full border border-line bg-raised px-3 py-1.5 text-xs text-muted shadow-sm">
+            Loading pages from GitHub: {loading.done.toLocaleString()} of {loading.total.toLocaleString()}. Search covers all of them once this finishes.
+          </div>
+        )}
         {authLost && (
           <div className="fixed inset-x-0 top-0 z-[100] flex items-center justify-center gap-3 bg-[var(--c-orange-bg)] px-4 py-2 text-sm text-[var(--c-orange-text)]">
             Your GitHub session ended. Your edits are safe in this browser.
@@ -122,9 +130,7 @@ export default function WorkspaceApp({ owner, repo }: { owner: string; repo: str
     <div className="grid h-full place-items-center bg-surface text-ink">
       <div className="flex flex-col items-center gap-3">
         <Logo className="size-10 animate-pulse" />
-        <div className="text-sm text-muted">
-          {state.total > 0 ? `Reading ${state.done.toLocaleString()} of ${state.total.toLocaleString()} pages from GitHub…` : `Opening ${owner}/${repo}…`}
-        </div>
+        <div className="text-sm text-muted">Opening {owner}/{repo}…</div>
       </div>
     </div>
   );

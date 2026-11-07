@@ -22,8 +22,9 @@ const parse = (text: string | undefined, fallback: Record<string, unknown>): Rec
 
 export function makeCommands(ws: Workspace, plugins: PluginStore, store: KV) {
   const saved = async <T,>(value: T) => (await ws.flush(), value);
-  const page = (path: string) => {
-    const text = ws.read(vault.resolve(path));
+  const page = async (path: string) => {
+    await ws.ensure([vault.resolve(path)]);
+    const text = ws.read(path);
     if (text === undefined) throw new Error(`no such page: ${path}`);
     return text;
   };
@@ -45,8 +46,15 @@ export function makeCommands(ws: Workspace, plugins: PluginStore, store: KV) {
       return saved(undefined);
     },
     create_note: ({ parent, title }) => saved(vault.createNote(ws, parent, title)),
-    database_rows: ({ path }) => vault.databaseRows(ws, path),
-    duplicate_note: ({ path }) => saved(vault.duplicateNote(ws, path)),
+    database_rows: async ({ path }) => {
+      const dir = `${vault.childrenDir(vault.resolve(path))}/`;
+      await ws.ensure(ws.paths().filter((p) => p.startsWith(dir) && !p.slice(dir.length).includes("/")));
+      return vault.databaseRows(ws, path);
+    },
+    duplicate_note: async ({ path }) => {
+      await page(path);
+      return saved(vault.duplicateNote(ws, path));
+    },
     save_asset: ({ name, bytes }) => {
       const path = vault.assetPath(name, Date.now());
       ws.writeBytes(path, Uint8Array.from(bytes as number[]));
@@ -56,9 +64,19 @@ export function makeCommands(ws: Workspace, plugins: PluginStore, store: KV) {
       const bytes = await ws.readBytes(vault.resolve(path));
       return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
     },
-    rename_note: ({ path, title }) => saved(vault.renameNote(ws, path, title)),
-    move_note: ({ path, dest }) => saved(vault.moveNote(ws, path, dest)),
-    delete_note: ({ path }) => saved(vault.deleteNote(ws, path, Date.now())),
+    // Links to a page are rewritten across the workspace, so these wait until every page is here.
+    rename_note: async ({ path, title }) => {
+      await ws.loadRest();
+      return saved(vault.renameNote(ws, path, title));
+    },
+    move_note: async ({ path, dest }) => {
+      await ws.loadRest();
+      return saved(vault.moveNote(ws, path, dest));
+    },
+    delete_note: async ({ path }) => {
+      await page(path);
+      return saved(vault.deleteNote(ws, path, Date.now()));
+    },
     list_trash: () => vault.listTrash(ws, Date.now()),
     restore_trash: ({ id }) => saved(vault.restoreTrash(ws, id)),
     purge_trash: ({ id }) => {
