@@ -1,0 +1,11 @@
+/* The shared palette, themes, editor and database styles, as-is. */
+@import "../../../packages/ui/src/index.css";
+/* And the classes this app's own screens use. */
+@source "../components";
+@source ".";
+
+html,
+body,
+#root {
+  height: 100%;
+}

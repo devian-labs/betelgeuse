@@ -8,7 +8,7 @@ Plugins add features to Betelgeuse: new screens, panels on pages, settings, comm
 
 | Plugin | What it does | Where |
 |---|---|---|
-| [Finance](/docs/plugins/finance/) | Accounts and credit cards, transactions, monthly budgets, investments, assets and liabilities, and your net worth, with charts. Your money stays in databases you own. | Desktop and phone |
+| [Finance](/docs/plugins/finance/) | Accounts and credit cards, transactions, monthly budgets, investments, assets and liabilities, and your net worth, with charts. Your money stays in databases you own. | Desktop, phone and web |
 | [Media Library](/docs/plugins/media-library/) | Browse and search your footage, audio, photos and project files where they already are, and link project folders to pages. | Desktop |
 
 
@@ -40,6 +40,11 @@ If you open a workspace that uses a plugin this computer doesn't have (say, afte
 
 The phone app runs plugins made for phones, such as Finance. Open **Settings → Plugins** in the app: it lists what's installed, plugins your workspace uses that this phone doesn't have yet, and the store. Plugins that only work on a computer, such as Media Library, are listed as **Desktop only**. New plugins come from the store, so you don't need to update the app to get them.
 
+
+## In the web app
+
+The web app runs plugins made for it, such as Finance, from the same signed store. Plugins are installed in your browser, and which ones a workspace uses still syncs with the repository. Plugins that need your computer's files or connect to other websites are listed as unavailable.
+
 ## Install a plugin from a folder
 
 For plugins that aren't in the store, such as one you're building or one a friend shared:
@@ -69,7 +74,7 @@ A plugin without a permission doesn't get the part of the API that needs it. Cli
 
 ## When a plugin can't run
 
-Settings → Plugins explains why: it needs a newer Betelgeuse, it was made for a different plugin API version, it's for the phone app only, or it ran into an error (with the message). A plugin that crashes only takes down its own panel or view, which shows the error and a **Try again** button; the rest of the app keeps working.
+Settings → Plugins explains why: it needs a newer Betelgeuse, it was made for a different plugin API version, it's for a different app, or it ran into an error (with the message). A plugin that crashes only takes down its own panel or view, which shows the error and a **Try again** button; the rest of the app keeps working.
 
 ## Make your own
 

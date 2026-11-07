@@ -18,6 +18,10 @@ The Android app is a preview: install `Betelgeuse_*_android.apk` from the [relea
 
 It has your pages, databases and plugins that support phones, such as [Finance](/docs/plugins/finance/). To have the same workspace on your phone and computer, connect both to one git repository: see [History and sync](/docs/guide/history-and-sync/#on-your-phone). The iOS app builds, but isn't distributed yet: that needs an Apple Developer account.
 
+## In your browser
+
+The [web app](https://app.betelgeuse.pro) is a preview with nothing to install. Sign in with GitHub, choose which repositories it can reach, and open one as your workspace. It's the same editor and databases, and your browser talks to GitHub directly, so your pages stay in your repository. To have the same workspace everywhere, connect your computer and phone to that repository too. AI agents and importing need the desktop app.
+
 ## Build it yourself
 
 Building from source avoids every warning above. You need [git](https://git-scm.com), [Node.js 20 or newer](https://nodejs.org) and [Rust](https://rustup.rs); the install script checks for anything else.

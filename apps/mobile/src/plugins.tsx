@@ -11,8 +11,8 @@
 import { listen } from "@tauri-apps/api/event";
 import { ArrowUpCircle, ChevronRight, Download, LoaderCircle, Monitor, Puzzle, RefreshCw, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api } from "@desktop/lib/api";
-import { isQuietWrite } from "@desktop/lib/quiet";
+import { api } from "@betelgeuse/ui/lib/api";
+import { isQuietWrite } from "@betelgeuse/ui/lib/quiet";
 import {
   describePermission,
   incompatibility,
@@ -32,8 +32,8 @@ import {
   viewPath,
   type PluginState,
   type StoreEntry,
-} from "@desktop/plugins/runtime";
-import { PluginSettingsSection, PluginView } from "@desktop/plugins/slots";
+} from "@betelgeuse/ui/plugins/runtime";
+import { PluginSettingsSection, PluginView } from "@betelgeuse/ui/plugins/slots";
 import type { PluginManifest } from "@betelgeuse/plugin-api";
 import { useMobile, type Route } from "./mobile";
 import { Confirm, Switch, TopBar } from "./ui";

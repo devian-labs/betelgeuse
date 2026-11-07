@@ -1,10 +1,10 @@
 import { ChevronRight, CloudOff, Folder, MoreHorizontal, Plus, RefreshCw, Search, Settings, SquarePen, Trash2 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { Logo } from "@desktop/components/Logo";
-import type { NoteMeta } from "@desktop/lib/api";
-import { useSettings } from "@desktop/lib/settings";
-import { buildTree, type TreeNode } from "@desktop/lib/tree";
-import { useVault } from "@desktop/lib/vault";
+import { Logo } from "@betelgeuse/ui/components/Logo";
+import type { NoteMeta } from "@betelgeuse/ui/lib/api";
+import { useSettings } from "@betelgeuse/ui/lib/settings";
+import { buildTree, type TreeNode } from "@betelgeuse/ui/lib/tree";
+import { useVault } from "@betelgeuse/ui/lib/vault";
 import { useMobile } from "./mobile";
 import { NoteIcon } from "./PageSheets";
 import { PluginHomeRows } from "./plugins";

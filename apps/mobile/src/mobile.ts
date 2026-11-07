@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import type { ToastData } from "@desktop/components/Toast";
+import type { ToastData } from "@betelgeuse/ui/components/Toast";
 import type { Sync } from "./sync";
 
 /** The screens. Home is the page list; the others stack on top of it, each a step back can undo. */

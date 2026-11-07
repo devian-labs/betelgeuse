@@ -18,8 +18,8 @@ import {
   Undo2,
 } from "lucide-react";
 import { useEffect, useReducer, useState, type ReactNode } from "react";
-import { MenuItem, Popover } from "@desktop/components/Popover";
-import { BlockMenu, TURN_INTO, type MenuAt } from "@desktop/editor/Editor";
+import { MenuItem, Popover } from "@betelgeuse/ui/components/Popover";
+import { BlockMenu, TURN_INTO, type MenuAt } from "@betelgeuse/ui/editor/Editor";
 
 /** Height of the bar, which the page keeps clear of. */
 export const TOOLBAR_HEIGHT = 46;

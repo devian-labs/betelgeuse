@@ -28,7 +28,7 @@ import { RevealObserver } from "@/components/Reveal";
 import { Shot } from "@/components/Shot";
 import { Tabs } from "@/components/Tabs";
 import { getSnapshot } from "@/lib/github";
-import { ORG, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
+import { APP_URL, ORG, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
 
 const description =
   "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git on your devices, synced everywhere, with AI agents and plugins.";
@@ -104,6 +104,10 @@ const faqs: [string, React.ReactNode, string?][] = [
       you add a git remote to sync.
     </>,
     "In a folder on your computer (~/Betelgeuse by default), as Markdown files in a git repository. Nothing leaves your machine unless you add a git remote to sync.",
+  ],
+  [
+    "Can I use it in a browser?",
+    "Yes. The web app opens a GitHub repository as your workspace, with the same editor and databases and nothing to install. You sign in with GitHub and choose which repositories it can reach. Your browser talks to GitHub directly, so your pages stay in your repository. AI agents and importing need the desktop app.",
   ],
   [
     "What can AI agents see?",
@@ -194,6 +198,9 @@ export default async function Home() {
                 AI agents
               </a>
               <a href="/docs/">Docs</a>
+              <a className="optional" href={APP_URL}>
+                Web app
+              </a>
             </nav>
             <StarButton className="button small" label="Star" />
           </div>
@@ -214,9 +221,11 @@ export default async function Home() {
               <p className="lede">Notes, docs and databases as Markdown files you own, synced with git across all your devices.</p>
               <div className="cta">
                 <DownloadButton suffix=" — free" />
-                <StarButton className="button ghost" label="Explore on GitHub" />
+                <a className="button ghost" href={APP_URL}>
+                  Open in your browser
+                </a>
               </div>
-              <p className="fineprint">macOS · Windows · Linux · Android preview · MIT licensed · No account required</p>
+              <p className="fineprint">macOS · Windows · Linux · Web · Android preview · MIT licensed · No account needed on your computer</p>
 
               <div className="hero-visual">
                 <div className="devices hero-devices">
@@ -503,6 +512,18 @@ export default async function Home() {
               <Downloads />
               <div className="card build-card">
                 <h3>
+                  In your browser <span className="badge">Preview</span>
+                </h3>
+                <p>
+                  Nothing to install. Sign in with GitHub and open a repository as your workspace. Your browser talks to GitHub directly, so your pages
+                  stay in your repository and never pass through our servers.
+                </p>
+                <a className="button" href={APP_URL}>
+                  Open the web app
+                </a>
+              </div>
+              <div className="card build-card">
+                <h3>
                   Build from source <span className="badge">No warnings</span>
                 </h3>
                 <p>Needs git, Node.js 20+ and Rust. The script checks for anything else.</p>
@@ -547,6 +568,7 @@ export default async function Home() {
               <a href="/docs/">Docs</a>
               <a href="/docs/developers/plugins/">Build a plugin</a>
               <a href="#download">Download</a>
+              <a href={APP_URL}>Web app</a>
             </nav>
             <nav aria-label="Project">
               <strong>Project</strong>

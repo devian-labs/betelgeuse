@@ -1,7 +1,7 @@
 import { Copy, CornerUpRight, FileText, Link2, Plus, Search, Star, StarOff, Table2, Trash2 } from "lucide-react";
 import { useState } from "react";
-import { PageIcon } from "@desktop/components/PageIcon";
-import { useVault } from "@desktop/lib/vault";
+import { PageIcon } from "@betelgeuse/ui/components/PageIcon";
+import { useVault } from "@betelgeuse/ui/lib/vault";
 import { parentOf, titleOf, useMobile } from "./mobile";
 import { within } from "./lists";
 import { afterSheet, Sheet, SheetDivider, SheetItem } from "./ui";

@@ -10,8 +10,11 @@ apps/desktop/src-tauri/gen
 apps/lander/.next
 apps/lander/out
 apps/lander/next-env.d.ts
+apps/web/.next
+apps/web/next-env.d.ts
 # Written at build time by apps/desktop/scripts/notices.mjs
 apps/desktop/public/third-party-notices.txt
+apps/web/public/third-party-notices.txt
 *.tsbuildinfo
 
 # Local keys (e.g. VITE_UNSPLASH_ACCESS_KEY): release builds get them from CI secrets

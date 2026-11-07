@@ -34,7 +34,7 @@ Every plugin has a `betelgeuse-plugin.json` at the top of its folder. The build 
 | `homepage` | | Where to learn more or report problems. |
 | `engines.betelgeuse` | yes | The Betelgeuse versions it works with, as a range: `>=0.4.0`, `^0.4.0`, `>=0.4.0 <1.0.0`, `0.4.x`, `*`. |
 | `engines.api` | yes | The plugin API major version: `"1"`. |
-| `platforms` | | Where it runs: `["desktop"]` (the default), `["desktop", "mobile"]`, or `["mobile"]`. Add `"mobile"` only once it works on a phone's narrow touch screen; elsewhere it's listed as unavailable. `ctx.app.platform` says which one it's running on. |
+| `platforms` | | Where it runs: any of `"desktop"` (the default), `"mobile"` and `"web"`, such as `["desktop", "mobile", "web"]`. Add `"mobile"` only once it works on a phone's narrow touch screen, and `"web"` only if it needs nothing from the computer: no `library` or `shell:open`, and no `network:` permission, which the web app refuses. Elsewhere it's listed as unavailable. `ctx.app.platform` says which one it's running on. |
 | `main` | | The code file; `main.js` by default. |
 | `styles` | | A stylesheet to load with the plugin, such as `styles.css`. |
 | `permissions` | | What the plugin may do (below). |

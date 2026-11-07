@@ -1,7 +1,18 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
-import "./index.css";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
+import App from "@betelgeuse/ui/App";
+import { installPlatform } from "@betelgeuse/ui/platform";
+import { tauriPlatform } from "@betelgeuse/ui/platform/tauri";
+import "@betelgeuse/ui/index.css";
+
+installPlatform(
+  tauriPlatform("desktop", {
+    env: { dev: import.meta.env.DEV, unsplashKey: import.meta.env.VITE_UNSPLASH_ACCESS_KEY ?? "" },
+    updates: { check, relaunch },
+  }),
+);
 
 // A file dropped where nothing handles it would make the webview navigate to it, replacing the app
 // with no way back. Handlers that do accept files (the editor, the icon picker) call preventDefault first.

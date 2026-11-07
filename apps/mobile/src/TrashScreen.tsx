@@ -1,8 +1,8 @@
 import { Search, Trash2, Undo2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api, type TrashItem } from "@desktop/lib/api";
-import { timeAgo } from "@desktop/lib/time";
-import { useVault } from "@desktop/lib/vault";
+import { api, type TrashItem } from "@betelgeuse/ui/lib/api";
+import { timeAgo } from "@betelgeuse/ui/lib/time";
+import { useVault } from "@betelgeuse/ui/lib/vault";
 import { useMobile } from "./mobile";
 import { NoteIcon } from "./PageSheets";
 import { Confirm, TopBar } from "./ui";

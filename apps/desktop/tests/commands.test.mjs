@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { searchCommands } from "../src/editor/commandSearch.ts";
+import { searchCommands } from "../../../packages/ui/src/editor/commandSearch.ts";
 
 // The slash menu's entries (ids, titles, keywords), in menu order.
 const MENU = [

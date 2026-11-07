@@ -9,11 +9,11 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
-    // The editor, databases and styles are shared with the desktop app (until they move to packages/ui).
     alias: {
-      "@desktop": fileURLToPath(new URL("../desktop/src", import.meta.url)),
+      // The editor, databases and styles are shared with the desktop and web apps.
+      "@betelgeuse/ui": fileURLToPath(new URL("../../packages/ui/src/", import.meta.url)),
       // Keeps Yjs out of the app: see that stub.
-      "@tiptap/y-tiptap": fileURLToPath(new URL("../desktop/src/editor/y-tiptap-stub.ts", import.meta.url)),
+      "@tiptap/y-tiptap": fileURLToPath(new URL("../../packages/ui/src/editor/y-tiptap-stub.ts", import.meta.url)),
     },
   },
   clearScreen: false,
@@ -23,6 +23,6 @@ export default defineConfig({
     host: host || false,
     hmr: host ? { protocol: "ws", host, port: 1431 } : undefined,
     watch: { ignored: ["**/src-tauri/**"] },
-    fs: { allow: [".."] },
+    fs: { allow: ["../.."] },
   },
 });

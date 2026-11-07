@@ -43,9 +43,10 @@ replaceOnce("apps/mobile/src-tauri/tauri.conf.json", /("version":\s*)"[^"]+"/, `
 replaceOnce("apps/mobile/src-tauri/Cargo.toml", /^(version\s*=\s*)"[^"]+"/m, `$1"${version}"`);
 setJson("apps/desktop/package.json", (j) => (j.version = version));
 setJson("apps/mobile/package.json", (j) => (j.version = version));
+setJson("apps/web/package.json", (j) => (j.version = version));
 setJson("packages/mcp/package.json", (j) => (j.version = version));
 setJson("package-lock.json", (j) => {
-  for (const ws of ["apps/desktop", "apps/mobile", "packages/mcp"]) if (j.packages?.[ws]) j.packages[ws].version = version;
+  for (const ws of ["apps/desktop", "apps/mobile", "apps/web", "packages/mcp"]) if (j.packages?.[ws]) j.packages[ws].version = version;
 });
 replaceOnce("packages/mcp/src/index.ts", /(new McpServer\(\{ name: "betelgeuse", version: )"[^"]+"/, `$1"${version}"`);
 console.log(`\nNext: commit "release: v${version}" and merge it through a pull request, then on the merged main:\n  git tag v${version} && git push origin v${version}`);

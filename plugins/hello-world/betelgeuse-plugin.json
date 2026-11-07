@@ -10,7 +10,8 @@
     "api": "1"
   },
   "platforms": [
-    "desktop"
+    "desktop",
+    "web"
   ],
   "main": "main.js",
   "styles": "styles.css",

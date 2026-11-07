@@ -3,7 +3,7 @@
   "private": true,
   "description": "Block-based notes on plain Markdown + git, open to AI agents over MCP",
   "license": "MIT",
-  "homepage": "https://betelgeuse.devianlabs.com",
+  "homepage": "https://betelgeuse.pro",
   "repository": {
     "type": "git",
     "url": "https://github.com/devian-labs/betelgeuse.git"

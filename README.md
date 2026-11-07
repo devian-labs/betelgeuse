@@ -4,7 +4,7 @@
 
 A beautiful workspace for notes, docs and databases that stays yours. Every page is a plain Markdown file on your computer, and your AI agents can read only the pages you share.
 
-[Website](https://betelgeuse.devianlabs.com) · [Download](https://github.com/devian-labs/betelgeuse/releases/latest) · [User guide](apps/desktop/src-tauri/seed/Welcome.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://betelgeuse.pro) · [Download](https://github.com/devian-labs/betelgeuse/releases/latest) · [User guide](apps/desktop/src-tauri/seed/Welcome.md) · [Contributing](CONTRIBUTING.md)
 
 [![CI](https://github.com/devian-labs/betelgeuse/actions/workflows/ci.yml/badge.svg)](https://github.com/devian-labs/betelgeuse/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
@@ -31,6 +31,8 @@ The builds aren't code-signed yet, so the first time you open the app, your OS a
 - **Windows:** **More info** → **Run anyway**
 
 **Android** (preview): install `Betelgeuse_*_android.apk` from the same release. Your phone may ask you to allow installs from your browser or files app. Then open **Settings → Sync** to connect the repository your workspace syncs with. The iOS app builds, but isn't distributed yet.
+
+**[Web](https://app.betelgeuse.pro)** (preview): sign in with GitHub and open a repository as your workspace, with nothing to install. Your browser talks to GitHub directly, so your pages stay in your repository. [Open it](https://app.betelgeuse.pro), or [run it yourself](apps/web/README.md).
 
 **Or build it yourself.** You need [git](https://git-scm.com), [Node.js 20+](https://nodejs.org) and [Rust](https://rustup.rs). The script checks for anything else it needs.
 

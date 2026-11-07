@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { allProperties, applyView, filterDefaults, moveProperty, calculate, parseSchema, toRow, writeSchema, defaultSchema, visibleProperties } from "../src/database/model.ts";
-import { patchFrontmatter } from "../src/lib/frontmatter.ts";
+import { allProperties, applyView, filterDefaults, moveProperty, calculate, parseSchema, toRow, writeSchema, defaultSchema, visibleProperties } from "../../../packages/ui/src/database/model.ts";
+import { patchFrontmatter } from "../../../packages/ui/src/lib/frontmatter.ts";
 
 const schema = {
   properties: [
@@ -76,7 +76,7 @@ test("the title column keeps its own name (Notion's \"Source\")", () => {
 
 // ---------- relations & rollups ----------
 
-import { linkTarget, relationTitles, toRelationValue, withComputed, removeProperty, displayValue, getValue } from "../src/database/model.ts";
+import { linkTarget, relationTitles, toRelationValue, withComputed, removeProperty, displayValue, getValue } from "../../../packages/ui/src/database/model.ts";
 
 test("reads relation values as links or plain names", () => {
   assert.equal(linkTarget("[[Khao|the app]]"), "Khao");
@@ -157,7 +157,7 @@ test("removing a property clears it from views", () => {
   assert.deepEqual(next.views[0].hidden, []);
 });
 
-import { moveView, cardPreviewOf } from "../src/database/model.ts";
+import { moveView, cardPreviewOf } from "../../../packages/ui/src/database/model.ts";
 
 test("moves a view's tab to a new position", () => {
   const vs = ["a", "b", "c", "d"].map((id) => ({ id, name: id, type: "table" }));
@@ -178,7 +178,7 @@ test("gallery cards preview the cover, else the text, else nothing", () => {
   assert.equal(cardPreviewOf(r("cover: gradient_2", "Hi"), "none"), null);
 });
 
-import { cardSections } from "../src/database/model.ts";
+import { cardSections } from "../../../packages/ui/src/database/model.ts";
 
 test("cards group properties into lines, tags and counts; relation and rollup counts show even at zero", () => {
   const props = [
@@ -228,8 +228,8 @@ test("moves a property before another or to the end", () => {
 });
 
 test("relations link rows by file name, so rows can share a title", async () => {
-  const { linksTo, rowKey } = await import("../src/database/model.ts");
-  const { pageTitle } = await import("../src/lib/frontmatter.ts");
+  const { linksTo, rowKey } = await import("../../../packages/ui/src/database/model.ts");
+  const { pageTitle } = await import("../../../packages/ui/src/lib/frontmatter.ts");
   const a = { path: "Budget/Salary.md", title: "Salary" };
   const b = { path: "Budget/Salary 2.md", title: pageTitle("Budget/Salary 2.md", 'title: "Salary"') };
   assert.equal(b.title, "Salary");
