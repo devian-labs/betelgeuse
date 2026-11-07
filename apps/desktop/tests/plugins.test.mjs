@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-const { satisfies, incompatibility, parseViewPath, viewPath } = await import("../src/plugins/runtime.ts");
+const { satisfies, incompatibility, parseViewPath, setPlatform, viewPath } = await import("../../../packages/ui/src/plugins/runtime.ts");
 
 test("version ranges", () => {
   assert.ok(satisfies("0.4.0", ">=0.4.0 <1.0.0"));
@@ -33,4 +33,18 @@ test("plugin view paths", () => {
   assert.equal(viewPath("hello-world", "hello"), "@plugin/hello-world/hello");
   assert.deepEqual(parseViewPath("@plugin/hello-world/hello"), { pluginId: "hello-world", viewId: "hello" });
   assert.equal(parseViewPath("Projects/Launch.md"), null);
+});
+
+test("the web app runs plugins made for it, and none that reach other websites", () => {
+  const plugin = (extra) => ({ id: "p", name: "P", version: "1.0.0", engines: { api: "1" }, ...extra });
+  setPlatform("web");
+  try {
+    assert.equal(incompatibility(plugin({ platforms: ["desktop", "web"] }), "0.5.0"), null);
+    assert.match(incompatibility(plugin({}), "0.5.0"), /isn't made for the web app/, "desktop by default");
+    assert.match(incompatibility(plugin({ platforms: ["desktop", "mobile"] }), "0.5.0"), /isn't made for the web app/);
+    assert.match(incompatibility(plugin({ platforms: ["web"], permissions: ["network:api.example.com"] }), "0.5.0"), /other websites/);
+  } finally {
+    setPlatform("desktop");
+  }
+  assert.match(incompatibility(plugin({ platforms: ["web"] }), "0.5.0"), /isn't made for the desktop app/);
 });

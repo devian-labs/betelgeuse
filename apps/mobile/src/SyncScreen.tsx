@@ -18,9 +18,9 @@ import {
   User,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
-import { open } from "@desktop/lib/links";
-import { timeAgo } from "@desktop/lib/time";
-import { useVault } from "@desktop/lib/vault";
+import { open } from "@betelgeuse/ui/lib/links";
+import { timeAgo } from "@betelgeuse/ui/lib/time";
+import { useVault } from "@betelgeuse/ui/lib/vault";
 import { useMobile } from "./mobile";
 import { progressLabel, syncApi, useSyncProgress, type SyncProgress } from "./sync";
 import { Confirm, TopBar } from "./ui";

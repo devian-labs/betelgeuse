@@ -1,11 +1,11 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { Bug, Check, ChevronRight, Cloud, GitFork, Globe, Heart, Laptop, Monitor, Moon, MoonStar, Sun, Trash2 } from "lucide-react";
-import { timeAgo } from "@desktop/lib/time";
+import { timeAgo } from "@betelgeuse/ui/lib/time";
 import { useEffect, useState, type ReactNode } from "react";
-import { Logo } from "@desktop/components/Logo";
-import { LINKS, open } from "@desktop/lib/links";
-import { ACCENTS, PALETTES, updateSettings, useSettings, type Mode, type TextSize } from "@desktop/lib/settings";
-import { useVault } from "@desktop/lib/vault";
+import { Logo } from "@betelgeuse/ui/components/Logo";
+import { LINKS, open } from "@betelgeuse/ui/lib/links";
+import { ACCENTS, PALETTES, updateSettings, useSettings, type Mode, type TextSize } from "@betelgeuse/ui/lib/settings";
+import { useVault } from "@betelgeuse/ui/lib/vault";
 import { useMobile } from "./mobile";
 import { PluginSettingsRows } from "./plugins";
 import { TopBar } from "./ui";

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { joinNote, patchFrontmatter, splitNote } from "../src/lib/frontmatter.ts";
-import { nearestGap, planReorder } from "../src/lib/order.ts";
-import { buildTree } from "../src/lib/tree.ts";
+import { joinNote, patchFrontmatter, splitNote } from "../../../packages/ui/src/lib/frontmatter.ts";
+import { nearestGap, planReorder } from "../../../packages/ui/src/lib/order.ts";
+import { buildTree } from "../../../packages/ui/src/lib/tree.ts";
 
 const note = (path, order = null) => ({ path, title: path.split("/").pop().replace(/\.md$/, ""), icon: null, tags: [], kind: null, ai: null, order, modified: 0, created: 0 });
 const titles = (nodes) => nodes.map((n) => n.title).join(" ");

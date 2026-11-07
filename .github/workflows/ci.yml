@@ -49,14 +49,14 @@ jobs:
           # The TypeScript job ignores the Rust shells, except the two files its tests read.
           web_files=$(grep -vE '^apps/(desktop|mobile)/src-tauri/' <<< "$files" || true; grep -E '^apps/desktop/src-tauri/(seed/|src/importer/notion_html\.rs$)' <<< "$files" || true)
           {
-            echo "web=$(has "^(apps/desktop/|apps/mobile/|packages/|plugins/|scripts/|package(-lock)?\.json$|tsconfig)$ci" "$web_files")"
+            echo "web=$(has "^(apps/desktop/|apps/mobile/|apps/web/|crates/betelgeuse-core/plugin-signing\.pub$|packages/|plugins/|scripts/|package(-lock)?\.json$|tsconfig)$ci" "$web_files")"
             echo "lander=$(has "^(apps/lander/|docs/content/|apps/desktop/src-tauri/seed/|package(-lock)?\.json$)$ci")"
             echo "rust=$(has "^(crates/|apps/desktop/src-tauri/|apps/mobile/src-tauri/|Cargo\.(toml|lock)$|rust-toolchain)$ci")"
             echo "android=$(has "^(apps/mobile/src-tauri/|apps/mobile/scripts/|apps/mobile/package\.json$)")"
           } | tee -a "$GITHUB_OUTPUT"
 
   web-and-mcp:
-    name: Typecheck and tests (desktop frontend, MCP server)
+    name: Typecheck and tests (desktop, mobile and web frontends, MCP server)
     needs: changes
     if: ${{ needs.changes.outputs.web == 'true' }}
     runs-on: ubuntu-latest
@@ -67,17 +67,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run typecheck -w @betelgeuse/desktop -w @betelgeuse/mobile -w betelgeuse-mcp
+      # next-env.d.ts is written on the first build; the web app's types need it first.
+      - run: npx next typegen
+        working-directory: apps/web
+      - run: npm run typecheck -w @betelgeuse/desktop -w @betelgeuse/mobile -w @betelgeuse/web -w betelgeuse-mcp
       # Every plugin in plugins/ typechecks and builds against the plugin API.
       - run: npm run plugins
       - run: node --import tsx --test tests/*.test.mjs
         working-directory: apps/desktop
       - run: npm test -w betelgeuse-mcp
-      # Both interfaces build, so a UI change is checked without the Rust job.
+      - run: npm test -w @betelgeuse/web
+      # Every interface builds, so a UI change is checked without the Rust job.
       - run: npx vite build
         working-directory: apps/desktop
       - run: npx vite build
         working-directory: apps/mobile
+      - run: npm run build -w @betelgeuse/web
 
   lander:
     name: Landing page build

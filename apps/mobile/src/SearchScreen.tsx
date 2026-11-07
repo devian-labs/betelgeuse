@@ -1,7 +1,7 @@
 import { ChevronLeft, Plus, Search, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { api, type NoteMeta, type SearchHit } from "@desktop/lib/api";
-import { useVault } from "@desktop/lib/vault";
+import { api, type NoteMeta, type SearchHit } from "@betelgeuse/ui/lib/api";
+import { useVault } from "@betelgeuse/ui/lib/vault";
 import { parentOf, titleOf, useMobile } from "./mobile";
 import { NoteIcon } from "./PageSheets";
 

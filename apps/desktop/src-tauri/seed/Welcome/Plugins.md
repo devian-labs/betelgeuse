@@ -14,8 +14,8 @@ Plugins in the store are built and **signed** by Betelgeuse's release pipeline, 
 
 ## Plugins from Betelgeuse
 
-- **Finance**: accounts and credit cards, transactions, monthly budgets, investments and your net worth, with charts. Also on your phone. [Read more](https://betelgeuse.devianlabs.com/docs/plugins/finance/)
-- **Media Library**: browse and search your footage, audio, photos and project files where they already are, and link project folders to pages. [Read more](https://betelgeuse.devianlabs.com/docs/plugins/media-library/)
+- **Finance**: accounts and credit cards, transactions, monthly budgets, investments and your net worth, with charts. Also on your phone. [Read more](https://betelgeuse.pro/docs/plugins/finance/)
+- **Media Library**: browse and search your footage, audio, photos and project files where they already are, and link project folders to pages. [Read more](https://betelgeuse.pro/docs/plugins/media-library/)
 
 ## Your data stays yours
 
@@ -26,4 +26,4 @@ Plugins in the store are built and **signed** by Betelgeuse's release pipeline, 
 - **Permissions.** Every plugin lists what it may do (read pages, change them, talk to one website) and gets nothing else. Click **N permissions** under a plugin in Settings to see its list.
 - **Off means off.** Turning a plugin off removes everything it added, right away.
 
-Want to make your own? Plugins are TypeScript and React: start with [Build a plugin](https://betelgeuse.devianlabs.com/docs/developers/plugins/).
+Want to make your own? Plugins are TypeScript and React: start with [Build a plugin](https://betelgeuse.pro/docs/developers/plugins/).

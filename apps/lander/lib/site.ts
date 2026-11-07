@@ -4,7 +4,9 @@ export const REPO = "https://github.com/devian-labs/betelgeuse";
 export const RELEASES = `${REPO}/releases/latest`;
 
 /** The production origin: metadataBase, canonical URLs, the sitemap and structured data all build on it. */
-export const SITE_URL = "https://betelgeuse.devianlabs.com";
+export const SITE_URL = "https://betelgeuse.pro";
+/** The web app: Betelgeuse in the browser, on a GitHub repository. */
+export const APP_URL = "https://app.betelgeuse.pro";
 export const SITE_NAME = "Betelgeuse";
 export const ORG = { name: "Devian Labs", url: "https://devianlabs.com", github: "https://github.com/devian-labs" };
 

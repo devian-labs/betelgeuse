@@ -23,9 +23,9 @@ export default function Privacy() {
     <PlainPage title="Privacy">
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbs)} />
       <h1>Privacy</h1>
-      <p className="doc-meta">Last updated October 15, 2026</p>
+      <p className="doc-meta">Last updated November 7, 2026</p>
 
-      <h2>The app</h2>
+      <h2>The desktop and phone apps</h2>
       <p>
         Betelgeuse collects nothing. There is no account, no telemetry and no analytics. Your workspace is a folder of Markdown files on your
         computer, and it stays there.
@@ -53,6 +53,34 @@ export default function Privacy() {
         pages it can see and may send them to its AI provider. That is between you and the agent&apos;s provider, under their terms. Pages you hide
         from AI stay out of the agent&apos;s reach through Betelgeuse; an agent you give direct access to the folder can still read them.
       </p>
+
+      <h2>The web app</h2>
+      <p>
+        The web app at <a href="https://app.betelgeuse.pro">app.betelgeuse.pro</a> needs a GitHub account, and has no telemetry or analytics. Your pages
+        stay in the GitHub repositories you choose: your browser reads and writes them through GitHub&apos;s API directly, and they don&apos;t pass through
+        our servers.
+      </p>
+      <ul>
+        <li>
+          <strong>Your session</strong> is an encrypted cookie holding the tokens GitHub issues for you. We keep no copy and no user database. Our server
+          uses it only to give your browser a current token.
+        </li>
+        <li>
+          <strong>Your browser</strong> keeps a copy of your workspaces and any edits not yet sent to GitHub, so they open quickly and survive a closed tab.
+          Signing out deletes that copy.
+        </li>
+        <li>
+          <strong>Plugins</strong> install from the same store as the other apps, fetched through our server, and are kept in your browser. They run inside the
+          page, so install only ones you trust.
+        </li>
+        <li>
+          <strong>Hosting:</strong> it runs on <a href="https://vercel.com/legal/privacy-policy">Vercel</a>, which processes the usual request data.
+        </li>
+        <li>
+          <strong>Images and cover photos:</strong> images your pages embed load from where they are hosted. Searching for a cover photo asks Unsplash, using the
+          words you type.
+        </li>
+      </ul>
 
       <h2>This website</h2>
       <p>The site sets no cookies and runs no analytics, ads or trackers.</p>

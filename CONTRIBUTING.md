@@ -37,12 +37,14 @@ npm run android -w @betelgeuse/mobile    # Android emulator (or a connected phon
 | Folder | What's in it |
 | --- | --- |
 | `apps/desktop/` | The desktop app (Tauri). |
-| `apps/desktop/src/` | The app's interface (React). The editor is in `src/editor/`, databases in `src/database/`. |
+| `apps/desktop/src/` | The desktop app's entry point. Its interface is shared: see `packages/ui/`. |
 | `apps/desktop/src-tauri/` | The desktop app's Rust side: its commands, file watching, import from Notion and Obsidian. |
 | `apps/desktop/src-tauri/seed/` | The Welcome guide every new workspace starts with. |
-| `apps/desktop/tests/` | Editor and database tests. |
-| `apps/mobile/` | The iOS and Android app (Tauri). Its interface reuses the desktop editor and databases (`@desktop/…` imports); `src-tauri/gen/` holds the Xcode and Android Studio projects. |
-| `apps/lander/` | The website ([betelgeuse.devianlabs.com](https://betelgeuse.devianlabs.com)). Run it with `npm run lander`. |
+| `apps/desktop/tests/` | Tests of the shared editor, databases and plugin runtime. |
+| `apps/mobile/` | The iOS and Android app (Tauri). Its screens are its own and reuse the shared editor and databases; `src-tauri/gen/` holds the Xcode and Android Studio projects. |
+| `apps/web/` | The web app (Next.js): the shared interface over a GitHub repository. `lib/vault.ts` is its copy of the workspace rules, `lib/workspace.ts` its sync. See its [README](apps/web/README.md). |
+| `packages/ui/` | The interface all three apps share: the editor (`src/editor/`), databases (`src/database/`), sidebar and settings, and the plugin runtime. It reaches its host only through `src/platform/`, and must not import `@tauri-apps/*` anywhere else. |
+| `apps/lander/` | The website ([betelgeuse.pro](https://betelgeuse.pro)). Run it with `npm run lander`. |
 | `crates/betelgeuse-core/` | The workspace engine every app shares (Rust): pages, frontmatter, databases, links, trash and git. |
 | `packages/mcp/` | The MCP server that AI agents connect to. The desktop app bundles it. |
 | `brand/`, `scripts/` | Logos, and the install-from-source scripts. |
@@ -52,7 +54,7 @@ New clients (mobile, browser extension) go in `apps/`. Code shared between them 
 ## A few rules
 
 - **Keep files readable.** Everything Betelgeuse saves must be plain Markdown that a person could edit by hand. A new block needs a Markdown form and a test in `apps/desktop/tests/markdown.test.mjs`.
-- **Keep the app and the MCP server in sync.** Changes to how pages, links or AI visibility work go in both `apps/desktop/src-tauri/src/vault.rs` and `packages/mcp/src/vault.ts`.
+- **Keep the app and the MCP server in sync.** Changes to how pages, links or AI visibility work go in `crates/betelgeuse-core/src/vault.rs`, `packages/mcp/src/vault.ts` and `apps/web/lib/vault.ts`.
 - **Agents never see hidden pages.** New MCP tools must read pages through `Vault.files()` or `Vault.find()`.
 - **Keep pull requests small**, and add light and dark screenshots for UI changes.
 
@@ -96,7 +98,7 @@ The release also packages every plugin in `plugins/` for the plugin store: `plug
 
 ## Plugins
 
-Plugins live in `plugins/<id>/` and build against `packages/plugin-api`. `npm run plugins` typechecks and builds them all (CI runs it); a development build of the app (`npm run app`) loads them from their `dist/` folders. See the [plugin docs](https://betelgeuse.devianlabs.com/docs/developers/plugins/).
+Plugins live in `plugins/<id>/` and build against `packages/plugin-api`. `npm run plugins` typechecks and builds them all (CI runs it); a development build of the app (`npm run app`) loads them from their `dist/` folders. See the [plugin docs](https://betelgeuse.pro/docs/developers/plugins/).
 
 ## Updating the screenshots
 

@@ -5,14 +5,15 @@
   "description": "Personal finance in your workspace: accounts and credit cards, transactions, monthly budgets, investments, assets and liabilities, net worth, and charts. Your money data stays in plain databases you own.",
   "author": "Devian Labs",
   "icon": "\ud83d\udcb0",
-  "homepage": "https://betelgeuse.devianlabs.com/docs/plugins/finance/",
+  "homepage": "https://betelgeuse.pro/docs/plugins/finance/",
   "engines": {
     "betelgeuse": ">=0.4.0",
     "api": "1"
   },
   "platforms": [
     "desktop",
-    "mobile"
+    "mobile",
+    "web"
   ],
   "main": "main.js",
   "styles": "styles.css",

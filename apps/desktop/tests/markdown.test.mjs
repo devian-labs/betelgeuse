@@ -13,10 +13,10 @@ for (const key of ["window", "document", "navigator", "Node", "HTMLElement", "El
 }
 
 const { Editor } = await import("@tiptap/core");
-const { contentExtensions } = await import("../src/editor/Editor.tsx");
-const { normalizeMarkdown } = await import("../src/editor/markdown.ts");
-const { joinNote, patchFrontmatter, readFrontmatter, splitNote } = await import("../src/lib/frontmatter.ts");
-const { parseSchema } = await import("../src/database/model.ts");
+const { contentExtensions } = await import("../../../packages/ui/src/editor/Editor.tsx");
+const { normalizeMarkdown } = await import("../../../packages/ui/src/editor/markdown.ts");
+const { joinNote, patchFrontmatter, readFrontmatter, splitNote } = await import("../../../packages/ui/src/lib/frontmatter.ts");
+const { parseSchema } = await import("../../../packages/ui/src/database/model.ts");
 
 function roundTrip(md) {
   // Node views need a mounted React tree; serialisation doesn't, so strip them here.

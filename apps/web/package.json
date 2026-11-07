@@ -1,0 +1,36 @@
+{
+  "name": "@betelgeuse/web",
+  "private": true,
+  "version": "0.5.1",
+  "description": "Betelgeuse in the browser: your workspace is a GitHub repository, opened directly from the page",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/notices.mjs && next dev --port 3100",
+    "build": "node scripts/notices.mjs && next build",
+    "start": "next start --port 3100",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "e2e": "node --import tsx tests/e2e/run.ts"
+  },
+  "dependencies": {
+    "@betelgeuse/ui": "*",
+    "fflate": "^0.8.3",
+    "lucide-react": "^1.66.0",
+    "next": "^16.4.3",
+    "node-diff3": "^3.2.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.19.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "fake-indexeddb": "^6.2.5",
+    "playwright-core": "^1.64.1",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}

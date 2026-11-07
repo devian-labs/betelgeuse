@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyView, dateMatches, dateRange, describeDateFilter, filterDefaults, isoDay, relativeRange } from "../src/database/model.ts";
+import { applyView, dateMatches, dateRange, describeDateFilter, filterDefaults, isoDay, relativeRange } from "../../../packages/ui/src/database/model.ts";
 
 const on = (y, m, d) => new Date(y, m - 1, d, 15, 30);
 const thursday = on(2026, 10, 15);

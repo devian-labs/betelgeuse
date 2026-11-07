@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { GitSettings } from "@desktop/lib/api";
+import type { GitSettings } from "@betelgeuse/ui/lib/api";
 
 export type SyncStatus = {
   configured: boolean;

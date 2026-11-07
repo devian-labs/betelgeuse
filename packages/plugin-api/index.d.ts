@@ -44,7 +44,7 @@ export interface PluginManifest {
     api: string;
   };
   /** Where it runs. Defaults to ["desktop"]. */
-  platforms?: ("desktop" | "mobile")[];
+  platforms?: ("desktop" | "mobile" | "web")[];
   /** Defaults to "main.js". */
   main?: string;
   /** Optional stylesheet, e.g. "styles.css". */
@@ -115,7 +115,7 @@ export interface AppInfo {
   /** Betelgeuse's version, e.g. "0.4.0". */
   version: string;
   apiVersion: 1;
-  platform: "desktop" | "mobile";
+  platform: "desktop" | "mobile" | "web";
 }
 
 /** What shows next to a title: an emoji or text, or a React element (an icon). */
