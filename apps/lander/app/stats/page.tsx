@@ -26,10 +26,10 @@ export default async function StatsPage() {
   // Ten minutes, so a build never shows numbers from an old build's cache (lib/github.ts says why).
   const initial = await fetchStats({ headers, next: { revalidate: 600 } });
   return (
-    <PlainPage title="Stats">
+    <PlainPage title="Stats" wide>
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbs)} />
       <h1>Betelgeuse in numbers</h1>
-      <p>Downloads, release by release, live from GitHub. Betelgeuse is built in the open, so its numbers are too.</p>
+      <p className="stats-intro">Built in the open, counted in the open. Live from GitHub, release by release.</p>
       <StatsView initial={initial} />
     </PlainPage>
   );
