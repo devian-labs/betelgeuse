@@ -18,10 +18,22 @@ body:
   - type: input
     attributes:
       label: Version and OS
-      placeholder: Betelgeuse 0.1.0, macOS 15.3 (Apple Silicon)
+      description: The version is in Settings → About.
+      placeholder: Betelgeuse 0.5.1, macOS 15.3 (Apple Silicon)
     validations:
       required: true
   - type: dropdown
     attributes:
-      label: How did you install it?
-      options: [Built from source (install script), Built from source (manually), Downloaded from GitHub Releases]
+      label: Where did it happen?
+      options:
+        - Desktop app, downloaded from GitHub Releases
+        - Desktop app, built from source
+        - Android app
+        - iOS app (built from source)
+        - Web app (app.betelgeuse.pro)
+        - Web demo (app.betelgeuse.pro/demo)
+        - Web app, self-hosted
+        - MCP server / AI agents
+        - Website (betelgeuse.pro)
+    validations:
+      required: true

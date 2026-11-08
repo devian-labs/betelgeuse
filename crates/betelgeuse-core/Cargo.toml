@@ -27,4 +27,6 @@ base64 = { version = "0.23", optional = true }
 # the `git` program); with -https, remotes over HTTPS too (the phone apps, which have no `git`).
 libgit2 = ["dep:git2"]
 libgit2-https = ["libgit2", "git2/https"]
+# Crash reports from the apps' Rust side, to PostHog (over the plugin store's HTTP client).
+telemetry = ["dep:ureq"]
 plugins = ["dep:ureq", "dep:zip", "dep:ed25519-dalek", "dep:sha2", "dep:hex", "dep:base64"]

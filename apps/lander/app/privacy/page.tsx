@@ -3,8 +3,8 @@ import { PlainPage } from "@/components/PlainPage";
 import { ORG, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Privacy Policy: No Telemetry, No Cookies | Betelgeuse",
-  description: "What the Betelgeuse website and app do with your data: the app collects nothing; the website keeps no cookies or analytics.",
+  title: "Privacy Policy: Your Pages Stay Yours | Betelgeuse",
+  description: "What the Betelgeuse apps and website send: anonymous usage counts and error reports you can turn off, never your pages. The website sets no cookies.",
   path: "/privacy/",
 });
 
@@ -23,14 +23,44 @@ export default function Privacy() {
     <PlainPage title="Privacy">
       <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(breadcrumbs)} />
       <h1>Privacy</h1>
-      <p className="doc-meta">Last updated November 7, 2026</p>
+      <p className="doc-meta">Last updated November 8, 2026</p>
+
+      <p>
+        <strong>In short:</strong> your pages, their names and your repositories never reach us. The apps send anonymous counts (such as &ldquo;the app
+        opened&rdquo;) and reports of errors, so we know how many people use Betelgeuse and what breaks. You can turn that off in one place, and the
+        website sets no cookies.
+      </p>
+
+      <h2>Usage counts and error reports</h2>
+      <p>
+        The desktop, phone and web apps send these unless you turn them off under <em>Settings → Privacy</em>. The first time the app opens, it tells
+        you so. Turning it off stops both at once, from that moment.
+      </p>
+      <ul>
+        <li>
+          <strong>Usage counts</strong>, to <a href="https://posthog.com/privacy">PostHog</a>: that the app opened, with its version, platform,
+          operating system, browser and screen size, the country the request came from, and a random id kept in the app&apos;s own storage (never a
+          cookie), so a person opening the app twice counts once. In the web app, also which kind of screen you&apos;re on (home, demo or a workspace),
+          without the repository&apos;s name.
+        </li>
+        <li>
+          <strong>Error reports</strong>, also to PostHog: what went wrong and where in the code, with the app&apos;s
+          version and your operating system and browser. Before a report leaves your device, file paths, file and page names, quoted text, repository
+          names, email addresses and tokens are taken out of it.
+        </li>
+      </ul>
+      <p>
+        Never sent: what&apos;s in your pages, their names or titles, your folders, your repositories, your git remote, what you type or click, your
+        GitHub account, or recordings of the screen. Nothing is used for advertising or sold. PostHog is set not to store your IP address: it uses it only to find the country. Builds you
+        make from source send nothing, since they don&apos;t have our keys. The code that does all this is{" "}
+        <a href={`${REPO}/blob/main/packages/ui/src/lib/telemetry.ts`}>open to read</a>.
+      </p>
 
       <h2>The desktop and phone apps</h2>
       <p>
-        Betelgeuse collects nothing. There is no account, no telemetry and no analytics. Your workspace is a folder of Markdown files on your
-        computer, and it stays there.
+        There is no account. Your workspace is a folder of Markdown files on your computer, and it stays there.
       </p>
-      <p>The app connects to the internet only for these:</p>
+      <p>Besides the usage counts and error reports above, the app connects to the internet only for these:</p>
       <ul>
         <li>
           <strong>Sync</strong> pushes to and pulls from the git remote you set up (for example a private GitHub repository). Once you&apos;ve set one up,
@@ -56,13 +86,14 @@ export default function Privacy() {
 
       <h2>The web app</h2>
       <p>
-        The web app at <a href="https://app.betelgeuse.pro">app.betelgeuse.pro</a> needs a GitHub account, and has no telemetry or analytics. Your pages
+        The web app at <a href="https://app.betelgeuse.pro">app.betelgeuse.pro</a> needs a GitHub account, and sends the usage counts and error reports
+        above, through our server, unless you turn them off. Your pages
         stay in the GitHub repositories you choose: your browser reads and writes them through GitHub&apos;s API directly, and they don&apos;t pass through
         our servers.
       </p>
       <p>
-        A small service runs alongside the app, for two things only: GitHub sign-in and passing along the public plugin store. Your pages never pass through
-        it, and we keep no database.
+        A small service runs alongside the app, for GitHub sign-in, passing along the public plugin store, and forwarding the usage counts and error
+        reports. Your pages never pass through it, and we keep no database.
       </p>
       <ul>
         <li>
@@ -87,8 +118,13 @@ export default function Privacy() {
       </ul>
 
       <h2>This website</h2>
-      <p>The site sets no cookies and runs no analytics, ads or trackers.</p>
+      <p>The site sets no cookies and keeps nothing in your browser. It runs no ads or trackers.</p>
       <ul>
+        <li>
+          <strong>Visits</strong> are counted with <a href="https://posthog.com/privacy">PostHog</a> in its cookieless mode: the page, the site or
+          campaign you came from, your country, browser and device type, and which download or link you clicked. Unique visitors are counted with a
+          hash that PostHog changes every day, so no visit can be linked to another day&apos;s, or to you.
+        </li>
         <li>
           It is hosted on <a href="https://vercel.com/legal/privacy-policy">Vercel</a>, which processes the usual request data (IP address, browser,
           time and page) to serve and protect the site, and keeps it for a short time.

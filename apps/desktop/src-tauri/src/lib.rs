@@ -654,6 +654,12 @@ async fn plugin_store_install(app: AppHandle, id: String) -> Result<String, Stri
     tauri::async_runtime::spawn_blocking(move || plugin_store::install(&plugin_dirs(&app), &id)).await.map_err(|e| e.to_string())?
 }
 
+/// Follows Settings → Privacy for crash reports from this side of the app (see betelgeuse_core::telemetry).
+#[tauri::command]
+fn set_crash_reports(enabled: bool, distinct_id: Option<String>) -> Result<(), String> {
+    betelgeuse_core::telemetry::set_enabled(enabled, distinct_id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state: AppState = Arc::default();
@@ -664,11 +670,16 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(state.clone())
         .setup(move |app| {
+            if let Ok(config) = app.path().app_config_dir() {
+                // POSTHOG_KEY is set in release builds (CI secrets); without it this does nothing.
+                betelgeuse_core::telemetry::init(option_env!("POSTHOG_KEY"), option_env!("POSTHOG_HOST"), env!("CARGO_PKG_VERSION"), config.join("crash-reports-off"));
+            }
             spawn_autocommit(app.handle().clone(), state.clone());
             spawn_autosync(app.handle().clone(), state);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            set_crash_reports,
             current_vault,
             open_vault,
             list_notes,

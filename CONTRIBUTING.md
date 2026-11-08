@@ -18,7 +18,7 @@ To try things without touching your own notes, use a throwaway workspace: `BETEL
 
 ### The mobile app
 
-The mobile app keeps its workspace in the app's own storage on the phone (no sync yet). You need the [Tauri mobile prerequisites](https://v2.tauri.app/start/prerequisites/#configure-for-mobile-targets): Xcode and CocoaPods for iOS; Android Studio's SDK and NDK and JDK 17 for Android.
+The mobile app keeps its workspace in the app's own storage on the phone, and syncs it with a git repository (**Settings → Sync**). You need the [Tauri mobile prerequisites](https://v2.tauri.app/start/prerequisites/#configure-for-mobile-targets): Xcode and CocoaPods for iOS; Android Studio's SDK and NDK and JDK 17 for Android.
 
 ```sh
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
@@ -48,9 +48,10 @@ npm run android -w @betelgeuse/mobile    # Android emulator (or a connected phon
 | `apps/lander/` | The website ([betelgeuse.pro](https://betelgeuse.pro)). Run it with `npm run lander`. |
 | `crates/betelgeuse-core/` | The workspace engine every app shares (Rust): pages, frontmatter, databases, links, trash and git. |
 | `packages/mcp/` | The MCP server that AI agents connect to. The desktop app bundles it. |
-| `brand/`, `scripts/` | Logos, and the install-from-source scripts. |
+| `docs/content/` | The website's docs: installing, plugins, moving from Notion and Obsidian. |
+| `brand/`, `scripts/` | Logos, the install-from-source scripts, versioning, plugin packaging and the daily stats (`scripts/stats.mjs`). |
 
-New clients (mobile, browser extension) go in `apps/`. Code shared between them goes in `packages/` (TypeScript) or `crates/` (Rust). All Rust crates form one Cargo workspace at the repo root, so `cargo test --workspace` tests them all and builds land in `target/`. Run a script in one workspace with `npm run <script> -w <name>`, e.g. `npm run typecheck -w @betelgeuse/desktop`.
+New clients (a browser extension, say) go in `apps/`. Code shared between them goes in `packages/` (TypeScript) or `crates/` (Rust). All Rust crates form one Cargo workspace at the repo root, so `cargo test --workspace` tests them all and builds land in `target/`. Run a script in one workspace with `npm run <script> -w <name>`, e.g. `npm run typecheck -w @betelgeuse/desktop`.
 
 ## A few rules
 
@@ -58,6 +59,7 @@ New clients (mobile, browser extension) go in `apps/`. Code shared between them 
 - **Keep the app and the MCP server in sync.** Changes to how pages, links or AI visibility work go in `crates/betelgeuse-core/src/vault.rs`, `packages/mcp/src/vault.ts` and `apps/web/lib/vault.ts`.
 - **Agents never see hidden pages.** New MCP tools must read pages through `Vault.files()` or `Vault.find()`.
 - **Keep pull requests small**, and add light and dark screenshots for UI changes.
+- **Telemetry never carries content.** Usage events (`track()` in `packages/ui/src/lib/telemetry.ts`) take only counts, versions and fixed labels: never a page's text, name or path, a folder, a repository or a person. Errors go through `scrub()` (`packages/ui/src/lib/scrub.ts`, with tests in `apps/desktop/tests/scrub.test.mjs`). Anything new that's sent must be described on the [privacy page](apps/lander/app/privacy/page.tsx) in the same pull request.
 
 ## Sign your commits (DCO)
 
@@ -86,16 +88,22 @@ git tag v0.2.0 && git push origin v0.2.0
 
 `main` only takes changes through pull requests, so the version bump goes through one too. Only maintainers can push `v*` tags.
 
-The tag starts the Release workflow. It runs the tests, checks that the tag matches the app version, then builds macOS (Apple Silicon and Intel), Windows and Linux (x64 and ARM64) and attaches the installers to a draft GitHub release. Review the draft and click **Publish**. A tag with a suffix, like `v0.2.0-beta.1`, makes a pre-release.
+The tag starts the Release workflow. It runs the tests, checks that the tag matches the app version, then builds macOS (Apple Silicon and Intel), Windows, Linux (x64 and ARM64) and Android, and attaches the installers to a draft GitHub release. Review the draft and click **Publish**. A tag with a suffix, like `v0.2.0-beta.1`, makes a pre-release.
 
 To try the builds without releasing, run the workflow by hand (**Actions → Release → Run workflow**): the installers are attached to the run as artifacts and nothing is published.
 
-The release also packages every plugin in `plugins/` for the plugin store: `plugin-<id>-<version>.zip` and `plugins.json`, attached to the same release. Each zip is signed with the store key; the app only installs plugins signed with it. The repository needs two Actions secrets:
+The release also packages every plugin in `plugins/` for the plugin store: `plugin-<id>-<version>.zip` and `plugins.json`, attached to the same release. Each zip is signed with the store key; the app only installs plugins signed with it.
+
+The workflows use these Actions secrets. The first two rows are required for a release; without the others, that part is left out of the build rather than failing it.
 
 | Secret | What |
 |---|---|
 | `PLUGIN_SIGNING_KEY` | The private key (PEM) made by `node scripts/plugin-keys.mjs`. Its public half is `apps/desktop/src-tauri/plugin-signing.pub`. |
-| `UNSPLASH_ACCESS_KEY` | Built into the app for cover photo search. |
+| `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Signs the in-app updates: the contents of the key file (`gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/betelgeuse-updater.key`), and its password if it has one. Its public half is in `tauri.conf.json`; a new key would need a new public key there, and apps already installed would refuse its updates. **Required for a tagged release**: without it, the release has no `latest.json`, and installed apps never hear about it. |
+| `ANDROID_KEYSTORE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` | Signs the Android APK. |
+| `UNSPLASH_ACCESS_KEY` | Built into the apps for cover photo search. |
+| `POSTHOG_KEY` | Anonymous usage counts and error reports, and the daily stats (see [Telemetry and monitoring](#telemetry-and-monitoring)). Set `POSTHOG_HOST` as an Actions *variable* for an EU project. |
+| `STATS_TOKEN` | A fine-grained token with *Administration: read* on this repository, for the GitHub traffic in the daily stats. |
 
 ## Plugins
 
@@ -104,3 +112,20 @@ Plugins live in `plugins/<id>/` and build against `packages/plugin-api`. `npm ru
 ## Updating the screenshots
 
 `npm run screenshots -w @betelgeuse/lander` captures the app in light and dark for the README and website.
+
+## Telemetry and monitoring
+
+Release builds send anonymous usage counts and error reports to PostHog, unless the person turns them off in **Settings → Privacy**. What's sent is listed on the [privacy page](https://betelgeuse.pro/privacy/). Builds without the keys, including every build from source, send nothing.
+
+| What | Where it's set up |
+| --- | --- |
+| Errors in the interface (all apps) | `packages/ui/src/lib/telemetry.ts`, started in each app's entry point |
+| Rust panics (desktop and phone) | `crates/betelgeuse-core/src/telemetry.rs`, behind the `telemetry` feature |
+| Errors in the web app's server | `apps/web/instrumentation.ts` |
+| Usage counts | `track()` in `telemetry.ts`; the website's page views and download clicks are in `apps/lander/components/Analytics.tsx` |
+| Downloads, stars and GitHub traffic | `scripts/stats.mjs`, daily in the **Stats** workflow. Run it yourself with `GITHUB_TOKEN=$(gh auth token) npm run stats`. |
+| Health | `GET /api/health` on the web app (`?deep=1` also reaches GitHub and the plugin store), checked every 30 minutes with the website, the plugin store and the updater by the **Uptime** workflow, which opens an `outage` issue and closes it again |
+
+The web app and the website send through their own address (`/ingest`), so their content security policies stay locked to themselves. To set up your own deployment, see `apps/web/.env.example`.
+
+**Setting up PostHog.** One project holds everything. In its settings, turn on *Discard client IP data*, *Cookieless server hash mode* (the website relies on it) and *Error tracking*; the privacy page promises the first. Then add `POSTHOG_KEY` (the project API key) as an Actions secret, `POSTHOG_HOST` as an Actions variable if the project is in the EU (`https://eu.i.posthog.com`), and `NEXT_PUBLIC_POSTHOG_KEY` (plus `POSTHOG_REGION=eu` for the EU) on the two Vercel projects. For an EU project, also change `us` to `eu` in `apps/lander/vercel.json`.

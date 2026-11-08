@@ -1,5 +1,5 @@
 import { getVersion } from "@tauri-apps/api/app";
-import { Bug, Check, ChevronRight, Cloud, GitFork, Globe, Heart, Laptop, Monitor, Moon, MoonStar, Sun, Trash2 } from "lucide-react";
+import { Bug, Check, ChevronRight, Cloud, GitFork, Globe, Heart, Laptop, Monitor, Moon, MoonStar, ShieldCheck, Sun, Trash2 } from "lucide-react";
 import { timeAgo } from "@betelgeuse/ui/lib/time";
 import { useEffect, useState, type ReactNode } from "react";
 import { Logo } from "@betelgeuse/ui/components/Logo";
@@ -141,6 +141,20 @@ export function SettingsScreen() {
               Plugins and AI agents over MCP are part of the Betelgeuse desktop app for macOS, Windows and Linux.
             </p>
           </div>
+        </Group>
+
+        <Group label="Privacy" hint="Counts like “the app opened”, and error reports with paths, page names and quoted text removed. Never what’s in your pages.">
+          <Line label="Usage and error reports">
+            <Segmented
+              value={s.telemetry ? "on" : "off"}
+              options={[
+                { id: "on", label: "On" },
+                { id: "off", label: "Off" },
+              ]}
+              onChange={(v) => updateSettings({ telemetry: v === "on" })}
+            />
+          </Line>
+          <LinkRow icon={<ShieldCheck size={18} />} label="What’s sent" onClick={() => open(LINKS.privacy)} />
         </Group>
 
         <Group label="About">

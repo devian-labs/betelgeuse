@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadIcons } from "@betelgeuse/ui/components/PageIcon";
 import { Toast, type ToastData } from "@betelgeuse/ui/components/Toast";
+import { noticeOnce, track } from "@betelgeuse/ui/lib/telemetry";
 import { api, type NoteMeta } from "@betelgeuse/ui/lib/api";
 import { joinNote, patchFrontmatter, splitNote } from "@betelgeuse/ui/lib/frontmatter";
 import { planReorder } from "@betelgeuse/ui/lib/order";
@@ -97,6 +98,14 @@ export default function App() {
     setRoute(next);
   }, []);
   const openPage = useCallback((path: string) => go({ name: "page", path }), [go]);
+
+  // Counted once per opening; the first time, a note says so and where to turn it off.
+  useEffect(() => {
+    track("app_opened");
+    noticeOnce(() =>
+      setToast({ message: "Betelgeuse sends anonymous usage and error reports, never your pages.", action: { label: "Settings", run: () => go({ name: "settings" }) } }),
+    );
+  }, [go]);
 
   /** Writes `order` values into pages' frontmatter (null removes it). */
   const writeOrders = async (writes: Record<string, number | null>) => {

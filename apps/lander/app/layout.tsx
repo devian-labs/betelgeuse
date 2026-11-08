@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono } from "next/font/google";
 import { ORG, SITE_NAME, SITE_URL, jsonLd } from "@/lib/site";
 import "./globals.css";
-import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { Analytics } from "@/components/Analytics";
 
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" });
 
@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <script type="application/ld+json" dangerouslySetInnerHTML={jsonLd(site)} />
         {children}
-        <GoogleAnalytics />
+        <Analytics />
       </body>
     </html>
   );

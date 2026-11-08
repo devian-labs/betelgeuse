@@ -5,6 +5,8 @@ import type { NextConfig } from "next";
 const { version } = JSON.parse(readFileSync(resolve(import.meta.dirname, "package.json"), "utf8")) as { version: string };
 const dev = process.env.NODE_ENV !== "production";
 const github = process.env.NEXT_PUBLIC_GITHUB_API_URL || "https://api.github.com";
+/** PostHog's region for usage counts ("us" or "eu"), reached through /ingest on this site. */
+const posthog = process.env.POSTHOG_REGION === "eu" ? "eu" : "us";
 
 /**
  * Pages hold a GitHub token and someone's notes, so where they can send anything is locked down:
@@ -40,6 +42,14 @@ const nextConfig: NextConfig = {
   // Don't write AGENTS.md / CLAUDE.md into the repo on `next dev`.
   agentRules: false,
   poweredByHeader: false,
+  // Usage counts go to PostHog through this site, so the CSP needn't allow anywhere else (components/Telemetry.tsx).
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    return [
+      { source: "/ingest/static/:path*", destination: `https://${posthog}-assets.i.posthog.com/static/:path*` },
+      { source: "/ingest/:path*", destination: `https://${posthog}.i.posthog.com/:path*` },
+    ];
+  },
   async headers() {
     return [
       {
