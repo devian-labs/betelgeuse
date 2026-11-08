@@ -77,6 +77,10 @@ jobs:
         working-directory: apps/desktop
       - run: npm test -w betelgeuse-mcp
       - run: npm test -w @betelgeuse/web
+      # The release build writes the third-party notices first, through `npm ls`, which fails on a lockfile
+      # npm can't fully resolve (v0.5.2's first builds did). Check it here, not at release time.
+      - run: node scripts/notices.mjs
+        working-directory: apps/desktop
       # Every interface builds, so a UI change is checked without the Rust job.
       - run: npx vite build
         working-directory: apps/desktop
