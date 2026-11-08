@@ -79,4 +79,4 @@ We'd love your help. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and look for 
 
 ## License
 
-[MIT](LICENSE). Built by [Devian Labs](https://devianlabs.com). If Betelgeuse is useful to you, [sponsoring](https://github.com/sponsors/devian-labs) helps fund signed builds.
+[MIT](LICENSE). Built by [Devian Labs](https://devianlabs.com). If Betelgeuse is useful to you, [sponsoring](https://betelgeuse.pro/sponsor/) helps fund signed builds.

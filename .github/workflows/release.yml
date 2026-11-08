@@ -138,7 +138,7 @@ jobs:
             **The easiest and safest way is to build it yourself**: it takes one command and avoids every warning below.
             See [Install](https://github.com/devian-labs/betelgeuse#install).
 
-            These downloads are not signed with an Apple or Microsoft certificate yet (that costs money; [sponsoring](https://github.com/sponsors/devian-labs) helps).
+            These downloads are not signed with an Apple or Microsoft certificate yet (that costs money; [sponsoring](https://betelgeuse.pro/sponsor/) helps).
 
             - **macOS** (`aarch64` for Apple Silicon, `x64` for Intel): open the `.dmg` and drag Betelgeuse to Applications.
               The first time, macOS says it "can't verify the developer". Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.

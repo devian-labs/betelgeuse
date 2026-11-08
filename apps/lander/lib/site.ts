@@ -10,6 +10,19 @@ export const APP_URL = "https://app.betelgeuse.pro";
 /** The whole app with sample pages, and no sign-in. */
 export const DEMO_URL = `${APP_URL}/demo`;
 export const SITE_NAME = "Betelgeuse";
+
+/**
+ * Ways to support Betelgeuse, listed on /sponsor/. Every "Sponsor" button (the apps, this site, the README, the
+ * repository) points at that page, so these can change without an app release. Leave one null to hide it.
+ */
+export const SPONSOR = {
+  page: `${SITE_URL}/sponsor/`,
+  kofi: "https://ko-fi.com/smrutiranjan" as string | null,
+  /** A Razorpay payment link, for UPI and Indian cards. */
+  razorpay: null as string | null,
+  /** Shown as "coming soon" until the GitHub Sponsors listing is approved. */
+  githubSponsors: null as string | null,
+};
 export const ORG = { name: "Devian Labs", url: "https://devianlabs.com", github: "https://github.com/devian-labs" };
 
 /** Serialise JSON-LD for a <script> tag, escaping `<` so no string can close the tag. */
