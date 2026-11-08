@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "lucide-react": "^1.66.0"
+    "lucide-react": "^1.69.0"
   },
   "devDependencies": {
     "@betelgeuse/plugin-api": "*",
