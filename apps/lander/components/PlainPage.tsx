@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { Logo } from "./Logo";
 
 /** A plain text page (Privacy, 404) set like the docs, and so like a page in the app: a top bar and the page, no sidebar. */
-export function PlainPage({ title, children }: { title: string; children: ReactNode }) {
+/** `wide` gives a page with charts or cards (Stats, Support) more room than reading text needs. */
+export function PlainPage({ title, wide, children }: { title: string; wide?: boolean; children: ReactNode }) {
   return (
     <div className="docs docs-plain">
       <div className="docs-body">
@@ -22,7 +23,7 @@ export function PlainPage({ title, children }: { title: string; children: ReactN
             Download
           </a>
         </div>
-        <main className="docs-main doc">{children}</main>
+        <main className={`docs-main doc${wide ? " docs-main-wide" : ""}`}>{children}</main>
       </div>
     </div>
   );
