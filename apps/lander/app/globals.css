@@ -3208,3 +3208,154 @@ a.oss-card:hover {
 .works-on svg {
   flex-shrink: 0;
 }
+
+/* /stats/: stat tiles, one-series bar charts (components/Stats.tsx) and the full table. */
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin: 24px 0 8px;
+}
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+}
+.stat-label,
+.stat-hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+.stat-hint {
+  color: var(--faint);
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+/* The bar colour passes the dataviz checks on both surfaces: #e2541f on light, #ec5f31 on dark. */
+.bars {
+  --bar: #e2541f;
+  margin: 12px 0 8px;
+}
+.bars figcaption {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+/* `.doc` lists are indented with bullets; a chart's rows aren't a list to read that way. */
+.doc .bars ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.doc .bars li {
+  display: grid;
+  grid-template-columns: minmax(110px, 28%) 1fr 56px;
+  align-items: center;
+  gap: 12px;
+  /* 2px of surface between neighbouring bars. */
+  padding: 5px 0;
+  margin: 0;
+  outline: none;
+}
+.bar-label {
+  font-size: 14px;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.bar-sub {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--faint);
+}
+.bar-track {
+  position: relative;
+  height: 18px;
+  border-left: 1px solid var(--line-strong);
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--bar);
+  border-radius: 0 4px 4px 0;
+}
+.bar-value {
+  font-size: 14px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.bar-tip {
+  position: absolute;
+  left: 8px;
+  bottom: calc(100% + 6px);
+  z-index: 2;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.bars li:hover .bar-tip,
+.bars li:focus-visible .bar-tip {
+  opacity: 1;
+}
+.bars li:hover .bar-fill,
+.bars li:focus-visible .bar-fill {
+  filter: brightness(1.08);
+}
+.stats-table-wrap {
+  overflow-x: auto;
+  margin: 12px 0 16px;
+}
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.stats-table th,
+.stats-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.stats-table thead th {
+  /* Platform names wrap, so every column fits beside the page. */
+  white-space: normal;
+  vertical-align: bottom;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--muted);
+}
+.stats-table th[scope="row"],
+.stats-table thead th:first-child {
+  text-align: left;
+}
+@media (prefers-color-scheme: dark) {
+  .bars {
+    --bar: #ec5f31;
+  }
+}
+@media (max-width: 560px) {
+  .doc .bars li {
+    grid-template-columns: 96px 1fr 44px;
+    gap: 8px;
+  }
+}

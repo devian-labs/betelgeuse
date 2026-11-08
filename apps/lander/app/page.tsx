@@ -493,6 +493,7 @@ export default async function Home() {
               <strong>Project</strong>
               <a href={REPO}>GitHub</a>
               <a href={`${REPO}/releases`}>Releases</a>
+              <a href="/stats/">Stats</a>
               <a href={`${REPO}/blob/main/CONTRIBUTING.md`}>Contributing</a>
               <a href={`${REPO}/blob/main/SECURITY.md`}>Security</a>
               <a href="/privacy/">Privacy</a>
