@@ -1,9 +1,9 @@
 "use client";
 
-import { GitFork, Scale, Star, Tag } from "lucide-react";
+import { Download, GitFork, Scale, Star, Tag } from "lucide-react";
 import { createContext, useContext, useEffect, useState } from "react";
 import { REPO } from "@/lib/site";
-import { API, parseRelease, parseRepo, type Release, type Repo, type Snapshot } from "@/lib/github";
+import { API, countDownloads, parseRelease, parseRepo, type Release, type Repo, type Snapshot } from "@/lib/github";
 
 const CACHE_MS = 30 * 60 * 1000;
 
@@ -65,7 +65,25 @@ function loadRelease() {
   return releasePromise;
 }
 
-const SnapshotContext = createContext<Snapshot>({ repo: null, release: undefined, languages: [] });
+let downloadsPromise: Promise<number | null> | null = null;
+function loadDownloads() {
+  downloadsPromise ??= (async () => {
+    const hit = cached<number>("bg-downloads");
+    if (hit !== undefined) return hit;
+    try {
+      const r = await fetch(`${API}/releases?per_page=100`);
+      if (!r.ok) return null;
+      const n = countDownloads(await r.json());
+      remember("bg-downloads", n);
+      return n;
+    } catch {
+      return null;
+    }
+  })();
+  return downloadsPromise;
+}
+
+const SnapshotContext = createContext<Snapshot>({ repo: null, release: undefined, languages: [], downloads: null });
 
 /** Seeds every GitHub-aware component with the facts fetched at build time. */
 export function GitHubProvider({ initial, children }: { initial: Snapshot; children: React.ReactNode }) {
@@ -79,6 +97,16 @@ export function useRepo() {
     loadRepo().then((r) => r && setRepo(r));
   }, []);
   return repo;
+}
+
+/** Installers downloaded across every release (lib/github.ts: countDownloads), or null if GitHub couldn't say. */
+export function useDownloads() {
+  const initial = useContext(SnapshotContext).downloads;
+  const [downloads, setDownloads] = useState(initial);
+  useEffect(() => {
+    loadDownloads().then((n) => n !== null && setDownloads(n));
+  }, []);
+  return downloads;
 }
 
 /** `loading` is true only while we know nothing at all about releases. */
@@ -151,6 +179,7 @@ const FALLBACK_TOPICS = ["notes-app", "open-source", "productivity"];
 export function RepoCard({ children }: { children?: React.ReactNode }) {
   const repo = useRepo();
   const { release } = useRelease();
+  const downloads = useDownloads();
   const { languages } = useContext(SnapshotContext);
   const plural = (n: number, word: string) => `${compact(n)} ${word}${n === 1 ? "" : "s"}`;
   return (
@@ -182,6 +211,11 @@ export function RepoCard({ children }: { children?: React.ReactNode }) {
               <GitFork size={15} /> {plural(repo.forks, "fork")}
             </a>
           </>
+        )}
+        {downloads !== null && downloads > 0 && (
+          <a href="/stats/">
+            <Download size={15} /> {plural(downloads, "download")}
+          </a>
         )}
         <a href={`${REPO}/releases`}>
           <Tag size={15} /> {release ? release.version : "Preview"}

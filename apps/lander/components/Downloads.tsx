@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { APP_URL, REPO } from "@/lib/site";
 import type { Asset } from "@/lib/github";
-import { useRelease } from "./GitHub";
+import { useDownloads, useRelease } from "./GitHub";
 import { OsIcon } from "./OsIcon";
 
 type Platform = "macOS" | "Windows" | "Linux" | "Android";
@@ -59,6 +59,7 @@ function detectOs(): Platform | null {
 /** One card per platform, wired to the files of the latest GitHub release. */
 export function Downloads() {
   const { loading, release } = useRelease();
+  const downloads = useDownloads();
   const [mine, setMine] = useState<Platform | null>(null);
   useEffect(() => setMine(detectOs()), []);
 
@@ -73,6 +74,7 @@ export function Downloads() {
           <>
             <strong>{release.version}</strong> · released{" "}
             {new Date(release.date).toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" })} ·{" "}
+            {downloads ? <>{downloads.toLocaleString("en")} downloads so far · </> : null}
             <a href={release.url}>What&apos;s new</a>
           </>
         ) : (

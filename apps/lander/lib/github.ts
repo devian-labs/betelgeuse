@@ -6,7 +6,7 @@ export type Language = { name: string; share: number };
 export type Asset = { name: string; url: string; size: number };
 export type Release = { version: string; date: string; url: string; assets: Asset[] };
 /** `release` is null when there is no release yet, undefined when GitHub couldn't be reached. */
-export type Snapshot = { repo: Repo | null; release: Release | null | undefined; languages: Language[] };
+export type Snapshot = { repo: Repo | null; release: Release | null | undefined; languages: Language[]; downloads: number | null };
 
 export const API = "https://api.github.com/repos/devian-labs/betelgeuse";
 
@@ -40,15 +40,27 @@ export function parseRelease(d: {
   };
 }
 
+/**
+ * Installers downloaded, across every release: the apps' files only, not the update bundles, signatures,
+ * latest.json or plugin store files that installed apps fetch on their own. scripts/stats.mjs counts the same way.
+ */
+export function countDownloads(releases: { assets: { name: string; download_count: number }[] }[]): number {
+  const installer = /\.(dmg|exe|msi|apk|AppImage|deb|rpm)$/;
+  return releases.reduce((sum, r) => sum + r.assets.filter((a) => installer.test(a.name)).reduce((n, a) => n + a.download_count, 0), 0);
+}
+
 export async function getSnapshot(): Promise<Snapshot> {
   // A token (e.g. on CI or Vercel) avoids the 60-requests-an-hour limit for anonymous calls.
   const headers: Record<string, string> = { Accept: "application/vnd.github+json" };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
-  const get = (path: string) => fetch(`${API}${path}`, { headers }).catch(() => null);
-  const [repoRes, releaseRes, langRes] = await Promise.all([get(""), get("/releases/latest"), get("/languages")]);
+  // Next keeps fetched data in .next/cache, which Vercel restores between builds: without a limit, a build could show
+  // a release, stars or downloads from months ago. Ten minutes covers one build's repeated calls.
+  const get = (path: string) => fetch(`${API}${path}`, { headers, next: { revalidate: 600 } }).catch(() => null);
+  const [repoRes, releaseRes, langRes, allRes] = await Promise.all([get(""), get("/releases/latest"), get("/languages"), get("/releases?per_page=100")]);
   return {
     repo: repoRes?.ok ? parseRepo(await repoRes.json()) : null,
     release: releaseRes?.ok ? parseRelease(await releaseRes.json()) : releaseRes?.status === 404 ? null : undefined,
     languages: langRes?.ok ? parseLanguages(await langRes.json()) : [],
+    downloads: allRes?.ok ? countDownloads(await allRes.json()) : null,
   };
 }
