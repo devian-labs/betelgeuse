@@ -19,6 +19,7 @@ import {
   MoonStar,
   Palette as PaletteIcon,
   Scale,
+  ShieldCheck,
   ArrowLeft,
   Sun,
   Upload,
@@ -39,7 +40,7 @@ import { PluginSettingsSection } from "../plugins/slots";
 import { useContributions } from "../plugins/runtime";
 
 /** `plugin:<key>` is a plugin's own settings section. */
-export type Section = "appearance" | "git" | "vault" | "plugins" | "import" | "agents" | "about" | `plugin:${string}`;
+export type Section = "appearance" | "git" | "vault" | "plugins" | "import" | "agents" | "privacy" | "about" | `plugin:${string}`;
 
 type Props = {
   vault: VaultInfo;
@@ -66,6 +67,7 @@ export function SettingsDialog(p: Props) {
     ...pluginSettings.map((ps) => ({ id: `plugin:${ps.key}` as Section, label: ps.title, icon: ps.icon ?? <Puzzle size={16} /> })),
     ...(features.importer ? [{ id: "import" as const, label: "Import", icon: <Download size={16} /> }] : []),
     ...(features.agents ? [{ id: "agents" as const, label: "AI agents", icon: <Bot size={16} /> }] : []),
+    { id: "privacy", label: "Privacy", icon: <ShieldCheck size={16} /> },
     { id: "about", label: "About", icon: <Info size={16} /> },
   ];
 
@@ -96,6 +98,7 @@ export function SettingsDialog(p: Props) {
           {section.startsWith("plugin:") && <PluginSettingsSection sectionKey={section.slice(7)} />}
           {section === "import" && <ImportSection onChanged={p.onChanged} />}
           {section === "agents" && <AgentsSection onOpenAgents={p.onOpenAgents} policy={p.aiPolicy} onPolicy={p.onAiPolicy} />}
+          {section === "privacy" && <PrivacySection />}
           {section === "about" && <About />}
         </div>
       </div>
@@ -709,6 +712,31 @@ function ImportSection({ onChanged }: { onChanged: () => void }) {
         </div>
       )}
     </>
+  );
+}
+
+function PrivacySection() {
+  const s = useSettings();
+  return (
+    <div>
+      <Heading title="Privacy" hint="Your pages never leave your devices and your own git remote." />
+      <div className="divide-y divide-line">
+        <Row
+          label="Share anonymous usage and error reports"
+          hint={
+            <>
+              Counts like &ldquo;the app opened&rdquo; with its version and system, and reports of errors with file paths, page names and quoted text
+              removed. Never what&apos;s in your pages, their names or your repositories.{" "}
+              <button className="text-[var(--blue)] hover:underline" onClick={() => void open(LINKS.privacy)}>
+                What&apos;s sent
+              </button>
+            </>
+          }
+        >
+          <Switch checked={s.telemetry} onChange={(telemetry) => updateSettings({ telemetry })} label="Share anonymous usage and error reports" />
+        </Row>
+      </div>
+    </div>
   );
 }
 

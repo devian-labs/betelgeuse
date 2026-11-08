@@ -7,6 +7,7 @@ export const LINKS = {
   sponsor: "https://github.com/sponsors/devian-labs",
   kofi: "https://ko-fi.com/devianlabs",
   website: "https://betelgeuse.pro",
+  privacy: "https://betelgeuse.pro/privacy/",
   devianlabs: "https://devianlabs.com",
   node: "https://nodejs.org/en/download",
 };

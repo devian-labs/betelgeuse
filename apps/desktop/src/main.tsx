@@ -5,6 +5,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import App from "@betelgeuse/ui/App";
 import { installPlatform } from "@betelgeuse/ui/platform";
 import { tauriPlatform } from "@betelgeuse/ui/platform/tauri";
+import { initTelemetry, reactRootOptions } from "@betelgeuse/ui/lib/telemetry";
 import "@betelgeuse/ui/index.css";
 
 installPlatform(
@@ -13,6 +14,15 @@ installPlatform(
     updates: { check, relaunch },
   }),
 );
+
+// Anonymous usage counts and error reports: only in builds with keys, and off with Settings → Privacy.
+initTelemetry({
+  platform: "desktop",
+  release: import.meta.env.VITE_APP_VERSION,
+  environment: import.meta.env.DEV ? "development" : "production",
+  posthogKey: import.meta.env.VITE_POSTHOG_KEY,
+  posthogHost: import.meta.env.VITE_POSTHOG_HOST,
+});
 
 // A file dropped where nothing handles it would make the webview navigate to it, replacing the app
 // with no way back. Handlers that do accept files (the editor, the icon picker) call preventDefault first.
@@ -31,7 +41,7 @@ window.addEventListener("contextmenu", (e) => {
   if (!editable || t.closest("a, img")) e.preventDefault();
 });
 
-createRoot(document.getElementById("root")!).render(
+createRoot(document.getElementById("root")!, reactRootOptions).render(
   <StrictMode>
     <App />
   </StrictMode>,

@@ -21,6 +21,7 @@ import { loadIcons } from "./components/PageIcon";
 import { VaultContext, type VaultContextValue } from "./lib/vault";
 import { useFullscreen } from "./lib/window";
 import { useApplySettings } from "./lib/settings";
+import { captureError, noticeOnce, track } from "./lib/telemetry";
 import { listen, platform } from "./platform";
 
 const store = {
@@ -92,6 +93,13 @@ export default function App() {
   const fullscreen = useFullscreen();
   useApplySettings();
   const [settings, setSettings] = useState<false | Section>(false);
+  // Counted once per opening; the first time, a note says so and where to turn it off.
+  useEffect(() => {
+    track("app_opened");
+    noticeOnce(() =>
+      setToast({ message: "Betelgeuse sends anonymous usage and error reports, never your pages.", action: { label: "Settings", run: () => setSettings("privacy") } }),
+    );
+  }, []);
   // Plugins: load the ones this workspace uses, and lend them navigation and messages.
   useEffect(() => {
     if (vault) loadPlugins(vault.path);
@@ -361,6 +369,7 @@ export default function App() {
     try {
       await fn();
     } catch (e) {
+      captureError(e, label);
       await platform().message(String(e), { title: "Betelgeuse", kind: "error" });
     } finally {
       setBusy(null);

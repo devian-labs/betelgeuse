@@ -1,10 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 // `tauri ios dev` / `tauri android dev` on a real device set this to the computer's LAN address.
 const host = process.env.TAURI_DEV_HOST;
+
+// The release that error reports and usage counts are tagged with (packages/ui/src/lib/telemetry.ts).
+process.env.VITE_APP_VERSION = (JSON.parse(readFileSync(new URL("package.json", import.meta.url), "utf8")) as { version: string }).version;
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

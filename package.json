@@ -28,6 +28,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm test --workspaces --if-present",
     "version:set": "node scripts/set-version.mjs",
-    "plugins": "node scripts/plugins.mjs"
+    "plugins": "node scripts/plugins.mjs",
+    "stats": "node scripts/stats.mjs"
   }
 }

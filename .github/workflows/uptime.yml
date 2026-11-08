@@ -1,0 +1,67 @@
+name: Uptime
+
+# Checks that what people and installed apps depend on is up: the website, the web app (its health
+# check reaches GitHub and the plugin store too), the in-app updater's manifest and the plugin store.
+# A failure opens an issue labelled "outage" (once); the next good run closes it.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime
+
+jobs:
+  check:
+    name: Check endpoints
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check
+        id: check
+        run: |
+          failed=""
+          check() { # name, url, [text the body must contain]
+            local body code
+            for attempt in 1 2 3; do
+              code=$(curl -sSL -o body.txt -w '%{http_code}' --max-time 20 "$2" || echo 000)
+              if [ "$code" = 200 ] && { [ -z "${3:-}" ] || grep -q "$3" body.txt; }; then
+                echo "ok    $1 ($2)"; return
+              fi
+              sleep 10
+            done
+            echo "FAIL  $1 ($2): HTTP $code"
+            failed+="- **$1**: HTTP $code from $2"$'\n'
+          }
+          check "Website" "https://betelgeuse.pro/" "Betelgeuse"
+          check "Web app" "https://app.betelgeuse.pro/api/health?deep=1" '"status":"ok"'
+          check "Web demo" "https://app.betelgeuse.pro/demo"
+          check "Plugin store" "https://github.com/devian-labs/betelgeuse/releases/latest/download/plugins.json" '"plugins"'
+          check "In-app updates (latest.json)" "https://github.com/devian-labs/betelgeuse/releases/latest/download/latest.json" '"version"'
+          {
+            echo "failed<<EOF"
+            printf '%s' "$failed"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or close the outage issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          FAILED: ${{ steps.check.outputs.failed }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh label create outage --color B60205 --description "Opened by the Uptime workflow" 2>/dev/null || true
+          open=$(gh issue list --label outage --state open --json number --jq '.[0].number // empty')
+          if [ -n "$FAILED" ]; then
+            if [ -z "$open" ]; then
+              gh issue create --label outage --title "Outage: something people rely on is down" \
+                --body "$(printf 'The [uptime check](%s) failed:\n\n%s\nThis closes by itself on the next good check.' "$RUN" "$FAILED")"
+            fi
+            exit 1
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Everything is up again ([check]($RUN))."
+          fi

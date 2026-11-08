@@ -1,0 +1,32 @@
+name: Stats
+
+# Downloads, stars and GitHub traffic, once a day, to the run's summary and to PostHog. GitHub keeps
+# traffic for 14 days only, so these daily snapshots are its history. See scripts/stats.mjs.
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stats:
+    name: Collect stats
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node scripts/stats.mjs
+        env:
+          # Traffic needs a token with push access: a fine-grained token with "Administration: read"
+          # on this repository (secret STATS_TOKEN). Without it, the rest is still collected.
+          GITHUB_TOKEN: ${{ secrets.STATS_TOKEN || github.token }}
+          POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          # PostHog answers on many IPv4 and IPv6 addresses; Node's default 250 ms per address can time out.
+          NODE_OPTIONS: --network-family-autoselection-attempt-timeout=2000

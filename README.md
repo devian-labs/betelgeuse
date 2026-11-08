@@ -4,7 +4,7 @@
 
 A beautiful workspace for notes, docs and databases that stays yours. Every page is a plain Markdown file on your computer, and your AI agents can read only the pages you share.
 
-[Website](https://betelgeuse.pro) · [Download](https://github.com/devian-labs/betelgeuse/releases/latest) · [User guide](apps/desktop/src-tauri/seed/Welcome.md) · [Contributing](CONTRIBUTING.md)
+[Website](https://betelgeuse.pro) · [Download](https://github.com/devian-labs/betelgeuse/releases/latest) · [User guide](apps/desktop/src-tauri/seed/Welcome.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md)
 
 [![CI](https://github.com/devian-labs/betelgeuse/actions/workflows/ci.yml/badge.svg)](https://github.com/devian-labs/betelgeuse/actions/workflows/ci.yml)
 [![MIT License](https://img.shields.io/badge/license-MIT-orange.svg)](LICENSE)
@@ -64,6 +64,10 @@ A new workspace starts with a few sample pages. The full guide explains every fe
 [Plugins](apps/desktop/src-tauri/seed/Welcome/Plugins.md) ·
 [Your files on disk](apps/desktop/src-tauri/seed/Welcome/Your%20files%20on%20disk.md) ·
 [Keyboard shortcuts](apps/desktop/src-tauri/seed/Welcome/Keyboard%20shortcuts.md)
+
+## Privacy
+
+Your pages, their names and your repositories never reach us. Release builds send anonymous usage counts and error reports, with paths and names taken out, so we know what breaks. Turn them off in **Settings → Privacy**. Builds from source send nothing. [What's sent](https://betelgeuse.pro/privacy/).
 
 ## Status
 

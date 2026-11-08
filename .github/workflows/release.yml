@@ -48,6 +48,16 @@ jobs:
             echo "::error::Tag $GITHUB_REF_NAME doesn't match the app version $app. Run 'npm run version:set $tag', commit, and tag that commit."
             exit 1
           fi
+      # Without the key, the builds still succeed but the release has no latest.json, so installed apps
+      # never hear about it (v0.5.1 shipped like that). A real release must not; dry runs may.
+      - name: Updater signing key is set
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::The TAURI_SIGNING_PRIVATE_KEY secret isn't set, so this release couldn't update installed apps. See CONTRIBUTING.md, Releasing."
+            exit 1
+          fi
 
   build:
     name: Build (${{ matrix.name }})
@@ -101,6 +111,12 @@ jobs:
           # Built into the app for Unsplash cover search (Settings: repository secret UNSPLASH_ACCESS_KEY).
           # Without it the app still builds; people then add their own key in the cover picker.
           VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          # Anonymous usage counts and error reports, to PostHog: the interface (packages/ui/src/lib/telemetry.ts)
+          # and Rust panics (crates/betelgeuse-core/src/telemetry.rs). Without the secret the app sends nothing.
+          VITE_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
           # Signs the in-app update bundles (repository secret: the contents of the key made by
           # `npx tauri signer generate`; its public half is in tauri.conf.json). With it, the release
           # also gets the latest.json that installed apps check for updates.
@@ -120,7 +136,7 @@ jobs:
             ## Install
 
             **The easiest and safest way is to build it yourself**: it takes one command and avoids every warning below.
-            See [Install from source](https://github.com/devian-labs/betelgeuse#install-from-source).
+            See [Install](https://github.com/devian-labs/betelgeuse#install).
 
             These downloads are not signed with an Apple or Microsoft certificate yet (that costs money; [sponsoring](https://github.com/sponsors/devian-labs) helps).
 
@@ -170,6 +186,14 @@ jobs:
       - run: npm ci
       # Through the wrapper: it points OpenSSL's build (git sync) at the NDK's llvm-ranlib.
       - name: Build the APK
+        env:
+          VITE_UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          # Anonymous usage counts and error reports, to PostHog: the interface (packages/ui/src/lib/telemetry.ts)
+          # and Rust panics (crates/betelgeuse-core/src/telemetry.rs). Without the secret the app sends nothing.
+          VITE_POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
         run: npm run android:build -w @betelgeuse/mobile -- --apk
       - name: Sign the APK
         env:

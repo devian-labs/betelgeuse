@@ -21,6 +21,10 @@ export type Settings = {
   recentRows: number;
   /** Access Key of the person's own Unsplash developer app, for cover photo search. */
   unsplashKey: string;
+  /** Anonymous usage counts and error reports (lib/telemetry.ts). On unless turned off. */
+  telemetry: boolean;
+  /** The one-time note saying so has been shown. */
+  telemetryNoticeSeen: boolean;
 };
 
 export const ACCENTS: { id: string; label: string; color: string }[] = [
@@ -38,7 +42,7 @@ export const PALETTES: { id: Palette; label: string; hint: string; swatch: [stri
   { id: "midnight", label: "Midnight", hint: "Cool blue slate", swatch: ["#13161d", "#191d26", "#5b7cfa"] },
 ];
 
-const DEFAULTS: Settings = { mode: "light", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8, autosync: 300, sidebarAiBadges: false, recentRows: 5, unsplashKey: "" };
+const DEFAULTS: Settings = { mode: "light", palette: "betelgeuse", accent: "ember", textSize: "default", autocommit: 8, autosync: 300, sidebarAiBadges: false, recentRows: 5, unsplashKey: "", telemetry: true, telemetryNoticeSeen: false };
 const KEY = "betelgeuse-settings";
 
 function load(): Settings {
@@ -63,6 +67,16 @@ export function updateSettings(patch: Partial<Settings>) {
   if ("autocommit" in patch) api.setAutocommit(current.autocommit).catch(() => {});
   if ("autosync" in patch) api.setAutosync(current.autosync).catch(() => {});
   listeners.forEach((l) => l());
+}
+
+/** The current settings, outside React. */
+export const getSettings = (): Settings => current;
+
+/** Calls `fn` after every change; returns the unsubscribe. */
+export function onSettingsChange(fn: (s: Settings) => void) {
+  const l = () => fn(current);
+  listeners.add(l);
+  return () => void listeners.delete(l);
 }
 
 export function useSettings(): Settings {

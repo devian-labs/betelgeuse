@@ -205,6 +205,12 @@ fn fill_screen(app: &tauri::App) {
     });
 }
 
+/// Follows Settings → Privacy for crash reports from this side of the app (see betelgeuse_core::telemetry).
+#[tauri::command]
+fn set_crash_reports(enabled: bool, distinct_id: Option<String>) -> Result<(), String> {
+    betelgeuse_core::telemetry::set_enabled(enabled, distinct_id)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -213,6 +219,10 @@ pub fn run() {
         // Plugins ask before doing something that can't be undone.
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            if let Ok(config) = app.path().app_config_dir() {
+                // POSTHOG_KEY is set in release builds (CI secrets); without it this does nothing.
+                betelgeuse_core::telemetry::init(option_env!("POSTHOG_KEY"), option_env!("POSTHOG_HOST"), env!("CARGO_PKG_VERSION"), config.join("crash-reports-off"));
+            }
             let workspace = workspace_dir(app.handle())?;
             seed_if_empty(&workspace)?;
             let data = app.path().app_data_dir()?;
@@ -224,6 +234,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            set_crash_reports,
             current_vault,
             list_notes,
             read_note,
