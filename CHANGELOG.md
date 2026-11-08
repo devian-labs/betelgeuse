@@ -4,9 +4,12 @@ What changed in each release. Downloads and full notes are on [GitHub Releases](
 
 ## Unreleased
 
+## 0.5.2 (2026-11-08)
+
 - **Web app** (preview) at [app.betelgeuse.pro](https://app.betelgeuse.pro): the same interface in a browser, on a GitHub repository, with a [demo](https://app.betelgeuse.pro/demo) that needs no sign-in. The interface all three apps share now lives in `packages/ui`, and every new workspace starts with the same pages.
 - **Usage counts and error reports**: anonymous, never your pages, and off with one switch in **Settings → Privacy**. See [what's sent](https://betelgeuse.pro/privacy/).
 - The website moved to [betelgeuse.pro](https://betelgeuse.pro), and counts visits without cookies.
+- In-app updates work again: 0.5.1 shipped without the file installed apps check, so they never saw it.
 
 ## 0.5.1 (2026-11-05)
 

@@ -796,12 +796,12 @@ function About() {
           <div className="min-w-0 flex-1">
             <div className="text-sm font-medium text-ink">Support Betelgeuse</div>
             <p className="mt-0.5 text-xs leading-relaxed text-muted">
-              Betelgeuse is built in the open, without ads or tracking. Sponsorships pay for things like an Apple developer account, so the app can be signed and
+              Betelgeuse is free, open source and has no ads. Support pays for things like an Apple developer account, so the app can be signed and
               installed with a double-click.
             </p>
             <div className="mt-3 flex gap-2">
               <Button primary onClick={() => open(LINKS.sponsor)}>
-                <Heart size={14} /> Sponsor on GitHub
+                <Heart size={14} /> Ways to support
               </Button>
               <Button onClick={() => open(LINKS.kofi)}>
                 <Coffee size={14} /> One-off tip on Ko-fi

@@ -359,7 +359,7 @@ export default async function Home() {
                 <strong>Report a security issue</strong>
                 <span>Privately, and we&apos;ll reply within a week.</span>
               </a>
-              <a className="oss-card" href="https://github.com/sponsors/devian-labs">
+              <a className="oss-card" href="/sponsor/">
                 <Heart className="oss-icon" />
                 <strong>Sponsor</strong>
                 <span>Help fund signed builds and development.</span>
@@ -501,7 +501,7 @@ export default async function Home() {
               <strong>Community</strong>
               <a href={`${REPO}/discussions`}>Discussions</a>
               <a href={`${REPO}/issues`}>Issues</a>
-              <a href="https://github.com/sponsors/devian-labs">Sponsor</a>
+              <a href="/sponsor/">Sponsor</a>
               <a href={`${REPO}/blob/main/LICENSE`}>MIT License</a>
             </nav>
           </div>

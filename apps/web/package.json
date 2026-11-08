@@ -1,7 +1,7 @@
 {
   "name": "@betelgeuse/web",
   "private": true,
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Betelgeuse in the browser: your workspace is a GitHub repository, opened directly from the page",
   "license": "MIT",
   "type": "module",
