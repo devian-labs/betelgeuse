@@ -3,6 +3,6 @@
 import { icons as lucide } from "lucide-react";
 
 // Icons Lucide has renamed, kept under their old names so pages saved with them keep their icon.
-const RENAMED: Record<string, keyof typeof lucide> = { Music: "EighthNotes" };
+const RENAMED: Record<string, keyof typeof lucide> = { Music: "EighthNotes", CircleAlert: "CircleExclamationPoint", TriangleAlert: "TriangleExclamationPoint" };
 
 export const icons = { ...lucide, ...Object.fromEntries(Object.entries(RENAMED).map(([old, now]) => [old, lucide[now]])) };
