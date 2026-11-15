@@ -1,50 +1,84 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { APP_URL, PLAY_STORE_URL, REPO } from "@/lib/site";
+import { Heart } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { APP_URL, PLAY_STORE_URL, REPO, SPONSOR } from "@/lib/site";
 import type { Asset } from "@/lib/github";
 import { useDownloads, useRelease } from "./GitHub";
 import { OsIcon } from "./OsIcon";
 
-type Platform = "macOS" | "Windows" | "Linux" | "Android";
+type Platform = "macOS" | "Windows" | "Linux" | "Android" | "iOS" | "Web";
 
+/** A file from the latest release (`match`) or a fixed link (`url`). */
+type Option = { label: string; match?: RegExp; url?: string };
+
+/**
+ * Every card has the same shape: what it runs on, the one thing to do on first launch, then the main download as a
+ * full-width button and any other formats as a quiet line under it. The buttons sit at the bottom so they line up.
+ */
 const platforms: {
   os: Platform;
   detail: string;
-  preview?: boolean;
-  /** A store listing, shown first and as the main button. */
-  store?: { label: string; url: string };
-  files: { label: string; match: RegExp }[];
+  badge?: "Preview" | "Soon";
+  /** Not a download: the main button asks for support instead, and looks it. */
+  sponsor?: boolean;
+  main: Option;
+  others: Option[];
+  note: ReactNode;
 }[] = [
   {
     os: "macOS",
     detail: "Apple Silicon and Intel",
-    files: [
-      { label: "Apple Silicon", match: /aarch64\.dmg$/ },
-      { label: "Intel", match: /x64\.dmg$/ },
-    ],
+    main: { label: "Apple Silicon", match: /aarch64\.dmg$/ },
+    others: [{ label: "Intel", match: /x64\.dmg$/ }],
+    note: (
+      <>
+        First launch: <em>System Settings → Privacy &amp; Security → Open Anyway</em>.
+      </>
+    ),
   },
   {
     os: "Windows",
     detail: "Windows 10 and 11",
-    files: [
-      { label: "Installer (.exe)", match: /setup\.exe$/ },
-      { label: ".msi", match: /\.msi$/ },
-    ],
+    main: { label: "Installer (.exe)", match: /setup\.exe$/ },
+    others: [{ label: ".msi", match: /\.msi$/ }],
+    note: (
+      <>
+        First launch: <em>More info → Run anyway</em>.
+      </>
+    ),
   },
   {
     os: "Linux",
     detail: "AppImage and .deb",
-    files: [
-      { label: ".AppImage", match: /amd64\.AppImage$/ },
-      { label: ".deb", match: /amd64\.deb$/ },
-    ],
+    main: { label: ".AppImage", match: /amd64\.AppImage$/ },
+    others: [{ label: ".deb", match: /amd64\.deb$/ }],
+    note: "Make the AppImage executable, then open it.",
+  },
+  {
+    os: "Web",
+    detail: "Nothing to install",
+    badge: "Preview",
+    main: { label: "Open the app", url: APP_URL },
+    others: [],
+    note: "Sign in with GitHub and pick a repository.",
   },
   {
     os: "Android",
     detail: "Android 8 and later",
-    store: { label: "Google Play", url: PLAY_STORE_URL },
-    files: [{ label: ".apk", match: /android\.apk$/ }],
+    main: { label: "Google Play", url: PLAY_STORE_URL },
+    others: [{ label: ".apk", match: /android\.apk$/ }],
+    note: "Updates arrive through Google Play.",
+  },
+  {
+    os: "iOS",
+    detail: "iPhone and iPad",
+    badge: "Soon",
+    // The app builds for iOS; publishing it needs an Apple developer account, which sponsors would pay for.
+    main: { label: "Sponsor the iOS app", url: SPONSOR.razorpay ?? SPONSOR.page },
+    sponsor: true,
+    others: [{ label: "other ways to sponsor", url: SPONSOR.page }],
+    note: "Want it on iOS? Sponsor the App Store publish.",
   },
 ];
 
@@ -56,7 +90,7 @@ function detectOs(): Platform | null {
   const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
   const p = `${nav.userAgentData?.platform ?? ""} ${nav.platform} ${nav.userAgent}`;
   if (/Android/i.test(nav.userAgent)) return "Android";
-  if (/iPhone|iPad/i.test(nav.userAgent)) return null;
+  if (/iPhone|iPad/i.test(nav.userAgent)) return "iOS";
   if (/mac/i.test(p)) return "macOS";
   if (/win/i.test(p)) return "Windows";
   if (/linux|x11/i.test(p)) return "Linux";
@@ -71,6 +105,11 @@ export function Downloads() {
   useEffect(() => setMine(detectOs()), []);
 
   const find = (match: RegExp): Asset | undefined => release?.assets.find((a) => match.test(a.name));
+  const resolve = (o: Option): { href: string; size: string | null } | null => {
+    if (o.url) return { href: o.url, size: null };
+    const asset = o.match ? find(o.match) : undefined;
+    return asset ? { href: asset.url, size: size(asset.size) } : null;
+  };
 
   return (
     <div className="downloads">
@@ -90,60 +129,60 @@ export function Downloads() {
           </>
         )}
       </p>
+      <div className="sync-band">
+        <h3>Sync your notes across all your devices</h3>
+        <p>Every device opens the same git repository, one you choose, and keeps it up to date in the background.</p>
+      </div>
       <div className="platforms">
-        {platforms.map((p) => (
-          <div key={p.os} className={`platform${mine === p.os ? " mine" : ""}`}>
-            <OsIcon os={p.os} size={30} />
-            <h3>{p.os}</h3>
-            <p>{p.detail}</p>
-            <div className="platform-files">
-              {p.store && (
-                <a className="button primary" href={p.store.url}>
-                  {p.store.label}
-                </a>
-              )}
-              {p.files.map((f, i) => {
-                const asset = find(f.match);
-                return asset ? (
-                  <a key={f.label} className={`button${i === 0 && !p.store ? " primary" : ""}`} href={asset.url}>
-                    {f.label} <span className="file-size">{size(asset.size)}</span>
+        {platforms.map((p) => {
+          const main = resolve(p.main);
+          const others = p.others.flatMap((o) => {
+            const link = resolve(o);
+            return link ? [{ label: o.label, ...link }] : [];
+          });
+          return (
+            <div key={p.os} className={`platform${mine === p.os ? " mine" : ""}`}>
+              <div className="platform-head">
+                <OsIcon os={p.os} size={28} />
+                {mine === p.os ? (
+                  <span className="badge">Your system</span>
+                ) : p.badge ? (
+                  <span className="badge quiet">{p.badge}</span>
+                ) : null}
+              </div>
+              <h3>{p.os}</h3>
+              <p>{p.detail}</p>
+              <p className="platform-note">{p.note}</p>
+              <div className="platform-get">
+                {main ? (
+                  <a className={p.sponsor ? "button sponsor" : "button primary"} href={main.href}>
+                    {p.sponsor && <Heart size={15} aria-hidden />}
+                    {p.main.label}
+                    {main.size && <span className="file-size">{main.size}</span>}
                   </a>
                 ) : (
-                  <span key={f.label} className="button disabled" aria-disabled>
-                    {f.label}
+                  <span className="button primary disabled" aria-disabled>
+                    {p.main.label}
                   </span>
-                );
-              })}
-            </div>
-            {(p.preview || mine === p.os) && (
-              <div className="platform-badges">
-                {mine === p.os && <span className="badge">Your system</span>}
-                {p.preview && <span className="badge quiet">Preview</span>}
+                )}
+                <span className="platform-alt">
+                  {others.map((o, i) => (
+                    <span key={o.label}>
+                      {i === 0 ? "or " : " · "}
+                      <a href={o.href}>{o.label}</a>
+                      {o.size && <span className="file-size"> {o.size}</span>}
+                    </span>
+                  ))}
+                </span>
               </div>
-            )}
-          </div>
-        ))}
-        <div className="platform">
-          <OsIcon os="Web" size={30} />
-          <h3>Web</h3>
-          <p>Nothing to install</p>
-          <div className="platform-files">
-            <a className="button primary" href={APP_URL}>
-              Open the app
-            </a>
-          </div>
-          <div className="platform-badges">
-            <span className="badge quiet">Preview</span>
-          </div>
-        </div>
+            </div>
+          );
+        })}
       </div>
-      <div className="unsigned">
-        <strong>Before you install:</strong> builds aren&apos;t code-signed yet, so your OS asks you to confirm the first
-        time. On macOS, open <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em>. On Windows,
-        click <em>More info → Run anyway</em>. Building from source avoids both. On Android, get it from Google Play; if you install the .apk instead, allow
-        installs from your browser when asked.{" "}
-        <a href={`${REPO}/releases`}>All releases</a>
-      </div>
+      <p className="unsigned">
+        macOS and Windows builds aren&apos;t code-signed yet, which is why the first launch asks you to confirm. Building from
+        source avoids it. <a href={`${REPO}/releases`}>All releases</a>
+      </p>
     </div>
   );
 }

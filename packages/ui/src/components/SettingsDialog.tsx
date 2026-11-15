@@ -2,7 +2,6 @@ import {
   Bot,
   Puzzle,
   Check,
-  Coffee,
   Heart,
   Download,
   Eye,
@@ -802,9 +801,6 @@ function About() {
             <div className="mt-3 flex gap-2">
               <Button primary onClick={() => open(LINKS.sponsor)}>
                 <Heart size={14} /> Ways to support
-              </Button>
-              <Button onClick={() => open(LINKS.kofi)}>
-                <Coffee size={14} /> One-off tip on Ko-fi
               </Button>
             </div>
           </div>

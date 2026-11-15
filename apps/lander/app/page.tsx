@@ -1,3 +1,5 @@
+import { CommitConstellation, HeroSky } from "@/components/SkyArt";
+import { StoryThread } from "@/components/StoryThread";
 import type { Metadata } from "next";
 import {
   Bot,
@@ -154,9 +156,11 @@ export default async function Home() {
           </div>
         </header>
 
-        <main id="top">
+        <main id="top" className="story">
+          <StoryThread />
           {/* ---------- Hero ---------- */}
           <div className="hero">
+            <HeroSky />
             <div className="wrap">
               <a className="pill" href={REPO}>
                 <span className="dot" aria-hidden />
@@ -173,7 +177,24 @@ export default async function Home() {
                   Try it in your browser
                 </a>
               </div>
-              <p className="fineprint">macOS · Windows · Linux · Web · Android · MIT licensed · No account needed on your computer</p>
+              <p className="fineprint">MIT licensed · No account needed on your computer</p>
+
+              <ul className="works-with" aria-label="Works on">
+                <li>Works on</li>
+                {(["macOS", "Windows", "Linux", "Android", "Web"] as const).map((os) => (
+                  <li key={os} className="works-on" title={os}>
+                    <OsIcon os={os} size={26} />
+                    <span className="sr-only">{os}</span>
+                  </li>
+                ))}
+                <li className="works-on soon" title="iOS, coming soon">
+                  <OsIcon os="iOS" size={26} />
+                  <span className="sr-only">iOS, coming soon</span>
+                  <span className="badge quiet" aria-hidden>
+                    Soon
+                  </span>
+                </li>
+              </ul>
 
               <div className="hero-visual">
                 <div className="devices hero-devices">
@@ -194,23 +215,10 @@ export default async function Home() {
             </div>
           </div>
 
-          <ul className="works-with wrap" aria-label="Works on">
-            <li>Works on</li>
-            {(["macOS", "Windows", "Linux", "Android", "Web"] as const).map((os) => (
-              <li key={os} className="works-on">
-                <OsIcon os={os} size={20} />
-                {os}
-              </li>
-            ))}
-            <li className="works-on">
-              <OsIcon os="iOS" size={20} />
-              iOS <span className="badge quiet">Soon</span>
-            </li>
-          </ul>
-
           {/* ---------- Features ---------- */}
           <section id="features">
             <div className="wrap center" data-reveal>
+              <CommitConstellation />
               <p className="kicker">Features</p>
               <h2 className="center">
                 If you know Notion, <em>you know this.</em>
