@@ -1,2 +1,3 @@
-# Shows the "Sponsor" button on the repository. Add `github: [iamsmruti]` once the GitHub Sponsors listing is approved.
+# Shows the "Sponsor" button on the repository.
+github: [iamsmruti]
 custom: ["https://betelgeuse.pro/sponsor/", "https://rzp.io/rzp/betelgeuse"]

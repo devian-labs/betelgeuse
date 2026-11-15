@@ -21,8 +21,8 @@ export const SPONSOR = {
   page: `${SITE_URL}/sponsor/`,
   /** The Razorpay payment page: UPI, and Indian or international cards, paid out in rupees. The main way to give. */
   razorpay: "https://rzp.io/rzp/betelgeuse" as string | null,
-  /** Shown as "coming soon" until the GitHub Sponsors listing is approved. */
-  githubSponsors: null as string | null,
+  /** GitHub Sponsors: monthly or one-time, with no fee taken by GitHub. */
+  githubSponsors: "https://github.com/sponsors/iamsmruti" as string | null,
 };
 export const ORG = { name: "Devian Labs", url: "https://devianlabs.com", github: "https://github.com/devian-labs" };
 
