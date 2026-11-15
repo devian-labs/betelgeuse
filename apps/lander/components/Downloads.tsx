@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { APP_URL, PLAY_STORE_URL, REPO } from "@/lib/site";
+import { APP_URL, PLAY_STORE_URL, REPO, SPONSOR } from "@/lib/site";
 import type { Asset } from "@/lib/github";
 import { useDownloads, useRelease } from "./GitHub";
 import { OsIcon } from "./OsIcon";
 
-type Platform = "macOS" | "Windows" | "Linux" | "Android" | "Web";
+type Platform = "macOS" | "Windows" | "Linux" | "Android" | "iOS" | "Web";
 
 /** A file from the latest release (`match`) or a fixed link (`url`). */
 type Option = { label: string; match?: RegExp; url?: string };
@@ -15,7 +15,14 @@ type Option = { label: string; match?: RegExp; url?: string };
  * Every card has the same shape: what it runs on, the one thing to do on first launch, then the main download as a
  * full-width button and any other formats as a quiet line under it. The buttons sit at the bottom so they line up.
  */
-const platforms: { os: Platform; detail: string; preview?: boolean; main: Option; others: Option[]; note: ReactNode }[] = [
+const platforms: {
+  os: Platform;
+  detail: string;
+  badge?: "Preview" | "Soon";
+  main: Option;
+  others: Option[];
+  note: ReactNode;
+}[] = [
   {
     os: "macOS",
     detail: "Apple Silicon and Intel",
@@ -53,9 +60,18 @@ const platforms: { os: Platform; detail: string; preview?: boolean; main: Option
     note: "Updates arrive through Google Play.",
   },
   {
+    os: "iOS",
+    detail: "iPhone and iPad",
+    badge: "Soon",
+    // The app builds for iOS; publishing it needs an Apple developer account, which sponsors would pay for.
+    main: { label: "Sponsor on Ko-fi", url: SPONSOR.kofi ?? SPONSOR.page },
+    others: [{ label: "other ways to sponsor", url: SPONSOR.page }],
+    note: "Want it on iOS? Sponsor the App Store publish.",
+  },
+  {
     os: "Web",
     detail: "Nothing to install",
-    preview: true,
+    badge: "Preview",
     main: { label: "Open the app", url: APP_URL },
     others: [],
     note: "Sign in with GitHub and pick a repository.",
@@ -70,7 +86,7 @@ function detectOs(): Platform | null {
   const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
   const p = `${nav.userAgentData?.platform ?? ""} ${nav.platform} ${nav.userAgent}`;
   if (/Android/i.test(nav.userAgent)) return "Android";
-  if (/iPhone|iPad/i.test(nav.userAgent)) return null;
+  if (/iPhone|iPad/i.test(nav.userAgent)) return "iOS";
   if (/mac/i.test(p)) return "macOS";
   if (/win/i.test(p)) return "Windows";
   if (/linux|x11/i.test(p)) return "Linux";
@@ -109,6 +125,10 @@ export function Downloads() {
           </>
         )}
       </p>
+      <div className="sync-band">
+        <h3>Sync your notes across all your devices</h3>
+        <p>Every device opens the same git repository, one you choose, and keeps it up to date in the background.</p>
+      </div>
       <div className="platforms">
         {platforms.map((p) => {
           const main = resolve(p.main);
@@ -122,8 +142,8 @@ export function Downloads() {
                 <OsIcon os={p.os} size={28} />
                 {mine === p.os ? (
                   <span className="badge">Your system</span>
-                ) : p.preview ? (
-                  <span className="badge quiet">Preview</span>
+                ) : p.badge ? (
+                  <span className="badge quiet">{p.badge}</span>
                 ) : null}
               </div>
               <h3>{p.os}</h3>

@@ -1686,7 +1686,7 @@ a.oss-card:hover {
 
 .platforms {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1694,20 +1694,9 @@ a.oss-card:hover {
   padding: 22px 20px;
 }
 
-@media (max-width: 1160px) {
-  .platforms {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
 @media (max-width: 820px) {
   .platforms {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  /* Five cards in two columns: the last takes the whole row, so none sits alone. */
-  .platforms .platform:last-child {
-    grid-column: 1 / -1;
   }
 }
 
@@ -4255,4 +4244,36 @@ a.oss-card:hover {
   .thread-home {
     transition: none;
   }
+}
+
+/* "Sync your notes across all your devices", over the download cards: a line out to each side, like a bus they share. */
+.sync-band {
+  position: relative;
+  margin: 8px auto 26px;
+  text-align: center;
+}
+
+.sync-band h3 {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 0;
+  font-size: 19px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.sync-band h3::before,
+.sync-band h3::after {
+  content: "";
+  flex: 1;
+  height: 0;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.sync-band p {
+  margin: 6px auto 0;
+  max-width: 560px;
+  font-size: 14px;
+  color: var(--muted);
 }
