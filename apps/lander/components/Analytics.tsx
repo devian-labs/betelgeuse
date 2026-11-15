@@ -43,6 +43,10 @@ function classify(href: string): [string, Record<string, string>] | null {
     return ["download_clicked", { os, arch, format: file.split(".").pop() ?? "", version: download[1] }];
   }
   if (/^https:\/\/app\.betelgeuse\.pro/.test(href)) return ["web_app_clicked", { demo: String(/\/demo\b/.test(href)) }];
+  if (/^https:\/\/play\.google\.com\/store\/apps\/details\?id=com\.devianlabs\.betelgeuse/.test(href)) return ["play_store_clicked", {}];
+  if (/^https:\/\/(rzp\.io|pages\.razorpay\.com)\//.test(href)) return ["sponsor_clicked", { via: "razorpay" }];
+  if (/^https:\/\/github\.com\/sponsors\//.test(href)) return ["sponsor_clicked", { via: "github-sponsors" }];
+  if (/\/sponsor\/?$/.test(new URL(href).pathname)) return ["sponsor_clicked", { via: "sponsor-page" }];
   if (/^https:\/\/github\.com\/devian-labs\/betelgeuse\/?$/.test(href)) return ["github_clicked", {}];
   if (/\/releases(\/latest)?\/?$/.test(href)) return ["releases_clicked", {}];
   return null;
