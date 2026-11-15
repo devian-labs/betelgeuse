@@ -317,7 +317,8 @@ section {
     radial-gradient(900px 520px at 50% -8%, rgba(255, 196, 160, 0.38), transparent 70%),
     linear-gradient(to bottom, #fff8f3, var(--bg) 640px);
   text-align: center;
-  overflow: hidden;
+  /* Clip only sideways (the glow is wider than the page); the phones' shadows hang below the hero. */
+  overflow-x: clip;
   isolation: isolate;
 }
 
@@ -396,24 +397,45 @@ section {
   background: var(--bg-2);
 }
 
+/* The platforms, as icons, between the hero's fine print and the devices. */
 .works-with {
   position: relative;
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
-  gap: 10px 34px;
-  margin: 8px auto 0;
+  gap: 10px 22px;
+  margin: 28px auto 0;
   padding: 0;
   list-style: none;
-  font-size: 15px;
-  font-weight: 550;
   color: var(--muted);
 }
 
 .works-with li:first-child {
+  font-size: 13.5px;
   color: var(--faint);
-  font-weight: 400;
+}
+
+.works-on.soon svg {
+  opacity: 0.55;
+}
+
+.works-on .badge {
+  font-size: 10.5px;
+  padding: 1px 7px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 
@@ -1133,7 +1155,7 @@ a.oss-card:hover {
 .download-star {
   display: inline-block;
   margin-bottom: 28px;
-  animation: bob 3.5s ease-in-out infinite alternate;
+  /* Holds still: the story thread's light lands on it. */
   filter: drop-shadow(0 0 16px rgba(240, 90, 40, 0.25));
 }
 
@@ -1714,8 +1736,17 @@ a.oss-card:hover {
 }
 
 .platform svg {
-  margin-bottom: 10px;
   color: var(--ink);
+}
+
+/* The icon, with "Your system" or "Preview" across from it. */
+.platform-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  align-self: stretch;
+  min-height: 28px;
+  margin-bottom: 14px;
 }
 
 .platform h3 {
@@ -1725,22 +1756,62 @@ a.oss-card:hover {
 }
 
 .platform p {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 14px;
   color: var(--muted);
 }
 
-.platform-files {
+/* The one thing to do on first launch. */
+.platform .platform-note {
+  margin: 12px 0 18px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-strong);
+  align-self: stretch;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--faint);
+}
+
+.platform-note em {
+  font-style: normal;
+  color: var(--muted);
+}
+
+/* The main download, full width, and the other formats under it. Pinned to the bottom so every card lines up. */
+.platform-get {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-self: stretch;
   gap: 8px;
   margin-top: auto;
 }
 
-.platform-files .button {
-  height: 38px;
-  padding: 0 14px;
+.platform-get .button {
+  justify-content: center;
+  height: 40px;
+  padding: 0 12px;
   font-size: 14px;
+  gap: 8px;
+}
+
+.platform-alt {
+  /* Kept even when empty, so a card without other formats still lines up. */
+  min-height: 20px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--faint);
+}
+
+.platform-alt a {
+  color: var(--muted);
+  font-weight: 550;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.platform-alt a:hover {
+  color: var(--accent);
 }
 
 .file-size {
@@ -1755,28 +1826,12 @@ a.oss-card:hover {
   border-style: dashed;
 }
 
-/* The corner of a download card: "Your system", "Preview". */
-.platform-badges {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  display: flex;
-  gap: 6px;
-}
-
 .unsigned {
-  margin-top: 16px;
-  padding: 14px 18px;
-  border-radius: 14px;
-  background: var(--bg-2);
-  border: 1px solid var(--line);
-  font-size: 14px;
-  color: var(--muted);
-  text-align: left;
-}
-
-.unsigned strong {
-  color: var(--ink);
+  margin: 18px auto 0;
+  max-width: 720px;
+  font-size: 13.5px;
+  color: var(--faint);
+  text-align: center;
 }
 
 .unsigned a {
@@ -3199,10 +3254,9 @@ a.oss-card:hover {
 
 /* The platforms under the hero. */
 .works-on {
-  --icon-cut: var(--bg);
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .works-on svg {
@@ -3408,7 +3462,6 @@ a.oss-card:hover {
   border-radius: 8px;
   background: var(--bg-2);
   color: var(--ink);
-  --icon-cut: var(--bg-2);
 }
 .bar-sub {
   display: block;
@@ -3970,5 +4023,236 @@ a.oss-card:hover {
   }
   .sp-receipt {
     transform: none;
+  }
+}
+
+/* ---------- Star atlas line art (components/SkyArt.tsx) ---------- */
+
+.hero-sky {
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  height: 1000px;
+  z-index: -1;
+  pointer-events: none;
+  fill: none;
+}
+
+.sky-grid path,
+.sky-grid line {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.sky-hour,
+.sky-name,
+.sky-constellation {
+  /* An atlas's lettering: small, italic and serif, against the page's sans. */
+  font-family: ui-serif, "New York", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  stroke: none;
+}
+
+.sky-hour {
+  font-size: 12px;
+  fill: var(--faint);
+  opacity: 0.8;
+}
+
+.sky-field circle {
+  fill: var(--ink);
+}
+
+.sky-figure line {
+  stroke: var(--faint);
+  stroke-width: 1;
+  opacity: 0.55;
+}
+
+.sky-star {
+  fill: var(--ink);
+  opacity: 0.7;
+}
+
+.sky-betelgeuse {
+  fill: var(--accent);
+}
+
+.sky-betelgeuse-glow {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.sky-name {
+  font-size: 12.5px;
+  fill: var(--faint);
+}
+
+.sky-name-accent {
+  fill: var(--accent);
+}
+
+.sky-constellation {
+  font-size: 17px;
+  letter-spacing: 0.02em;
+  fill: var(--faint);
+  opacity: 0.85;
+}
+
+/* Betelgeuse is a variable star: its glow swells and settles, slowly. */
+@media (prefers-reduced-motion: no-preference) {
+  .sky-betelgeuse-glow {
+    animation: variable-star 9s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes variable-star {
+  from {
+    transform: scale(0.8);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+}
+
+/* Orion sits beside the headline; where there's no room beside it, leave just the grid and field. */
+@media (max-width: 1439px) {
+  .sky-orion {
+    display: none;
+  }
+}
+
+.commit-sky {
+  display: block;
+  width: min(560px, 100%);
+  height: auto;
+  margin: -36px auto 44px;
+  overflow: visible;
+}
+
+.commit-lines line,
+.commit-lines path {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1.2;
+}
+
+.commit-lines path {
+  stroke-dasharray: 3 5;
+}
+
+.commit-star {
+  fill: var(--faint);
+}
+
+.commit-merge {
+  fill: var(--accent);
+}
+
+.commit-glow {
+  fill: var(--glow);
+}
+
+/* ---------- The story thread (components/StoryThread.tsx) ---------- */
+
+.story {
+  position: relative;
+}
+
+/* The closing section sits above the thread, so the light goes into the star rather than over it. */
+.story #download {
+  z-index: 4;
+}
+
+.story-thread {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  pointer-events: none;
+  overflow: visible;
+}
+
+@media (max-width: 1439px) {
+  .story-thread {
+    display: none;
+  }
+}
+
+.thread-trail,
+.thread-light {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.thread-trail {
+  stroke: var(--line-strong);
+  stroke-width: 1.2;
+  stroke-dasharray: 1 7;
+}
+
+.thread-light {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--accent) 55%, transparent));
+}
+
+.thread-halo {
+  fill: var(--glow);
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.thread-glint {
+  fill: var(--faint);
+  transition: fill 0.4s ease;
+}
+
+.thread-caption {
+  font-family: ui-serif, "New York", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 13px;
+  text-anchor: middle;
+  fill: var(--faint);
+  /* A wide outline in the page colour, painted under the letters, parts the line around the caption. */
+  paint-order: stroke;
+  stroke: var(--page-bg);
+  stroke-width: 9px;
+  stroke-linejoin: round;
+  transition: fill 0.4s ease;
+}
+
+.thread-stop.on .thread-halo {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.thread-stop.on .thread-glint {
+  fill: var(--accent);
+}
+
+.thread-stop.on .thread-caption {
+  fill: var(--muted);
+}
+
+.thread-home {
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+
+.thread-home.on {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thread-halo,
+  .thread-glint,
+  .thread-caption,
+  .thread-home {
+    transition: none;
   }
 }
