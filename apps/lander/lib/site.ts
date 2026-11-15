@@ -20,8 +20,8 @@ export const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com
 export const SPONSOR = {
   page: `${SITE_URL}/sponsor/`,
   kofi: "https://ko-fi.com/smrutiranjan" as string | null,
-  /** A Razorpay payment link, for UPI and Indian cards. */
-  razorpay: null as string | null,
+  /** The Razorpay payment page: UPI, and Indian or international cards, paid out in rupees. The main way to give. */
+  razorpay: "https://rzp.io/rzp/betelgeuse" as string | null,
   /** Shown as "coming soon" until the GitHub Sponsors listing is approved. */
   githubSponsors: null as string | null,
 };

@@ -75,7 +75,7 @@ const platforms: {
     detail: "iPhone and iPad",
     badge: "Soon",
     // The app builds for iOS; publishing it needs an Apple developer account, which sponsors would pay for.
-    main: { label: "Sponsor on Ko-fi", url: SPONSOR.kofi ?? SPONSOR.page },
+    main: { label: "Sponsor the iOS app", url: SPONSOR.razorpay ?? SPONSOR.kofi ?? SPONSOR.page },
     sponsor: true,
     others: [{ label: "other ways to sponsor", url: SPONSOR.page }],
     note: "Want it on iOS? Sponsor the App Store publish.",

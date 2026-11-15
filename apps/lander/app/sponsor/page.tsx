@@ -65,8 +65,20 @@ export default async function Sponsor() {
 
       <h2>Ways to give</h2>
       <div className="sp-ways">
+        {SPONSOR.razorpay && (
+          <a className="sp-way sp-way-main" href={SPONSOR.razorpay}>
+            <span className="sp-way-icon">
+              <IndianRupee size={20} />
+            </span>
+            <span className="sp-way-name">Razorpay</span>
+            <span className="sp-way-text">Any amount, by UPI or card, from India or anywhere else. It goes towards publishing the iPhone app.</span>
+            <span className="sp-way-cta">
+              Sponsor <ArrowUpRight size={15} />
+            </span>
+          </a>
+        )}
         {SPONSOR.kofi && (
-          <a className="sp-way sp-way-main" href={SPONSOR.kofi}>
+          <a className="sp-way" href={SPONSOR.kofi}>
             <span className="sp-way-icon">
               <Coffee size={20} />
             </span>
@@ -74,18 +86,6 @@ export default async function Sponsor() {
             <span className="sp-way-text">A one-off tip or a monthly membership, by card or PayPal, from anywhere.</span>
             <span className="sp-way-cta">
               Buy a coffee <ArrowUpRight size={15} />
-            </span>
-          </a>
-        )}
-        {SPONSOR.razorpay && (
-          <a className="sp-way" href={SPONSOR.razorpay}>
-            <span className="sp-way-icon">
-              <IndianRupee size={20} />
-            </span>
-            <span className="sp-way-name">Razorpay</span>
-            <span className="sp-way-text">UPI or an Indian card, in rupees.</span>
-            <span className="sp-way-cta">
-              Pay with UPI <ArrowUpRight size={15} />
             </span>
           </a>
         )}
