@@ -14,16 +14,37 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Upload key for Google Play. android/key.properties is gitignored; without
+// it a release build is unsigned and Play rejects it.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+
 android {
     compileSdk = 37
     namespace = "dev.devianlabs.betelgeuse.mobile"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
-        applicationId = "dev.devianlabs.betelgeuse.mobile"
+        // The Play Store package. Deliberately not the Tauri identifier
+        // (dev.devianlabs.betelgeuse.mobile), which stays as the namespace
+        // and Kotlin package so the generated Rust/JNI bridge keeps matching.
+        // Permanent once the first bundle is on Play.
+        applicationId = "com.devianlabs.betelgeuse"
         minSdk = 26
         targetSdk = 37
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        if (keystoreProperties.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -39,6 +60,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             optimization {
                enable = true
             }
