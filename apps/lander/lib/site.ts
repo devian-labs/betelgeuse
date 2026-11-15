@@ -10,6 +10,8 @@ export const APP_URL = "https://app.betelgeuse.pro";
 /** The whole app with sample pages, and no sign-in. */
 export const DEMO_URL = `${APP_URL}/demo`;
 export const SITE_NAME = "Betelgeuse";
+/** The Android app on Google Play. The .apk on each GitHub release stays as an alternative. */
+export const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.devianlabs.betelgeuse";
 
 /**
  * Ways to support Betelgeuse, listed on /sponsor/. Every "Sponsor" button (the apps, this site, the README, the

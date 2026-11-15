@@ -7,7 +7,7 @@ import { PluginStoreDemo } from "./Demos";
 import { Laptop, Phone } from "./Devices";
 import { Shot } from "./Shot";
 
-const PLATFORMS: [string, string?][] = [["macOS"], ["Windows"], ["Linux"], ["Web", "preview"], ["Android", "preview"], ["iOS", "soon"]];
+const PLATFORMS: [string, string?][] = [["macOS"], ["Windows"], ["Linux"], ["Web", "preview"], ["Android"], ["iOS", "soon"]];
 
 const features: { id: string; Icon: LucideIcon; title: string; body: ReactNode; visual: ReactNode }[] = [
   {

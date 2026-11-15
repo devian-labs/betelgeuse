@@ -28,7 +28,7 @@ import { RevealObserver } from "@/components/Reveal";
 import { Shot } from "@/components/Shot";
 import { Tabs } from "@/components/Tabs";
 import { getSnapshot } from "@/lib/github";
-import { APP_URL, DEMO_URL, ORG, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
+import { APP_URL, DEMO_URL, ORG, PLAY_STORE_URL, RELEASES, REPO, SITE_NAME, SITE_URL, jsonLd, pageMetadata } from "@/lib/site";
 
 const description =
   "Free, open-source app for notes, docs and databases. Every page is a Markdown file in git, on your devices or in your own GitHub repository, with AI agents and plugins.";
@@ -108,7 +108,7 @@ export default async function Home() {
         isAccessibleForFree: true,
         offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
         publisher: { "@id": `${ORG.url}/#organization` },
-        sameAs: [REPO],
+        sameAs: [REPO, PLAY_STORE_URL],
       },
       {
         "@type": "SoftwareSourceCode",
@@ -173,7 +173,7 @@ export default async function Home() {
                   Try it in your browser
                 </a>
               </div>
-              <p className="fineprint">macOS · Windows · Linux · Web · Android preview · MIT licensed · No account needed on your computer</p>
+              <p className="fineprint">macOS · Windows · Linux · Web · Android · MIT licensed · No account needed on your computer</p>
 
               <div className="hero-visual">
                 <div className="devices hero-devices">
