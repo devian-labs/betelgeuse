@@ -28,5 +28,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.STATS_TOKEN || github.token }}
           POSTHOG_KEY: ${{ secrets.POSTHOG_KEY }}
           POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          # Optional: a token of the GitHub Sponsors account, to include its estimated monthly income.
+          SPONSORS_TOKEN: ${{ secrets.SPONSORS_TOKEN }}
           # PostHog answers on many IPv4 and IPv6 addresses; Node's default 250 ms per address can time out.
           NODE_OPTIONS: --network-family-autoselection-attempt-timeout=2000
