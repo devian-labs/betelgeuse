@@ -10,6 +10,9 @@
  *   GITHUB_TOKEN          reads the releases; traffic needs a token with push access (STATS_TOKEN in CI)
  *   POSTHOG_KEY           also sends the numbers to PostHog, as events from "github-stats"
  *   POSTHOG_HOST          default https://us.i.posthog.com
+ *   RAZORPAY_PAGE         the sponsor page, default https://pages.razorpay.com/betelgeuse (public; read without keys)
+ *   SPONSORS_LOGIN        the GitHub Sponsors account, default iamsmruti
+ *   SPONSORS_TOKEN        optional: a token of that account, so its estimated monthly sponsor income is included
  *   GITHUB_STEP_SUMMARY   also writes the report there (set by GitHub Actions)
  *
  * GitHub keeps traffic for 14 days only, so the daily events in PostHog are its history.
@@ -24,6 +27,54 @@ async function gh(path) {
   const res = await fetch(`https://api.github.com/repos/${REPO}${path}`, { headers });
   if (!res.ok) throw new Error(`${path}: ${res.status} ${await res.text()}`);
   return res.json();
+}
+
+/**
+ * Sponsorship, from public sources: the Razorpay sponsor page's goal tracker (amounts are in paise in the
+ * page's own data) and the number of GitHub sponsors. Each part is skipped quietly if it can't be read.
+ */
+export async function sponsors() {
+  const out = {};
+  try {
+    const page = process.env.RAZORPAY_PAGE || "https://pages.razorpay.com/betelgeuse";
+    const html = await (await fetch(page, { headers: { "User-Agent": "Mozilla/5.0 betelgeuse-stats" } })).text();
+    const num = (key) => {
+      const m = html.match(new RegExp(`"${key}"\\s*:\\s*"?(\\d+)`));
+      return m ? Number(m[1]) : null;
+    };
+    const collected = num("collected_amount");
+    const goal = num("goal_amount");
+    const supporters = num("supporter_count");
+    if (collected !== null) out.razorpay_collected_inr = collected / 100;
+    if (goal !== null) out.razorpay_goal_inr = goal / 100;
+    if (supporters !== null) out.razorpay_supporters = supporters;
+  } catch (e) {
+    console.error(`Razorpay page: ${e.message}`);
+  }
+  const login = process.env.SPONSORS_LOGIN || "iamsmruti";
+  const graphql = async (query, auth) => {
+    const res = await fetch("https://api.github.com/graphql", { method: "POST", headers: { ...headers, Authorization: `Bearer ${auth}` }, body: JSON.stringify({ query }) });
+    const body = await res.json();
+    if (body.errors) throw new Error(body.errors.map((e) => e.message).join("; "));
+    return body.data;
+  };
+  if (token) {
+    try {
+      const d = await graphql(`query { user(login: "${login}") { sponsors { totalCount } } }`, token);
+      out.github_sponsors = d.user.sponsors.totalCount;
+    } catch (e) {
+      console.error(`GitHub Sponsors: ${e.message}`);
+    }
+  }
+  if (process.env.SPONSORS_TOKEN) {
+    try {
+      const d = await graphql("query { viewer { monthlyEstimatedSponsorsIncomeInCents } }", process.env.SPONSORS_TOKEN);
+      out.github_monthly_usd = d.viewer.monthlyEstimatedSponsorsIncomeInCents / 100;
+    } catch (e) {
+      console.error(`GitHub Sponsors income: ${e.message}`);
+    }
+  }
+  return out;
 }
 
 /** Which platform a release file is for. */
@@ -113,6 +164,13 @@ async function main() {
       ...paths.slice(0, 8).map((p) => `| ${p.path.replace(`/${REPO}`, "") || "/"} | ${p.count} |`),
     );
   }
+  const sp = await sponsors();
+  if (Object.keys(sp).length) {
+    lines.push("", "### Sponsorship", "");
+    if (sp.razorpay_collected_inr !== undefined)
+      lines.push(`Razorpay: ₹${sp.razorpay_collected_inr.toLocaleString("en-IN")} of ₹${(sp.razorpay_goal_inr ?? 0).toLocaleString("en-IN")} · ${sp.razorpay_supporters ?? 0} supporters`);
+    if (sp.github_sponsors !== undefined) lines.push(`GitHub Sponsors: ${sp.github_sponsors} sponsors${sp.github_monthly_usd !== undefined ? ` · $${sp.github_monthly_usd}/month` : ""}`);
+  }
   const report = lines.join("\n") + "\n";
   process.stdout.write(report);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, report);
@@ -135,6 +193,7 @@ async function main() {
       ...byRelease.slice(0, 5).map((r) => event("github_release_downloads", { version: r.version, downloads: r.downloads })),
       ...Object.entries(plugins).map(([plugin, downloads]) => event("github_plugin_downloads", { plugin, downloads })),
     ];
+    if (Object.keys(sp).length) batch.push(event("sponsors", sp));
     if (traffic) {
       // Yesterday's complete day, so each day is sent once.
       const v = yesterday(views.views);
