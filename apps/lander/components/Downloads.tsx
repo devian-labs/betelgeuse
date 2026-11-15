@@ -1,14 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { APP_URL, REPO } from "@/lib/site";
+import { APP_URL, PLAY_STORE_URL, REPO } from "@/lib/site";
 import type { Asset } from "@/lib/github";
 import { useDownloads, useRelease } from "./GitHub";
 import { OsIcon } from "./OsIcon";
 
 type Platform = "macOS" | "Windows" | "Linux" | "Android";
 
-const platforms: { os: Platform; detail: string; preview?: boolean; files: { label: string; match: RegExp }[] }[] = [
+const platforms: {
+  os: Platform;
+  detail: string;
+  preview?: boolean;
+  /** A store listing, shown first and as the main button. */
+  store?: { label: string; url: string };
+  files: { label: string; match: RegExp }[];
+}[] = [
   {
     os: "macOS",
     detail: "Apple Silicon and Intel",
@@ -36,7 +43,7 @@ const platforms: { os: Platform; detail: string; preview?: boolean; files: { lab
   {
     os: "Android",
     detail: "Android 8 and later",
-    preview: true,
+    store: { label: "Google Play", url: PLAY_STORE_URL },
     files: [{ label: ".apk", match: /android\.apk$/ }],
   },
 ];
@@ -90,10 +97,15 @@ export function Downloads() {
             <h3>{p.os}</h3>
             <p>{p.detail}</p>
             <div className="platform-files">
+              {p.store && (
+                <a className="button primary" href={p.store.url}>
+                  {p.store.label}
+                </a>
+              )}
               {p.files.map((f, i) => {
                 const asset = find(f.match);
                 return asset ? (
-                  <a key={f.label} className={`button${i === 0 ? " primary" : ""}`} href={asset.url}>
+                  <a key={f.label} className={`button${i === 0 && !p.store ? " primary" : ""}`} href={asset.url}>
                     {f.label} <span className="file-size">{size(asset.size)}</span>
                   </a>
                 ) : (
@@ -128,8 +140,8 @@ export function Downloads() {
       <div className="unsigned">
         <strong>Before you install:</strong> builds aren&apos;t code-signed yet, so your OS asks you to confirm the first
         time. On macOS, open <em>System Settings → Privacy &amp; Security</em> and click <em>Open Anyway</em>. On Windows,
-        click <em>More info → Run anyway</em>. Building from source avoids both. On Android, allow installs from your browser
-        when asked.{" "}
+        click <em>More info → Run anyway</em>. Building from source avoids both. On Android, get it from Google Play; if you install the .apk instead, allow
+        installs from your browser when asked.{" "}
         <a href={`${REPO}/releases`}>All releases</a>
       </div>
     </div>

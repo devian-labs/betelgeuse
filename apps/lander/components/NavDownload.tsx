@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { detectDevice, pickDownload, type Device } from "@/lib/download";
+import { PLAY_STORE_URL } from "@/lib/site";
 import { useRelease } from "./GitHub";
 
 /**
@@ -14,6 +15,14 @@ export function NavDownload() {
   const [device, setDevice] = useState<Device | null>(null);
   useEffect(() => void detectDevice().then(setDevice), []);
   const asset = release && device ? pickDownload(release.assets, device) : null;
+  // Android phones get the store listing rather than the .apk.
+  if (device?.os === "Android") {
+    return (
+      <a className="button small primary nav-download" href={PLAY_STORE_URL}>
+        Download
+      </a>
+    );
+  }
   return (
     <a
       className="button small primary nav-download"

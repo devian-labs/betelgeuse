@@ -30,7 +30,7 @@ The builds aren't code-signed yet, so the first time you open the app, your OS a
 - **macOS:** System Settings → Privacy & Security → **Open Anyway**
 - **Windows:** **More info** → **Run anyway**
 
-**Android** (preview): install `Betelgeuse_*_android.apk` from the same release. Your phone may ask you to allow installs from your browser or files app. Then open **Settings → Sync** to connect the repository your workspace syncs with. The iOS app builds, but isn't distributed yet.
+**Android**: get it from [Google Play](https://play.google.com/store/apps/details?id=com.devianlabs.betelgeuse), or install `Betelgeuse_*_android.apk` from the same release (your phone may ask you to allow installs from your browser or files app). Then open **Settings → Sync** to connect the repository your workspace syncs with. The iOS app builds, but isn't distributed yet.
 
 **[Web](https://app.betelgeuse.pro)** (preview): sign in with GitHub and open a repository as your workspace, with nothing to install. Your browser talks to GitHub directly, and we keep no copy of your pages. [Open it](https://app.betelgeuse.pro), or [run it yourself](apps/web/README.md).
 
