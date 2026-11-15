@@ -1,5 +1,6 @@
 "use client";
 
+import { Heart } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { APP_URL, PLAY_STORE_URL, REPO, SPONSOR } from "@/lib/site";
 import type { Asset } from "@/lib/github";
@@ -19,6 +20,8 @@ const platforms: {
   os: Platform;
   detail: string;
   badge?: "Preview" | "Soon";
+  /** Not a download: the main button asks for support instead, and looks it. */
+  sponsor?: boolean;
   main: Option;
   others: Option[];
   note: ReactNode;
@@ -53,6 +56,14 @@ const platforms: {
     note: "Make the AppImage executable, then open it.",
   },
   {
+    os: "Web",
+    detail: "Nothing to install",
+    badge: "Preview",
+    main: { label: "Open the app", url: APP_URL },
+    others: [],
+    note: "Sign in with GitHub and pick a repository.",
+  },
+  {
     os: "Android",
     detail: "Android 8 and later",
     main: { label: "Google Play", url: PLAY_STORE_URL },
@@ -65,16 +76,9 @@ const platforms: {
     badge: "Soon",
     // The app builds for iOS; publishing it needs an Apple developer account, which sponsors would pay for.
     main: { label: "Sponsor on Ko-fi", url: SPONSOR.kofi ?? SPONSOR.page },
+    sponsor: true,
     others: [{ label: "other ways to sponsor", url: SPONSOR.page }],
     note: "Want it on iOS? Sponsor the App Store publish.",
-  },
-  {
-    os: "Web",
-    detail: "Nothing to install",
-    badge: "Preview",
-    main: { label: "Open the app", url: APP_URL },
-    others: [],
-    note: "Sign in with GitHub and pick a repository.",
   },
 ];
 
@@ -151,7 +155,8 @@ export function Downloads() {
               <p className="platform-note">{p.note}</p>
               <div className="platform-get">
                 {main ? (
-                  <a className="button primary" href={main.href}>
+                  <a className={p.sponsor ? "button sponsor" : "button primary"} href={main.href}>
+                    {p.sponsor && <Heart size={15} aria-hidden />}
                     {p.main.label}
                     {main.size && <span className="file-size">{main.size}</span>}
                   </a>

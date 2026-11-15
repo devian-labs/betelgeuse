@@ -4277,3 +4277,22 @@ a.oss-card:hover {
   font-size: 14px;
   color: var(--muted);
 }
+
+/* The iOS card's "Sponsor on Ko-fi": not a download, so not the orange download button. An outline in the accent,
+   with a heart, that fills in softly on hover. */
+.platform-get .button.sponsor {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: none;
+}
+
+.platform-get .button.sponsor svg {
+  color: var(--accent);
+  fill: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.platform-get .button.sponsor:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-style: solid;
+}
