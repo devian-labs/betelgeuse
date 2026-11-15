@@ -5,7 +5,6 @@ export const LINKS = {
   repo: "https://github.com/devian-labs/betelgeuse",
   issues: "https://github.com/devian-labs/betelgeuse/issues",
   sponsor: "https://betelgeuse.pro/sponsor/",
-  kofi: "https://ko-fi.com/smrutiranjan",
   website: "https://betelgeuse.pro",
   privacy: "https://betelgeuse.pro/privacy/",
   devianlabs: "https://devianlabs.com",

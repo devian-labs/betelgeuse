@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bug, Code2, Coffee, Heart, IndianRupee, Lightbulb, Star } from "lucide-react";
+import { ArrowUpRight, Bug, Code2, Heart, IndianRupee, Lightbulb, Star } from "lucide-react";
 import type { Metadata } from "next";
 import { Logo } from "@/components/Logo";
 import { PlainPage } from "@/components/PlainPage";
@@ -74,18 +74,6 @@ export default async function Sponsor() {
             <span className="sp-way-text">Any amount, by UPI or card, from India or anywhere else. It goes towards publishing the iPhone app.</span>
             <span className="sp-way-cta">
               Sponsor <ArrowUpRight size={15} />
-            </span>
-          </a>
-        )}
-        {SPONSOR.kofi && (
-          <a className="sp-way" href={SPONSOR.kofi}>
-            <span className="sp-way-icon">
-              <Coffee size={20} />
-            </span>
-            <span className="sp-way-name">Ko-fi</span>
-            <span className="sp-way-text">A one-off tip or a monthly membership, by card or PayPal, from anywhere.</span>
-            <span className="sp-way-cta">
-              Buy a coffee <ArrowUpRight size={15} />
             </span>
           </a>
         )}

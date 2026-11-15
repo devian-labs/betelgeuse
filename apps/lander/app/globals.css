@@ -4278,7 +4278,7 @@ a.oss-card:hover {
   color: var(--muted);
 }
 
-/* The iOS card's "Sponsor on Ko-fi": not a download, so not the orange download button. An outline in the accent,
+/* The iOS card's "Sponsor the iOS app": not a download, so not the orange download button. An outline in the accent,
    with a heart, that fills in softly on hover. */
 .platform-get .button.sponsor {
   color: var(--accent);
